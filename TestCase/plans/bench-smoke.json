@@ -1,0 +1,100 @@
+{
+  "schema": 1,
+  "name": "Bench smoke - nothing but the control cable",
+  "limit_version": "2026-09-10-a",
+  "_note": "Every step here is judgeable with only the USB-RS232 adapter on C05/C06/C02. No fixture board, no loopback wire, no card. It exists to prove the plan file, the executor and the report work on a real board before any of the wired checks are attempted. Limits are engineering starting points, NOT production limits: see $PROD/maps/production-test-gap/.",
+
+  "steps": [
+    {
+      "id": "identity",
+      "type": "PtRaw",
+      "_note": "The board answers with its UID and the tool version. Proves the control link before anything is judged on it.",
+      "command": "pt.id",
+      "timeout_ms": 3000,
+      "checks": [
+        { "field": "porttool", "op": "eq", "value": "0.10.0" },
+        { "field": "uid", "op": "contains", "value": "00" }
+      ]
+    },
+
+    {
+      "id": "sdram",
+      "type": "PtRun",
+      "_note": "The FMC is not up in this image until the test brings it up itself. ready=0 here means MX_FMC_Init() ran and the controller still did not come ready.",
+      "target": "sdram.probe",
+      "timeout_ms": 20000,
+      "checks": [
+        { "field": "size", "op": "eq", "value": "67108864", "unit": "bytes" },
+        { "field": "ready", "op": "eq", "value": "1" },
+        { "field": "databus", "op": "eq", "value": "1" },
+        { "field": "addrbus", "op": "eq", "value": "1" }
+      ]
+    },
+
+    {
+      "id": "temperature",
+      "type": "PtSession",
+      "_note": "Two LM50s on the Lower Deck, plus the reference gate they sit behind. ok=1 says VREFBUF came up (without it the analog ports refuse to start at all); vdda is derived from VREFINT, not measured at a terminal. ch<n> is mV/deci-Celsius, so [1] is the temperature - the band is a room-temperature sanity check, not a specification.",
+      "port": "temp",
+      "params": { "ch": "1,2", "period": 200 },
+      "frames": 3,
+      "timeout_ms": 8000,
+      "checks": [
+        { "field": "ok", "op": "eq", "value": "1" },
+        { "field": "vdda", "op": "range", "min": 2400, "max": 2600, "unit": "mV", "_note": "vdda= is the ADC reference, not VDDA: VREFBUF drives VREF+ to a nominal 2.5 V and a healthy board reads about 2501 mV (measured 2026-09-08). The 2000-3600 band this replaces would have passed a board whose VREFBUF had failed and left VREF+ sitting near 3.3 V." },
+        { "field": "ch1[1]", "op": "range", "min": 0, "max": 600, "unit": "0.1C" },
+        { "field": "ch2[1]", "op": "range", "min": 0, "max": 600, "unit": "0.1C" }
+      ]
+    },
+
+    {
+      "id": "rtc",
+      "type": "PtRun",
+      "_note": "The RTC is not up in this image until the target brings it up. init=0 just means nobody ever set the calendar, which is normal on a fresh board - it is not judged here. clk=lse since 2026-09-10 - the calendar counts the crystal, not the internal RC. The field is read out of RCC_BDCR, so it cannot disagree with the hardware.",
+      "target": "rtc.read",
+      "timeout_ms": 5000,
+      "checks": [
+        { "field": "clk", "op": "eq", "value": "lse" },
+        { "field": "_text", "op": "contains", "value": "time=" }
+      ]
+    },
+
+    {
+      "id": "indicator",
+      "type": "PtRun",
+      "_note": "⚠️ This proves the firmware drove PE2, NOT that the lamp lit - there is no readback on that pin, and the reply says observed=unknown. Watch the board while this step runs: six pulses, half a second each. A verdict on what was seen needs a UserConfirm step, which is not built yet.",
+      "target": "led.blink",
+      "timeout_ms": 15000,
+      "checks": [
+        { "field": "pin", "op": "eq", "value": "PE2" },
+        { "field": "pulses", "op": "range", "min": 1 }
+      ]
+    },
+
+    {
+      "id": "rs232-loopback",
+      "type": "PtSession",
+      "_note": "loop=self: the link under test IS the control port, so this round trip really does prove that link. rxlines climbs because the executor's own commands arrive on it.",
+      "port": "rs232",
+      "params": { "period": 500 },
+      "frames": 4,
+      "timeout_ms": 10000,
+      "checks": [
+        { "field": "miss", "op": "count_zero" },
+        { "field": "rxlines", "op": "range", "min": 1 }
+      ]
+    },
+
+    {
+      "id": "teardown",
+      "type": "PtRaw",
+      "_note": "Runs whatever happened above, so a failed step cannot leave a relay energised or an analog output driving.",
+      "command": "pt.stop all",
+      "execute_condition": "ALWAYS",
+      "timeout_ms": 3000,
+      "checks": [
+        { "field": "_text", "op": "contains", "value": "OK" }
+      ]
+    }
+  ]
+}

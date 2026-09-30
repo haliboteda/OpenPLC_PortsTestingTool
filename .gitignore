@@ -1,0 +1,15 @@
+Output/
+.gocache/
+.vscode/
+*.exe
+__pycache__/
+*.pyc
+
+# Machine-local Claude Code overrides; .claude/settings.json is committed.
+.claude/settings.local.json*
+
+# Reports a plan run leaves behind. The sink in a plan file is relative to the
+# plan, so a run drops these next to it - correct on a production PC, noise in
+# a checkout.
+TestCase/plans/reports/
+TestCase/host/porttool_plan/reports/

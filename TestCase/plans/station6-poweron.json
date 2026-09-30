@@ -1,0 +1,813 @@
+{
+  "schema": 1,
+  "name": "Station 6 - PCBA power-on test",
+  "limit_version": "2026-09-10-b",
+  "_note": "Covers the items in OPLC-MFG-TEST-001 section 3.6 that the firmware can report and this tool can judge. What is NOT here, and why, is listed step by step in $PROD/maps/production-test-gap/: the power rails, standby and maximum current, high-side and relay voltage/current readback, and the Ethernet / USB / SWD items all need an external instrument or a fixture this build has no driver for. ⚠️ Every limit below is an engineering starting point. Production limits are the ones Quality signs off, and the document itself still says TBD for all of them. Each independent group's first step is ALWAYS, so one failure no longer hides every later port: a board with no SD card still gets its ethernet, USB, relay and analog results in the same run. Steps left on the default PASS are the ones whose immediate predecessor is a genuine precondition - stressing SDRAM whose buses failed, or checking the integrity of a card that is not there, measures nothing.",
+  "steps": [
+    {
+      "id": "identity",
+      "type": "PtRaw",
+      "_note": "Firmware version and hash gate, section 3.6 'Firmware / self-test'. Pinning the version here is what stops a board being judged by limits that belong to a different image.",
+      "command": "pt.id",
+      "timeout_ms": 3000,
+      "checks": [
+        {
+          "field": "porttool",
+          "op": "eq",
+          "value": "0.10.0"
+        },
+        {
+          "field": "uid",
+          "op": "contains",
+          "value": "00"
+        }
+      ]
+    },
+    {
+      "id": "reset-cause",
+      "type": "PtRun",
+      "execute_condition": "ALWAYS",
+      "_note": "Why this board came up. *** The cause is NOT judged for what it is, only for what it must not be: *** POR, PIN, SOFT and BOR are all ordinary ways to arrive at a test station and which one happens depends on how the operator powered it, so requiring any particular value would fail good boards. IWDG and WWDG are different - they mean the board hung and its own watchdog restarted it, which at this station is a defect arriving before the test does. The raw rsr is recorded and not judged; it keeps the flags the name's first-match order hides.",
+      "target": "reset.cause",
+      "timeout_ms": 5000,
+      "checks": [
+        {
+          "field": "cause",
+          "op": "ne",
+          "value": "IWDG"
+        },
+        {
+          "field": "cause",
+          "op": "ne",
+          "value": "WWDG"
+        }
+      ]
+    },
+    {
+      "id": "sdram-buses",
+      "type": "PtRun",
+      "execute_condition": "ALWAYS",
+      "_note": "'Recognise 64 MB' - the window size and the two bus checks. This runs first because the sweep below is pointless if a data or address line is dead: it would report millions of mismatches and say nothing about which line.",
+      "target": "sdram.probe",
+      "timeout_ms": 20000,
+      "checks": [
+        {
+          "field": "size",
+          "op": "eq",
+          "value": "67108864",
+          "unit": "bytes"
+        },
+        {
+          "field": "ready",
+          "op": "eq",
+          "value": "1"
+        },
+        {
+          "field": "databus",
+          "op": "eq",
+          "value": "1"
+        },
+        {
+          "field": "addrbus",
+          "op": "eq",
+          "value": "1"
+        }
+      ]
+    },
+    {
+      "id": "sdram-stress",
+      "type": "PtRun",
+      "_note": "'Stress test zero errors'. Four patterns over the whole 64 MiB. Measured on the board 2026-09-08: 6.5 s wall, write_ms=1376 verify_ms=4586 - the timeout is that with a wide margin, not a guess. first_bad and bad_pattern are recorded rather than judged: they are what tells repair which chip half to look at.",
+      "target": "sdram.sweep",
+      "timeout_ms": 40000,
+      "checks": [
+        {
+          "field": "ready",
+          "op": "eq",
+          "value": "1"
+        },
+        {
+          "field": "patterns",
+          "op": "eq",
+          "value": "4"
+        },
+        {
+          "field": "mismatches",
+          "op": "eq",
+          "value": "0"
+        }
+      ]
+    },
+    {
+      "id": "sdram-crc",
+      "type": "PtRun",
+      "execute_condition": "ALWAYS",
+      "_note": "The read path over a window, summed. *** The CRC itself is recorded and NOT judged: *** it is the sum of whatever happens to be in the array, and at this station nobody has written anything there, so there is no value it could be compared against. What is judged is that the window came back described as asked - which is also what stops this target from wiping the port's verdict: a pt.run reply with no criteria makes the panel drop the whole port to unjudged, however well its session did. 64 KiB rather than the whole 64 MiB because the CRC is computed a byte at a time and a station pays for every second; the full-array sum is a bench thing.",
+      "target": "sdram.crc",
+      "params": {
+        "offset": 0,
+        "bytes": 65536
+      },
+      "timeout_ms": 10000,
+      "checks": [
+        {
+          "field": "ready",
+          "op": "eq",
+          "value": "1"
+        },
+        {
+          "field": "offset",
+          "op": "eq",
+          "value": "0"
+        },
+        {
+          "field": "bytes",
+          "op": "eq",
+          "value": "65536"
+        }
+      ]
+    },
+    {
+      "id": "sdram-refresh",
+      "type": "PtSession",
+      "execute_condition": "ALWAYS",
+      "_note": "Retention as a session, which is what gives that session a criterion - without one the panel reports sdram unjudged forever, the hole eth and sd both had. wait=1000 is the floor, not the five seconds the bench entry used: cells hold for tens of milliseconds unrefreshed, so a second already proves auto-refresh is running, and a station pays for every second. The hours-long version is station 8's business, same session, longer wait. cycles is judged at least 1 because failed=0 over zero cycles is not a pass, it is a step that never ran.",
+      "port": "sdram",
+      "params": {
+        "wait": 1000,
+        "period": 500
+      },
+      "frames": 6,
+      "timeout_ms": 15000,
+      "checks": [
+        {
+          "field": "ready",
+          "op": "eq",
+          "value": "1"
+        },
+        {
+          "field": "cycles",
+          "op": "range",
+          "min": 1
+        },
+        {
+          "field": "failed",
+          "op": "eq",
+          "value": "0"
+        }
+      ]
+    },
+    {
+      "id": "sd-detect",
+      "type": "PtSession",
+      "_note": "The detect switch on PE6, watched rather than sampled once. It exists as a session so an insertion shows on the panel as it happens; this step is what gives that session a criterion, without which the panel reports the port unjudged forever - the same hole eth's session half had. detected=1 only: a fixture has a card in the slot. changes/in/out are recorded and NOT judged here, because how many times a card was moved during a production run is not something a passing board has to satisfy - the hot-plug walk is a bench exercise, and case T4-01 decides the counting.",
+      "port": "sd",
+      "params": {
+        "period": 300
+      },
+      "frames": 3,
+      "timeout_ms": 8000,
+      "execute_condition": "ALWAYS",
+      "checks": [
+        {
+          "field": "detected",
+          "op": "eq",
+          "value": "1"
+        }
+      ]
+    },
+    {
+      "id": "sd-card",
+      "type": "PtRun",
+      "execute_condition": "ALWAYS",
+      "_note": "'SD is 1-bit' per the document's key observation. A standard card from the controlled card set has to be in the slot; detected=0 is a missing card, ready=0 with detected=1 is the interface. Three separate answers, because they call for three different repair actions. detected=0 is a card that is not seated. detected=1 with ready=0 is a card or a socket that is broken - err= says which way. fs= names the file system found by reading the boot sector directly, so an unformatted or unreadable card is fs=none while any mounted one - FAT32 or exFAT, both supported since 2026-09-11 - passes. Before fs= existed all three failures looked the same and the third one had people binning good cards.",
+      "target": "sd.probe",
+      "timeout_ms": 20000,
+      "checks": [
+        {
+          "field": "detected",
+          "op": "eq",
+          "value": "1"
+        },
+        {
+          "field": "ready",
+          "op": "eq",
+          "value": "1"
+        },
+        {
+          "field": "fs",
+          "op": "ne",
+          "value": "none"
+        }
+      ]
+    },
+    {
+      "id": "sd-integrity",
+      "type": "PtRun",
+      "_note": "One write/read/verify round through FatFs. The stress step below repeats this 64 times, so as a test of the card it adds little - but the panel's one-button test runs every pt.run target the port owns, and a target with no criteria leaves the whole port unjudged rather than passed (DECISIONS.md 27). Without this step sd could never report a verdict on a board whose card is fine. ⚠️ identical=0 with fresult=0 is the interesting failure: the card accepted the write and returned different bytes, which a mount check alone would call healthy.",
+      "target": "sd.integrity",
+      "timeout_ms": 60000,
+      "checks": [
+        {
+          "field": "mounted",
+          "op": "eq",
+          "value": "1"
+        },
+        {
+          "field": "identical",
+          "op": "eq",
+          "value": "1"
+        },
+        {
+          "field": "fresult",
+          "op": "eq",
+          "value": "0"
+        },
+        {
+          "field": "passes",
+          "op": "eq",
+          "value": "1"
+        },
+        {
+          "field": "passed",
+          "op": "eq",
+          "value": "1"
+        }
+      ],
+      "params": {
+        "bytes": 1048576
+      }
+    },
+    {
+      "id": "sd-stress",
+      "type": "PtRun",
+      "_note": "'SD read/write stress'. Same target as sd-integrity with passes=64: a stress run is one integrity round repeated (SD/sd_test.h), so how many rounds counts as proof is a parameter. Judge passes AND passed - a run that stopped early reports a smaller passes, and looking only at passed would call that a pass.",
+      "target": "sd.integrity",
+      "timeout_ms": 180000,
+      "checks": [
+        {
+          "field": "mounted",
+          "op": "eq",
+          "value": "1"
+        },
+        {
+          "field": "passes",
+          "op": "eq",
+          "value": "64"
+        },
+        {
+          "field": "passed",
+          "op": "eq",
+          "value": "64"
+        },
+        {
+          "field": "first_bad_pass",
+          "op": "eq",
+          "value": "0"
+        }
+      ],
+      "params": {
+        "passes": 64
+      }
+    },
+    {
+      "id": "sd-speed",
+      "type": "PtRun",
+      "_note": "Rate only - sd.integrity is what proves the bytes are right. What this catches is a card that is correct but far slower than its class claims, which passes every correctness test and then makes a field firmware update time out. WARNING: write_bps and read_bps are RECORDED, NOT JUDGED. No limit is written here because nobody has measured what this board and a known-good card actually do yet - inventing a threshold would either pass everything or fail good cards. Fill it in once there are numbers from a FAT32 card.",
+      "target": "sd.speed",
+      "params": {
+        "bytes": 1048576
+      },
+      "timeout_ms": 60000,
+      "checks": [
+        {
+          "field": "mounted",
+          "op": "eq",
+          "value": "1"
+        },
+        {
+          "field": "fresult",
+          "op": "eq",
+          "value": "0"
+        }
+      ]
+    },
+    {
+      "id": "eth-link",
+      "type": "PtRun",
+      "execute_condition": "ALWAYS",
+      "_note": "'Ethernet communication' - the negotiation half of it. Reads the LAN8742A over MDIO, which is a separate management interface clocked from HCLK, so it answers without lwIP, without the ETH DMA and without the 50 MHz RMII reference clock. Measured on the board 2026-09-08: addr=0 id=0x0007C131 link=1 autoneg=1 speed=100 fd=1. ⚠️ found=0 and link=0 mean different things: no PHY on MDIO is a board fault, a PHY with no link is usually an unplugged cable. ⚠️ This does NOT carry a frame - it only asks the PHY what it negotiated. Carrying frames is the eth session below, which brings lwIP up inside the tool image (DECISIONS.md 28).",
+      "target": "eth.link",
+      "timeout_ms": 15000,
+      "checks": [
+        {
+          "field": "found",
+          "op": "eq",
+          "value": "1"
+        },
+        {
+          "field": "id",
+          "op": "eq",
+          "value": "0x0007C131"
+        },
+        {
+          "field": "link",
+          "op": "eq",
+          "value": "1"
+        },
+        {
+          "field": "autoneg",
+          "op": "eq",
+          "value": "1"
+        },
+        {
+          "field": "speed",
+          "op": "eq",
+          "value": "100",
+          "unit": "Mbit/s"
+        },
+        {
+          "field": "fd",
+          "op": "eq",
+          "value": "1"
+        },
+        {
+          "field": "mdio_errors",
+          "op": "eq",
+          "value": "0"
+        }
+      ]
+    },
+    {
+      "id": "eth-throughput",
+      "type": "PtSession",
+      "_note": "The other half of 'Ethernet communication': carrying frames, not just negotiating a link. Disabled because it needs something at the other end of the cable holding an address and answering - a fixture the line does not have yet, and one FIXTURE-INTERFACE.md has not been signed off on. It is here, disabled, for the same reason the soak step is: this is the file the panel judges by, and without a step the panel has no criteria for the session half and reports the port as unjudged forever. ⚠️ mode=echo is the only mode with a verdict the board can reach on its own - the counter closing proves the link carries traffic both ways. sink and source report kbps, and how many kbit/s is acceptable is a number nobody has measured on this hardware yet, so there is deliberately no limit on it here.",
+      "port": "eth",
+      "params": {
+        "mode": "echo",
+        "port": 5000,
+        "ip": "dhcp",
+        "period": 500
+      },
+      "peer": {
+        "tcp": "auto"
+      },
+      "frames": 4,
+      "timeout_ms": 30000,
+      "checks": [
+        {
+          "field": "link",
+          "op": "eq",
+          "value": "1"
+        },
+        {
+          "field": "conn",
+          "op": "eq",
+          "value": "1"
+        },
+        {
+          "field": "miss",
+          "op": "count_zero"
+        }
+      ]
+    },
+    {
+      "id": "usb-link",
+      "type": "PtSession",
+      "execute_condition": "ALWAYS",
+      "_note": "'USB communication'. The replacement for the host-side port listing that used to sit here: that leaned on the bootloader's CDC enumerating, and the bootloader does not exist as far as the tool image is concerned (user, 2026-09-08, stated twice). So the test lives IN the tool image now - the usb session is the CDC pipe driven as a data channel, and mode=echo closes a counter over it, which is a claim about the pipe rather than about a name in a device list. ⚠️ Needs the station PC to open the virtual COM port this enumerates as and echo each line straight back - the same responder the RS485 terminal needs. state=cfg means enumerated AND opened; enum= counts how many times that changed, which is how a cable or a host that keeps re-enumerating shows up. ⚠️ busy= is the host not reading, which is a different fault from a dead pipe.",
+      "port": "usb",
+      "params": {
+        "mode": "echo",
+        "period": 500
+      },
+      "peer": {
+        "usb": true
+      },
+      "frames": 4,
+      "timeout_ms": 30000,
+      "checks": [
+        {
+          "field": "state",
+          "op": "eq",
+          "value": "cfg"
+        },
+        {
+          "field": "miss",
+          "op": "count_zero"
+        },
+        {
+          "field": "enum",
+          "op": "eq",
+          "value": "0"
+        }
+      ]
+    },
+    {
+      "id": "rtc",
+      "type": "PtRun",
+      "execute_condition": "ALWAYS",
+      "_note": "⚠️ 'RTC test and calibration' is only half done here. Reading the calendar works; writing a calibration value is deliberately not offered, because the backup domain also holds the bootloader's nonce counter. clk=lse since 2026-09-10: the calendar counts the 32.768 kHz crystal, so a timestamp from this board is worth something - LSI drifted by more than an hour a day. Writing a calibration value is still not offered here. See PRODUCTION-TEST-GAP.md group B.",
+      "target": "rtc.read",
+      "timeout_ms": 8000,
+      "checks": [
+        {
+          "field": "clk",
+          "op": "eq",
+          "value": "lse"
+        },
+        {
+          "field": "_text",
+          "op": "contains",
+          "value": "time="
+        }
+      ]
+    },
+    {
+      "id": "indicator-drive",
+      "type": "PtRun",
+      "execute_condition": "ALWAYS",
+      "_note": "Drives PE2 for six half-second pulses. observed=unknown is the firmware being honest: that pin has no readback, so this step proves the drive and nothing about the lamp.",
+      "target": "led.blink",
+      "timeout_ms": 15000,
+      "checks": [
+        {
+          "field": "pin",
+          "op": "eq",
+          "value": "PE2"
+        },
+        {
+          "field": "pulses",
+          "op": "eq",
+          "value": "6"
+        }
+      ]
+    },
+    {
+      "id": "indicator-seen",
+      "type": "UserConfirm",
+      "_note": "The document asks for exactly this: a dialog, an operator, a manual verdict. It is the only step in the plan whose answer is a person's.",
+      "prompt": "Did the status indicator flash six times?",
+      "timeout_ms": 60000
+    },
+    {
+      "id": "digital-in",
+      "type": "PtSession",
+      "execute_condition": "ALWAYS",
+      "_note": "'DI on/off test'. ⚠️ The stimulus comes from the fixture board, which has to be driving all eight inputs high while this runs - the board only reads them. v is the eight-bit picture, so 0xFF is all eight asserted. Without the fixture this step fails, and that is correct: it has nothing to read. miss is NOT judged - din is loop=ctrl, so its counter says the control port is alive and nothing about DI.",
+      "port": "din",
+      "params": {
+        "ch": "1,2,3,4,5,6,7,8",
+        "period": 200
+      },
+      "frames": 3,
+      "timeout_ms": 10000,
+      "checks": [
+        {
+          "field": "v",
+          "op": "eq",
+          "value": "0xFF"
+        }
+      ]
+    },
+    {
+      "id": "high-side-out",
+      "type": "PtSession",
+      "execute_condition": "ALWAYS",
+      "_note": "'High-side output no-load / light-load'. ⚠️ This drives all eight channels to full duty; the voltage and current the document wants judged are read by the external V/I module, which this build cannot talk to. So what is judged here is that the firmware accepted and is holding the drive - the electrical verdict is still outside. Do not read a pass here as a pass on the output.",
+      "port": "dout",
+      "params": {
+        "ch": "1,2,3,4,5,6,7,8",
+        "mode": "hold",
+        "duty": "1:100,2:100,3:100,4:100,5:100,6:100,7:100,8:100"
+      },
+      "frames": 2,
+      "timeout_ms": 10000,
+      "checks": [
+        {
+          "field": "mode",
+          "op": "eq",
+          "value": "hold"
+        },
+        {
+          "field": "ch1",
+          "op": "eq",
+          "value": "100",
+          "unit": "%"
+        },
+        {
+          "field": "ch8",
+          "op": "eq",
+          "value": "100",
+          "unit": "%"
+        }
+      ]
+    },
+    {
+      "id": "relays",
+      "type": "PtSession",
+      "execute_condition": "ALWAYS",
+      "_note": "'Relay on/off'. ⚠️ Same boundary as the high-side step, and worse: this board has no contact readback at all, so the firmware cannot even say whether a contact closed. The V/I module on the contact side is the whole verdict. HF41F is rated 3x10^4 operations, so this step closes them once and holds - it does not cycle.",
+      "port": "relay",
+      "params": {
+        "ch": "1,2,3,4,5,6",
+        "mode": "hold",
+        "on": "1:1,2:1,3:1,4:1,5:1,6:1"
+      },
+      "frames": 2,
+      "timeout_ms": 10000,
+      "checks": [
+        {
+          "field": "mode",
+          "op": "eq",
+          "value": "hold"
+        },
+        {
+          "field": "ch1",
+          "op": "eq",
+          "value": "1"
+        },
+        {
+          "field": "ch6",
+          "op": "eq",
+          "value": "1"
+        }
+      ]
+    },
+    {
+      "id": "temperature",
+      "type": "PtSession",
+      "execute_condition": "ALWAYS",
+      "_note": "'Temperature sensor detection'. Two LM50s. ok=1 is the VREFBUF gate: without the reference the analog ports refuse to start rather than report numbers that look real. ⚠ vdda= is the ADC reference, NOT VDDA - VREFBUF drives VREF+ to a nominal 2.5 V, so a healthy board reads about 2501 mV here. Measured on the board 2026-09-08; an earlier 3000-3600 band in this step would have failed every good board. ch<n> is mV/deci-Celsius, so [1] is the temperature - measured 307 and 314 (30.7 / 31.4 C) at room temperature. The band is an ambient sanity check.",
+      "port": "temp",
+      "params": {
+        "ch": "1,2",
+        "period": 200
+      },
+      "frames": 3,
+      "timeout_ms": 10000,
+      "checks": [
+        {
+          "field": "ok",
+          "op": "eq",
+          "value": "1"
+        },
+        {
+          "field": "vdda",
+          "op": "range",
+          "min": 2400,
+          "max": 2600,
+          "unit": "mV"
+        },
+        {
+          "field": "ch1[1]",
+          "op": "range",
+          "min": 0,
+          "max": 600,
+          "unit": "0.1C"
+        },
+        {
+          "field": "ch2[1]",
+          "op": "range",
+          "min": 0,
+          "max": 600,
+          "unit": "0.1C"
+        }
+      ]
+    },
+    {
+      "id": "analog-in",
+      "type": "PtSession",
+      "execute_condition": "ALWAYS",
+      "_note": "'AI test'. ⚠️ Only the raw pin reading, and only against a wide window: the terminal-to-pin factor depends on which range the board was soldered for (JP1-JP9, factory-set and irreversible), and the firmware cannot read that back. Engineering-unit conversion lives on the PC. Calibration - writing a compensation value and retesting - is not built at all, and may not need to be: see PRODUCTION-TEST-GAP.md Q2. The signal generator must be holding its set point while this runs.",
+      "port": "ain",
+      "params": {
+        "ch": "1,2",
+        "period": 200
+      },
+      "frames": 3,
+      "timeout_ms": 10000,
+      "checks": [
+        {
+          "field": "ok",
+          "op": "eq",
+          "value": "1"
+        },
+        {
+          "field": "ch1[0]",
+          "op": "range",
+          "min": 700,
+          "max": 65535,
+          "unit": "raw"
+        },
+        {
+          "field": "ch2[0]",
+          "op": "range",
+          "min": 700,
+          "max": 65535,
+          "unit": "raw"
+        }
+      ]
+    },
+    {
+      "id": "analog-out",
+      "type": "PtSession",
+      "execute_condition": "ALWAYS",
+      "_note": "'AO current test'. ⚠️ The microamps in this frame are COMPUTED from the DAC setting and the sense resistor, not measured - the board has no channel that can read its own output back. The fixture's ammeter is the only real verdict, and it is not wired into this build. What is judged here is that the DAC took the value and quantised it as expected. The third number per channel is that computed current.",
+      "port": "aout",
+      "params": {
+        "ch": "1,2",
+        "mv": "1:1000,2:2000",
+        "period": 200
+      },
+      "frames": 2,
+      "timeout_ms": 10000,
+      "checks": [
+        {
+          "field": "ch1[0]",
+          "op": "eq",
+          "value": "1000",
+          "unit": "mV"
+        },
+        {
+          "field": "ch2[0]",
+          "op": "eq",
+          "value": "2000",
+          "unit": "mV"
+        }
+      ]
+    },
+    {
+      "id": "rs232-loopback",
+      "type": "PtSession",
+      "execute_condition": "ALWAYS",
+      "_note": "RS232 端子本身。loop=self —— 被测链路就是控制口，所以这个回环真的证明这条链路（DECISIONS.md 16）。⚠️ 2026-09-08 的系统测试发现方案里漏了这一步，所以面板永远把 rs232 显示成「未测」：判据不存在，面板就没有东西可判。",
+      "port": "rs232",
+      "params": {
+        "period": 400
+      },
+      "frames": 4,
+      "timeout_ms": 12000,
+      "checks": [
+        {
+          "field": "miss",
+          "op": "count_zero"
+        },
+        {
+          "field": "rxlines",
+          "op": "range",
+          "min": 1
+        }
+      ]
+    },
+    {
+      "id": "rs485-pins",
+      "type": "PtRun",
+      "execute_condition": "ALWAYS",
+      "_note": "Pin level, before the session muxes PD4/PD5 to USART2 - the target refuses while the session holds them. Nothing is attached for this one: what it separates is 'nobody on the far end' from 'this pin is dead', and without it the second looks exactly like the first. PD4 drives /RE and DE together, so a PD4 that cannot go high is a transceiver that can never transmit.",
+      "target": "rs485.pins",
+      "timeout_ms": 5000,
+      "checks": [
+        {
+          "field": "checked",
+          "op": "eq",
+          "value": "1"
+        },
+        {
+          "field": "busy",
+          "op": "eq",
+          "value": "0"
+        },
+        {
+          "field": "follows",
+          "op": "eq",
+          "value": "1"
+        }
+      ]
+    },
+    {
+      "id": "rs485",
+      "type": "PtSession",
+      "execute_condition": "ALWAYS",
+      "_note": "'RS485 communication'. loop=link, so miss staying at zero really does prove that pair. Needs the golden endpoint on C09/C10 sending back each line unchanged. Per DECISIONS.md 23 the criterion is a closed loop and no junk, not the throughput figure the document asks for - there is no file transfer on this link to measure.",
+      "port": "rs485",
+      "params": {
+        "baud": 115200,
+        "period": 2000
+      },
+      "peer": {
+        "serial": true
+      },
+      "frames": 4,
+      "timeout_ms": 30000,
+      "checks": [
+        {
+          "field": "miss",
+          "op": "count_zero"
+        },
+        {
+          "field": "junk",
+          "op": "eq",
+          "value": "0"
+        },
+        {
+          "field": "overrun",
+          "op": "count_zero"
+        }
+      ]
+    },
+    {
+      "id": "can",
+      "type": "PtSession",
+      "execute_condition": "ALWAYS",
+      "_note": "'CAN communication'. mode=extloop, which is the whole point: the frame leaves on CAN_TX, crosses the ISO1044, drives the bus and comes back on CAN_RX, so this covers the transceiver AND its isolated supply U7 with no golden node on the bench. Measured on the board 2026-09-08: seq advances every period, rx_frames tracks tx, miss stays 0, lec=0. ⚠ NOT judged here, deliberately: alive= only says FDCAN1 is clocked (it reads ENDN), and tec=/rec= measured 0 on an empty bus in mode=normal with tx climbing, so neither is evidence about the bus. mode=normal belongs in a station that really has a second node.",
+      "port": "can",
+      "params": {
+        "baud": 500000,
+        "mode": "extloop",
+        "period": 300
+      },
+      "frames": 4,
+      "timeout_ms": 15000,
+      "checks": [
+        {
+          "field": "miss",
+          "op": "count_zero"
+        },
+        {
+          "field": "rx_frames",
+          "op": "range",
+          "min": 4
+        },
+        {
+          "field": "junk",
+          "op": "eq",
+          "value": "0"
+        },
+        {
+          "field": "lec",
+          "op": "eq",
+          "value": "0"
+        }
+      ]
+    },
+    {
+      "id": "knx",
+      "type": "PtSession",
+      "execute_condition": "ALWAYS",
+      "_note": "'KNX communication'. The round trip is MCU -> STKNX -> bus -> STKNX -> MCU, so a closed loop proves the transceiver and the bus, not just the controller. Needs KNX bus power. bus=ok and vcc=1 separate an unpowered bus from a transceiver fault - without them a dead bus and a dead chip look identical.",
+      "port": "knx",
+      "params": {
+        "mode": "loopback",
+        "period": 1000
+      },
+      "frames": 3,
+      "timeout_ms": 20000,
+      "checks": [
+        {
+          "field": "bus",
+          "op": "eq",
+          "value": "ok"
+        },
+        {
+          "field": "vcc",
+          "op": "eq",
+          "value": "1"
+        },
+        {
+          "field": "chars",
+          "op": "range",
+          "min": 1
+        },
+        {
+          "field": "bad",
+          "op": "eq",
+          "value": "0"
+        }
+      ]
+    },
+    {
+      "id": "teardown",
+      "type": "PtRaw",
+      "_note": "Runs whatever happened above. Without it a failed step leaves relays energised and high-side outputs driving into the fixture.",
+      "command": "pt.stop all",
+      "execute_condition": "ALWAYS",
+      "timeout_ms": 5000,
+      "checks": [
+        {
+          "field": "_text",
+          "op": "contains",
+          "value": "OK"
+        }
+      ]
+    },
+    {
+      "id": "archive",
+      "type": "PushResult",
+      "_note": "Every raw value, plus the criteria they were judged by, under the board's serial number. 'Test failure data must not be overwritten' (section 2.6), which is why the file name carries the SN and a timestamp instead of being replaced.",
+      "sink": "dir:reports/station6",
+      "execute_condition": "ALWAYS",
+      "timeout_ms": 10000
+    }
+  ]
+}
