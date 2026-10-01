@@ -13,6 +13,7 @@ import (
 	"sync"
 	"time"
 
+	"PortTool/internal/portmap"
 	"PortTool/internal/ptboard"
 	"PortTool/internal/ptproto"
 	"PortTool/internal/serialx"
@@ -44,6 +45,9 @@ type Server struct {
 	portNam string
 	caps    ptproto.Caps
 	capsErr string
+	// Why the control port stopped working while still connected: an
+	// unplugged adapter, a board that lost power. Shown until disconnect.
+	linkErr string
 
 	// Answering the board's echo frames is on by default, because a counter
 	// nobody answers only ever reports misses. It can be switched off, which
@@ -76,16 +80,7 @@ type Server struct {
 func New() *Server {
 	return &Server{
 		autoEcho: true,
-		Open: func(name string, baud int) (io.ReadWriteCloser, error) {
-			// One reserved name reaches the simulated board. Doing it here
-			// rather than with a mode flag means every path that opens a port
-			// - the panel, a plan run, a test - gets it for the same reason
-			// and cannot disagree about what "sim" means.
-			if simboard.IsSim(name) {
-				return simboard.Open()
-			}
-			return serialx.Open(name, baud)
-		},
+		Open:     simboard.OpenPort,
 	}
 }
 
@@ -232,6 +227,7 @@ func (s *Server) stateJSON() map[string]any {
 		"connected": s.board != nil,
 		"port":      s.portNam,
 		"capsError": s.capsErr,
+		"linkError": s.linkErr,
 		"autoEcho":  s.autoEcho,
 		"echoCount": s.echoCount,
 		"echoNote":  s.echoNote,
@@ -260,7 +256,7 @@ func (s *Server) stateJSON() map[string]any {
 	// What was chosen last time, so nobody has to work out which adapter is
 	// which twice. Sent with every state so the page never has to ask
 	// separately.
-	st["saved"] = savedJSON()
+	st["saved"] = portmap.Saved()
 	return st
 }
 
@@ -348,7 +344,7 @@ func (s *Server) handleLink(w http.ResponseWriter, r *http.Request) {
 		s.emit(fmt.Sprintf("[link %s@%s] 连上了。板子发什么就原样送回去。",
 			body.Port, body.TCP))
 	} else {
-		rememberPeer(body.Port, body.COM, l.Baud)
+		portmap.SetPeer(body.Port, body.COM, l.Baud)
 		s.emit(fmt.Sprintf("[link %s@%s] 绑好了，%d 8N1。板子发什么就原样送回去。",
 			body.Port, body.COM, l.Baud))
 	}
@@ -368,7 +364,7 @@ func (s *Server) handleUnlink(w http.ResponseWriter, r *http.Request) {
 	// Deliberate: somebody took that adapter away, so stop offering it.
 	// unbindAllLinks (on disconnect) does NOT forget - that is the panel
 	// closing down, not a person changing their mind.
-	forgetPeer(body.Port)
+	portmap.ForgetPeer(body.Port)
 	writeJSON(w, 200, s.stateJSON())
 }
 
@@ -428,9 +424,10 @@ func (s *Server) handleConnect(w http.ResponseWriter, r *http.Request) {
 	s.mu.Lock()
 	s.board = b
 	s.portNam = body.Port
-	rememberControl(body.Port)
+	portmap.SetControl(body.Port)
 	s.caps = caps
 	s.capsErr = ""
+	s.linkErr = ""
 	if capsErr != nil {
 		// Connected but not answering is worth staying connected for: the log
 		// pane is now showing whatever the board *is* saying, and that is the
@@ -447,8 +444,31 @@ func (s *Server) handleConnect(w http.ResponseWriter, r *http.Request) {
 	s.mu.Lock()
 	s.echoStop = stopEcho
 	s.mu.Unlock()
+	go s.watchLost(b)
 
 	writeJSON(w, 200, s.stateJSON())
+}
+
+// watchLost says so when the control port dies under a connected panel.
+// Without it the page keeps showing "已连上" over a board that answers
+// nothing (decision 77). A disconnect clears s.board before closing, so a
+// close the panel asked for is not reported as a loss.
+func (s *Server) watchLost(b *ptboard.Board) {
+	<-b.Lost()
+	s.mu.Lock()
+	if s.board != b {
+		s.mu.Unlock()
+		return
+	}
+	why := "读不到数据"
+	if err := b.Err(); err != nil {
+		why = err.Error()
+	}
+	s.linkErr = "控制口断了（" + why + "）。板子可能掉电了，或者适配器被拔了、线松了。点「断开」再重新连。"
+	msg := s.linkErr
+	s.mu.Unlock()
+	s.emit("[连接] " + msg)
+	s.stopTimedRun("控制口断了")
 }
 
 // echoTimeout is short on purpose. An automatic echo holds the command lock
@@ -472,27 +492,15 @@ func (s *Server) runEchoResponder(b *ptboard.Board) func() {
 			if ev.Kind != ptproto.LineFrame || ev.Frame.Port == "" {
 				continue
 			}
-			seq, ok := ptproto.Get(ev.Frame.Fields, "seq")
-			if !ok {
-				continue
-			}
-
 			s.mu.Lock()
 			on := s.autoEcho
-			p, found := s.caps.Port(ev.Frame.Port)
+			cmd, answer := s.caps.EchoCommand(ev.Frame)
 			s.mu.Unlock()
-			if !on || !found || p.Kind != ptproto.KindSession {
-				continue
-			}
-			// ctrl and self both take their reply on this port. A link port
-			// takes it off the link under test, which the firmware enforces by
-			// refusing pt.echo - answering here would let its counter climb
-			// with that link dead.
-			if p.Loop != ptproto.LoopCtrl && p.Loop != ptproto.LoopSelf {
+			if !on || !answer {
 				continue
 			}
 
-			_, err := b.Send("pt.echo "+ev.Frame.Port+" "+seq, ptboard.ExpectOne, echoTimeout)
+			_, err := b.Send(cmd, ptboard.ExpectOne, echoTimeout)
 
 			s.mu.Lock()
 			if err != nil {
@@ -533,6 +541,7 @@ func (s *Server) disconnect() {
 	s.portNam = ""
 	s.caps = ptproto.Caps{}
 	s.capsErr = ""
+	s.linkErr = ""
 	s.echoNote = ""
 	s.echoCount = 0
 	s.mu.Unlock()

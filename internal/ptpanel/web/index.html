@@ -670,6 +670,11 @@ function startEvents() {
   evtSource.onmessage = e => {
     const d = JSON.parse(e.data);
     addLog(d.kind, d.line, d.at);
+    // 故障、复位、断线不能只埋在日志里 —— 摆到最上面，并刷新状态（决策 77）。
+    if (d.kind === "panel" && /^\[(故障|连接)\]/.test(d.line || "")) {
+      refreshState().then(() => showMessage(d.line, true));
+      return;
+    }
     if (d.kind === "frame" && d.port) {
       reads[d.port] = d;
       const dot = d.port.indexOf(".");
@@ -708,7 +713,9 @@ function applyState(j) {
       + "要用 USB-RS232 适配器（端子是真 ±12 V）。";
 
   const s = $("#status");
-  if (st.connected) {
+  if (st.connected && st.linkError) {
+    s.classList.add("bad"); s.textContent = "控制口断了";
+  } else if (st.connected) {
     s.classList.remove("bad");
     s.innerHTML = "已连上 <b>" + st.port + "</b>　固件 " + (st.firmware || "?");
   } else {
@@ -722,7 +729,7 @@ function applyState(j) {
   else if (st.autoEcho === false) { es.textContent = "关着 —— miss 会开始涨"; es.style.color = "var(--warn)"; }
   else { es.textContent = "已回 " + (st.echoCount || 0) + " 次"; es.style.color = ""; }
 
-  showMessage(st.capsError, true);
+  showMessage(st.linkError || st.capsError, true);
   renderTree(); renderPanel();
 }
 
@@ -1500,9 +1507,10 @@ async function judge(frame) {
   }
   judgeBusy[frame.port] = true;
   try {
+    // 只送原始行：字段怎么读由服务端定，和产线跑方案用的是同一份（决策 77）。
     const r = await api("/api/judge", {
       port: frame.port, target: frame.target || "",
-      fields: frame.fields || {}, text: frame.line || "",
+      line: frame.line || "", lines: frame.lines || [],
       args: frame.args || {},
     });
     if (r.known === false) {
@@ -1517,6 +1525,13 @@ async function judge(frame) {
         .filter(x => !x.pass)
         .map(x => failCN(frame.port, x))
         .join("；");
+      // 持续测试里判出不过：停掉整轮、点故障灯（决策 37 第 3 件）。只在持续测试里，
+      // 因为单次测试的「不过」就摆在卡片上，人就在跟前。
+      if (!r.pass && state.run && (state.run.ports || []).includes(frame.port)) {
+        api("/api/fault", {on: true,
+          why: portLabel(frame.port) + " 判为不过：" + (judgeWhy[frame.port] || "")})
+          .then(refreshState);
+      }
     }
   } catch (e) {
     judgeWhy[frame.port] = String(e);
@@ -3541,23 +3556,16 @@ async function runOne(p, target) {
   let cmd = "pt.run " + target;
   for (const [k, v] of Object.entries(args)) { cmd += " " + k + "=" + v; }
   const j = await run(cmd);
-  const line = ((j && j.lines) || []).find(l => l.startsWith("OK " + target));
+  const lines = (j && j.lines) || [];
   let state;
-  if (!line) {
+  if (!lines.length) {
     verdicts[p.name] = false;
-    judgeWhy[p.name] = (j && j.error)
-      ? target + " 没等到应答：" + j.error
-      : target + " 应答里没有 OK 行 —— 看日志";
+    judgeWhy[p.name] = target + " 没等到应答" + (j && j.error ? "：" + j.error : " —— 看日志");
     state = false;
   } else {
-    const fields = {};
-    for (const tok of line.split(/\s+/).slice(2)) {
-      const i = tok.indexOf("=");
-      if (i > 0) { fields[tok.slice(0, i)] = tok.slice(i + 1); }
-    }
     // 跟着参数一起发：同一个目标在方案里可能有两步（轮数不同），
     // 服务端靠这组参数挑出该用哪一组判据。
-    state = await judge({port: p.name, target: target, fields: fields, line: line, args: args});
+    state = await judge({port: p.name, target: target, lines: lines, args: args});
   }
   // 按用例记一份。judgeWhy 只按端口存一个槽，而一个端口有好几个用例 —— 共用
   // 一个槽的话，后跑的那个会把先跑的结果抹掉，卡片上就只剩最后一次。

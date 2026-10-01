@@ -20,6 +20,8 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+
+	"PortTool/internal/serialx"
 )
 
 // PortName is the reserved port name that selects the simulated board instead
@@ -34,6 +36,16 @@ const Label = "sim - 模拟板（不是真板子，读数全是假的）"
 // IsSim reports whether a port name asks for the simulated board.
 func IsSim(name string) bool {
 	return strings.EqualFold(strings.TrimSpace(name), PortName)
+}
+
+// OpenPort opens a board connection by name: the reserved name reaches the
+// simulated board, anything else is a serial port. The one place that decides
+// it, so the panel and a plan run cannot disagree about what "sim" means.
+func OpenPort(name string, baud int) (io.ReadWriteCloser, error) {
+	if IsSim(name) {
+		return Open()
+	}
+	return serialx.Open(name, baud)
 }
 
 func exeName() string {

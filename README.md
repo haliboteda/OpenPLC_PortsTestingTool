@@ -32,5 +32,6 @@ by being in the `dialout` group.
 
 `compile_tool.sh`, `build.py` and `delivery.cmd` are the maintainers' scripts:
 they also build the test firmware and pack the delivery folder, which needs the
-other OpenPLC repositories (`IAPTranfer_Tool` and `open_plc_cube_ide` beside
-this one). They are not needed to build PortTool.
+firmware repository `open_plc_cube_ide` beside this one and STM32CubeIDE. Run
+`python TestCase/tools/init_machine.py` once to record where they are. They are
+not needed to build PortTool.

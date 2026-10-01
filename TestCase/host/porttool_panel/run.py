@@ -43,7 +43,6 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 REPO = HERE.parents[2]
 sys.path.insert(0, str(HERE.parent.parent / "tools"))
-import tool_repo  # noqa: E402,F401  - finds IAPTranfer_Tool's common.py
 
 from common import EXE, cfg, Section, Ok, Fail, Warn  # noqa: E402
 

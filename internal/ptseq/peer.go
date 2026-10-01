@@ -9,8 +9,8 @@ package ptseq
 //
 // Before this existed, eth's session step shipped disabled and rs485 could
 // only ever fail: the mechanism to answer them lived in the panel and in a
-// separate `porttool answer` process, neither of which a production run can
-// count on somebody starting by hand at the right moment.
+// separate process, neither of which a production run can count on somebody
+// starting by hand at the right moment.
 
 import (
 	"fmt"
@@ -57,12 +57,13 @@ func note(att *ptreport.Attempt, key, value string) {
 // initialised its USB stack. A production station tests a board that has just
 // been powered on, so one attempt is the wrong number of attempts.
 type peerPlan struct {
-	com   string
-	usb   bool
-	tcp   string
-	baud  int
-	until time.Time
-	open  peerOpener
+	com     string
+	usb     bool
+	tcp     string
+	baud    int
+	until   time.Time
+	open    peerOpener
+	findCDC func() (string, error)
 }
 
 // peerOpener is how a peer's channel comes into existence. Injected so a test
@@ -93,7 +94,7 @@ func realPeerOpener(kind, addr string, baud int) (io.ReadWriteCloser, error) {
 // still finishes on a verdict.
 const peerGrace = 10 * time.Second
 
-func newPeerPlan(step ptplan.Step, com string, comBaud int, open peerOpener, now time.Time) *peerPlan {
+func newPeerPlan(step ptplan.Step, com string, comBaud int, open peerOpener, findCDC func() (string, error), now time.Time) *peerPlan {
 	if step.Peer == nil {
 		return &peerPlan{}
 	}
@@ -105,12 +106,13 @@ func newPeerPlan(step ptplan.Step, com string, comBaud int, open peerOpener, now
 		baud = serialx.DefaultBaud
 	}
 	return &peerPlan{
-		com:   com,
-		usb:   step.Peer.USB,
-		tcp:   step.Peer.TCP,
-		baud:  baud,
-		until: now.Add(peerGrace),
-		open:  open,
+		com:     com,
+		usb:     step.Peer.USB,
+		tcp:     step.Peer.TCP,
+		baud:    baud,
+		until:   now.Add(peerGrace),
+		open:    open,
+		findCDC: findCDC,
 	}
 }
 
@@ -132,8 +134,8 @@ func (pp *peerPlan) tryOpen(f ptproto.Frame, att *ptreport.Attempt) []*ptecho.Pe
 	if pp.usb {
 		// ⚠️ Looked up here, not written in the plan: the CDC port only exists
 		// once the session has started the board's USB stack.
-		if name, err := ptecho.FindCDC(); err != nil {
-			pp.lastReason(att, "peer_usb", err.Error())
+		if name, err := pp.findCDC(); err != nil {
+			att.SetExtra("peer_usb", err.Error())
 		} else if p, err := pp.openSerial(name, att); err == nil {
 			out = append(out, p)
 			pp.usb = false
@@ -162,20 +164,12 @@ func (pp *peerPlan) outstanding(now time.Time) bool {
 	return now.Before(pp.until)
 }
 
-// lastReason keeps one line per kind of failure rather than one per frame.
-func (pp *peerPlan) lastReason(att *ptreport.Attempt, key, value string) {
-	if att.Extra == nil {
-		att.Extra = map[string]string{}
-	}
-	att.Extra[key] = value
-}
-
 func (pp *peerPlan) openSerial(name string, att *ptreport.Attempt) (*ptecho.Peer, error) {
 	// One attempt here, not eight: the caller retries on the next frame, and
 	// blocking the collect loop for seconds would eat the step's own timeout.
 	port, err := pp.open("serial", name, pp.baud)
 	if err != nil {
-		pp.lastReason(att, "peer_error_"+name, err.Error())
+		att.SetExtra("peer_error_"+name, err.Error())
 		return nil, err
 	}
 	note(att, "peer", fmt.Sprintf("%s answering at %d baud", name, pp.baud))
@@ -185,12 +179,12 @@ func (pp *peerPlan) openSerial(name string, att *ptreport.Attempt) (*ptecho.Peer
 func (pp *peerPlan) openTCP(f ptproto.Frame, att *ptreport.Attempt) *ptecho.Peer {
 	addr, err := peerTCPAddr(pp.tcp, f)
 	if err != nil {
-		pp.lastReason(att, "peer_error_tcp", err.Error())
+		att.SetExtra("peer_error_tcp", err.Error())
 		return nil
 	}
 	conn, err := pp.open("tcp", addr, pp.baud)
 	if err != nil {
-		pp.lastReason(att, "peer_error_tcp", fmt.Sprintf("%s: %v", addr, err))
+		att.SetExtra("peer_error_tcp", fmt.Sprintf("%s: %v", addr, err))
 		return nil
 	}
 	// "connected", not "answering". A connect that returns is not yet a peer:
@@ -229,7 +223,7 @@ func peerTCPAddr(spec string, f ptproto.Frame) (string, error) {
 func recordPeerStats(peers []*ptecho.Peer, att *ptreport.Attempt) {
 	for _, p := range peers {
 		s := p.Stats()
-		v := fmt.Sprintf("received %d, echoed %d", s.Received, s.Echoed)
+		v := fmt.Sprintf("received %d bytes, echoed %d bytes", s.RxBytes, s.TxBytes)
 		if s.Err != "" {
 			v += ", error " + s.Err
 		}
@@ -238,7 +232,7 @@ func recordPeerStats(peers []*ptecho.Peer, att *ptreport.Attempt) {
 		// everything, and the board never sees a connection. Said here because
 		// the board's own counter can only report conn=0, which reads as a
 		// board fault and cost a day chasing one on 2026-09-10.
-		if s.Received == 0 && strings.HasPrefix(s.Name, "tcp ") {
+		if s.RxBytes == 0 && strings.HasPrefix(s.Name, "tcp ") {
 			v += " - nothing came back, so this opened onto something that is " +
 				"not the board: check that no VPN or proxy holds the default " +
 				"route, and that this machine is on the board's subnet"

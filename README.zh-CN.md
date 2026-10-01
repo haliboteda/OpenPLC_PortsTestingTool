@@ -27,5 +27,5 @@ GOOS=windows GOARCH=amd64 go build -o PortTool.exe ./cmd/porttool
 在 Linux 上，运行 PortTool 的用户要有串口的访问权限，通常是加入 `dialout` 组。
 
 `compile_tool.sh`、`build.py` 和 `delivery.cmd` 是维护者用的脚本：它们还会编测试固件、
-打包交付文件夹，需要其他 OpenPLC 仓库（`IAPTranfer_Tool` 和 `open_plc_cube_ide` 放在本仓旁边）。
-只编 PortTool 用不到它们。
+打包交付文件夹，需要固件仓库 `open_plc_cube_ide` 放在本仓旁边，还要装 STM32CubeIDE。
+先跑一次 `python TestCase/tools/init_machine.py` 记下它们在哪。只编 PortTool 用不到它们。

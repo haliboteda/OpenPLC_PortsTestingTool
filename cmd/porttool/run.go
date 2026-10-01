@@ -14,8 +14,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	"PortTool/internal/portmap"
 	"PortTool/internal/ptboard"
-	"PortTool/internal/ptpanel"
 	"PortTool/internal/ptplan"
 	"PortTool/internal/ptreport"
 	"PortTool/internal/ptseq"
@@ -139,16 +139,9 @@ The plan file and the flags may be written in either order.
 		return 2
 	}
 
-	var rw io.ReadWriteCloser
-	if simboard.IsSim(*port) {
-		// A plan run against the simulated board. Useful for checking that a
-		// plan is well-formed and that the report comes out right; it says
-		// nothing about hardware, and the report records the port name so
-		// nobody has to wonder afterwards which kind of run they are reading.
-		rw, err = simboard.Open()
-	} else {
-		rw, err = serialx.Open(*port, *baud)
-	}
+	// "sim" runs the plan against the simulated board: it checks the plan and
+	// the report, never hardware, and the report records the port name.
+	rw, err := simboard.OpenPort(*port, *baud)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Could not open %s: %v\n", *port, err)
 		return 2
@@ -189,7 +182,7 @@ built with PORTTOOL_ENABLE=1.
 		// names can be copied to a production PC together.
 		BaseDir: filepath.Dir(fs.Arg(0)),
 		// Chosen in the panel and recorded beside this program.
-		SerialPeer: ptpanel.RememberedPeer,
+		SerialPeer: portmap.Peer,
 	}
 
 	fmt.Printf("%s (limits %s) against porttool %s on %s\n\n",

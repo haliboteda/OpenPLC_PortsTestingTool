@@ -16,15 +16,20 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
+	"PortTool/internal/portmap"
 	"PortTool/internal/ptpanel"
 )
 
 func newPanel(t *testing.T) (*httptest.Server, *fakeBoard) {
 	t.Helper()
+	// Never the bench's real porttool_ports.json.
+	portmap.File = filepath.Join(t.TempDir(), "porttool_ports.json")
+	t.Cleanup(func() { portmap.File = "" })
 	fake := newFakeBoard(t)
 	p := ptpanel.New()
 	p.Open = func(name string, baud int) (io.ReadWriteCloser, error) { return fake, nil }
@@ -320,6 +325,9 @@ func (f *fakeLink) Close() error {
 func TestPanelRepeatsOnTheLinkUnderTest(t *testing.T) {
 	board := newFakeBoard(t)
 	link := newFakeLink()
+	// Never the bench's real porttool_ports.json.
+	portmap.File = filepath.Join(t.TempDir(), "porttool_ports.json")
+	t.Cleanup(func() { portmap.File = "" })
 
 	p := ptpanel.New()
 	p.Open = func(name string, baud int) (io.ReadWriteCloser, error) {

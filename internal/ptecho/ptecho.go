@@ -1,29 +1,21 @@
-// Package ptecho is the far end of a loop=link session.
+// Package ptecho is the far end of a loop=link session - the one
+// implementation of it, used by the panel and by plan steps alike (decision 77).
 //
 // Three of the board's ports - eth, usb and rs485 - are judged by whether a
 // number the board put on the link comes back unchanged. That makes a peer
 // mandatory: without one the counter can never close, and the frames look
-// exactly like broken wiring. The production guide has always said the station
-// PC has to be that peer (PRODUCTION-TEST-GAP.md, "Golden endpoint").
+// exactly like broken wiring.
 //
-// The three are the same problem wearing different cables, so this is one
-// implementation, not three: the board sends a line, the peer sends that line
-// straight back.
-//
-// ⚠️ Verbatim, never incremented or reformatted. The board compares what came
-// back against what it sent, so touching the payload here would read as a dead
-// link (DECISIONS.md 18).
-//
-// ⚠️ internal/ptpanel/link.go does the same job for the panel, against a
-// serial adapter it opened itself. The two are deliberately NOT merged yet -
-// the panel's version is wired into its own logging and lifecycle, and
-// rewriting that is a change to working code nobody asked for. If they ever
-// disagree about what "echo" means, a port would pass on the panel and fail on
-// the line, so merging them is worth doing on purpose rather than by accident.
+// ⚠️ Bytes, verbatim. The board compares what came back against what it sent,
+// so a peer that reformats, re-terminates or re-chunks the payload reads as a
+// dead link (DECISIONS.md 18). And a sink or source session puts a stream with
+// no newline in it on the wire, which a line reader would choke on.
 package ptecho
 
 import (
+	"fmt"
 	"io"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -31,13 +23,18 @@ import (
 
 // Peer is one channel answering the board.
 type Peer struct {
-	// Name is what shows up in the log, e.g. "eth" or "rs485 COM16".
+	// Name is what shows up in the log, e.g. "rs485@COM16" or "tcp 10.0.0.5:7".
 	Name string
 
 	rw io.ReadWriteCloser
+	// Echoing and a sink pushing can both be writing at the same moment, and
+	// neither a serial port nor a socket is safe for two writers.
+	writeMu sync.Mutex
 
-	rx      atomic.Uint64
-	tx      atomic.Uint64
+	reads   atomic.Uint64
+	echoes  atomic.Uint64
+	rxBytes atomic.Uint64
+	txBytes atomic.Uint64
 	lastErr atomic.Value // string
 
 	once sync.Once
@@ -46,119 +43,87 @@ type Peer struct {
 
 // Stats is what a caller reports or judges.
 type Stats struct {
-	Name     string
-	Received uint64
-	Echoed   uint64
-	Err      string
+	Name    string
+	Reads   uint64 // reads that returned data
+	Echoes  uint64 // of those, sent back
+	RxBytes uint64
+	TxBytes uint64 // echoed plus anything pushed with Write
+	Err     string
 }
 
-// New starts answering on rw. It returns immediately; the answering runs until
-// rw closes or Stop is called.
-//
-// log may be nil. When given it is called once per line, which is how a person
-// sees the bytes actually crossing the terminal rather than inferring them from
-// the board's counters.
+// New starts echoing on rw and returns at once; it runs until rw closes or
+// Stop is called. log may be nil; given, it shows the bytes crossing - short
+// printable text as it arrives, a stream summed once a second.
 func New(name string, rw io.ReadWriteCloser, log func(string)) *Peer {
 	p := &Peer{Name: name, rw: rw, done: make(chan struct{})}
 	p.lastErr.Store("")
-
 	go func() {
 		defer close(p.done)
-		p.pump(rw, log)
+		p.pump(log)
 	}()
 	return p
 }
 
-// pump reads lines and sends each one back.
-//
-// ⚠️ Deliberately not bufio.Scanner. A serial port opened without a read
-// timeout returns (0, nil) when the line is idle, and Scanner treats a run of
-// those as "multiple Read calls return no data or error" and gives up. Idle is
-// the NORMAL state of a link whose session has not started yet, so a peer
-// built on Scanner dies before the board ever speaks - which reads as a dead
-// link on good wiring. Observed on 2026-09-09 against the RS485 terminal.
-//
-// ⚠️ Lines, which is all a plan asks of this end: station6-poweron.json runs
-// usb and eth with mode=echo only, because echo is the one mode whose verdict
-// the board can reach by itself. A sink or source session puts a stream with
-// no newline in it on the wire, and this loop would accumulate it to the 64 KiB
-// cap and drop the rest - the panel's far end (internal/ptpanel/link.go) reads
-// by blocks for exactly that reason. Teach this one modes when a plan needs
-// them, not before.
-func (p *Peer) pump(rw io.Reader, log func(string)) {
-	w, canWrite := rw.(io.Writer)
-	if !canWrite {
-		p.lastErr.Store("channel cannot be written to")
-		return
-	}
-
-	var line []byte
-	tmp := make([]byte, 512)
-
+func (p *Peer) pump(log func(string)) {
+	lg := &Logger{Log: log, last: time.Now()}
+	defer lg.Flush()
+	buf := make([]byte, 4096)
 	for {
-		n, err := rw.Read(tmp)
-		for i := 0; i < n; i++ {
-			c := tmp[i]
-			if c != '\n' && c != '\r' {
-				// A single frame cannot be this long; anything longer is noise
-				// on an unterminated line, and must not grow without bound.
-				if len(line) < 64*1024 {
-					line = append(line, c)
-				}
-				continue
-			}
-			if len(line) == 0 {
-				continue
-			}
-			text := string(line)
-			line = line[:0]
-
-			p.rx.Add(1)
-			if log != nil {
-				log(p.Name + " <- " + text)
-			}
-			// Verbatim. The board compares what came back against what it
-			// sent, so changing it here would look exactly like a dead link.
-			if _, werr := io.WriteString(w, text+"\n"); werr != nil {
-				p.lastErr.Store(werr.Error())
-				if log != nil {
-					log(p.Name + " ！送不回去：" + werr.Error())
-				}
+		n, err := p.rw.Read(buf)
+		if n > 0 {
+			p.reads.Add(1)
+			p.rxBytes.Add(uint64(n))
+			lg.Saw("收到", buf[:n])
+			if _, werr := p.Write(buf[:n]); werr != nil {
+				lg.Flush()
+				lg.say("回不出去：" + werr.Error())
 				return
 			}
-			p.tx.Add(1)
-			if log != nil {
-				log(p.Name + " -> " + text)
-			}
+			p.echoes.Add(1)
+			lg.Saw("送回", buf[:n])
 		}
-
 		if err != nil {
 			// Close() from Stop lands here, which is the ordinary way this ends.
 			if err != io.EOF {
 				p.lastErr.Store(err.Error())
-				if log != nil {
-					log(p.Name + " ！读不下去：" + err.Error())
-				}
+				lg.Flush()
+				lg.say("读不下去了：" + err.Error())
 			}
 			return
 		}
 		if n == 0 {
-			// Silence, not end of stream. See the warning above.
+			// An idle serial port answers (0, nil); that is silence, not the
+			// end of the stream, and must not become a busy loop.
 			time.Sleep(20 * time.Millisecond)
 		}
 	}
 }
 
+// Write sends bytes the board did not send first - a sink pushing at it.
+func (p *Peer) Write(b []byte) (int, error) {
+	p.writeMu.Lock()
+	n, err := p.rw.Write(b)
+	p.writeMu.Unlock()
+	p.txBytes.Add(uint64(n))
+	if err != nil {
+		p.lastErr.Store(err.Error())
+	} else {
+		p.lastErr.Store("")
+	}
+	return n, err
+}
+
 // Stats reports what has crossed so far.
 func (p *Peer) Stats() Stats {
-	s := Stats{Name: p.Name, Received: p.rx.Load(), Echoed: p.tx.Load()}
+	s := Stats{Name: p.Name, Reads: p.reads.Load(), Echoes: p.echoes.Load(),
+		RxBytes: p.rxBytes.Load(), TxBytes: p.txBytes.Load()}
 	if e, ok := p.lastErr.Load().(string); ok {
 		s.Err = e
 	}
 	return s
 }
 
-// Stop closes the channel and waits for the answering to finish.
+// Stop closes the channel and waits for the echoing to finish.
 func (p *Peer) Stop() {
 	p.once.Do(func() {
 		_ = p.rw.Close()
@@ -169,4 +134,71 @@ func (p *Peer) Stop() {
 			// run. The port is closed either way.
 		}
 	})
+}
+
+// Logger keeps a link's log readable at both speeds it runs at: an echo
+// session's short lines are printed as they arrive, because seeing each one is
+// how a person tells a live link from a dead one; a stream is summed once a
+// second, or one line per block would bury the board's own frames.
+type Logger struct {
+	Log  func(string)
+	last time.Time
+	rx   uint64
+	tx   uint64
+}
+
+func (g *Logger) say(s string) {
+	if g.Log != nil {
+		g.Log(s)
+	}
+}
+
+// Saw records one block going in direction what ("收到" is inbound).
+func (g *Logger) Saw(what string, b []byte) {
+	if g.Log == nil {
+		return
+	}
+	if s, ok := readableLine(b); ok {
+		g.Log(what + " " + s)
+		return
+	}
+	if what == "收到" {
+		g.rx += uint64(len(b))
+	} else {
+		g.tx += uint64(len(b))
+	}
+	if time.Since(g.last) >= time.Second {
+		g.Flush()
+	}
+}
+
+// Flush reports what was summed since the last report.
+func (g *Logger) Flush() {
+	if g.Log == nil || (g.rx == 0 && g.tx == 0) {
+		return
+	}
+	g.Log(fmt.Sprintf("这一秒：收到 %d 字节，发出 %d 字节", g.rx, g.tx))
+	g.rx, g.tx = 0, 0
+	g.last = time.Now()
+}
+
+// readableLine says whether a block is the short printable text an echo
+// session sends.
+func readableLine(b []byte) (string, bool) {
+	if len(b) == 0 || len(b) > 200 {
+		return "", false
+	}
+	for _, c := range b {
+		if c == '\r' || c == '\n' || c == '\t' {
+			continue
+		}
+		if c < 0x20 || c == 0x7f {
+			return "", false
+		}
+	}
+	s := strings.TrimSpace(string(b))
+	if s == "" {
+		return "", false
+	}
+	return s, true
 }

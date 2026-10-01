@@ -10,6 +10,7 @@ import (
 	"PortTool/internal/ptcheck"
 	"PortTool/internal/ptplan"
 	"PortTool/internal/ptproto"
+	"PortTool/internal/ptseq"
 )
 
 // Judging a port's readings on the panel, using the criteria that already
@@ -26,21 +27,21 @@ import (
 // point the panel at its own file without touching code.
 const defaultCriteriaPlan = "station6-poweron.json"
 
-// JudgePlan overrides the plan the panel judges by. Empty means the default.
+// judgePlan is the plan the panel judges by, chosen from the page. Empty means the default.
 //
 // Guarded because the panel can now change it while requests are in flight:
 // somebody switching to the relaxed limits does so from the browser, and the
 // HTTP handlers reading it run on their own goroutines.
 var (
 	judgeMu   sync.RWMutex
-	JudgePlan string
+	judgePlan string
 )
 
 func criteriaPlanName() string {
 	judgeMu.RLock()
 	defer judgeMu.RUnlock()
-	if JudgePlan != "" {
-		return JudgePlan
+	if judgePlan != "" {
+		return judgePlan
 	}
 	return defaultCriteriaPlan
 }
@@ -53,7 +54,7 @@ func criteriaPlanName() string {
 func setCriteriaPlan(name string) error {
 	if name == "" {
 		judgeMu.Lock()
-		JudgePlan = ""
+		judgePlan = ""
 		judgeMu.Unlock()
 		return nil
 	}
@@ -65,7 +66,7 @@ func setCriteriaPlan(name string) error {
 		return err
 	}
 	judgeMu.Lock()
-	JudgePlan = name
+	judgePlan = name
 	judgeMu.Unlock()
 	return nil
 }
@@ -261,15 +262,16 @@ func (s *Server) handlePortPlan(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, 200, map[string]any{"known": false, "runs": runs})
 }
 
-// handleJudge evaluates one port's latest readings against the plan's
-// criteria. The page sends the fields it already has on screen, so this adds
-// no traffic to the board.
+// handleJudge evaluates one port's latest reading against the plan's
+// criteria. The page sends the raw lines it already has - the frame, or a
+// pt.run reply - and they are read here with the same lookups a plan run uses
+// (decision 77), so the page parses nothing itself. No traffic to the board.
 func (s *Server) handleJudge(w http.ResponseWriter, r *http.Request) {
 	var body struct {
-		Port   string            `json:"port"`
-		Target string            `json:"target"` // for a pt.run reply
-		Fields map[string]string `json:"fields"`
-		Text   string            `json:"text"`
+		Port   string   `json:"port"`
+		Target string   `json:"target"` // for a pt.run reply
+		Line   string   `json:"line"`   // a sample frame, as the board sent it
+		Lines  []string `json:"lines"`  // a pt.run reply, every line of it
 		// What the page actually sent, when a target can be run more than one
 		// way. sd.integrity with passes=1 and with passes=64 are two steps in
 		// the plan with two sets of criteria, and judging one by the other
@@ -295,12 +297,17 @@ func (s *Server) handleJudge(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	look := func(field string) (string, bool) {
-		if field == "_text" {
-			return body.Text, true
+	var look ptcheck.Lookup
+	if body.Target != "" {
+		look = ptseq.ReplyLookup(body.Lines)
+	} else {
+		kind, frameBody := ptproto.Classify(body.Line)
+		f, ok := ptproto.ParseFrame(frameBody)
+		if kind != ptproto.LineFrame || !ok {
+			writeErr(w, 400, "要判的不是一帧采样数据。")
+			return
 		}
-		v, ok := body.Fields[field]
-		return v, ok
+		look = ptseq.FrameLookup(f)
 	}
 
 	results, all := ptcheck.EvalAll(checks, look)
@@ -335,16 +342,6 @@ func what(port, target string) string {
 		return target
 	}
 	return port
-}
-
-// fieldsFromFrame is used by the tests: the page does the same thing in
-// JavaScript, and having one shape written down here keeps the two honest.
-func fieldsFromFrame(f ptproto.Frame) map[string]string {
-	out := map[string]string{}
-	for _, p := range f.Fields {
-		out[p.Key] = p.Value
-	}
-	return out
 }
 
 // handleCriteria reports or changes which plan supplies the panel's limits.

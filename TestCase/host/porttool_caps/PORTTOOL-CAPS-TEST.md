@@ -39,7 +39,7 @@ porttool_caps/
 python build.py
 ```
 
-编译器解析顺序和隔壁 T1-16 一样：`$CC` → `config/machine.py` 的 `HOST_CC` → PATH 上的
+编译器解析顺序：`$CC` → `config/machine.py` 的 `HOST_CC` → PATH 上的
 `gcc` / `clang`。退出码 `0` = 全过，`1` = 有检查没过，`2` = 编译或运行失败。
 
 找得到 C 编译器时 Go 那半会带 `-race` 跑（竞态检测要 cgo）。**这不是装饰** ——

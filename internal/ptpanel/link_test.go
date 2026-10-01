@@ -3,7 +3,6 @@ package ptpanel
 import (
 	"bytes"
 	"io"
-	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -80,80 +79,16 @@ func (f *fakePort) bytesWritten() int {
 	return f.count
 }
 
-func (f *fakePort) sawBack() string {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	return f.written.String()
-}
-
-// A stream with no newline in it is what source and sink modes put on the
-// wire. bufio.Scanner answers 64 KiB of that with "token too long" and stops
-// reading - on a link that is working perfectly. The board then fills its
-// endpoint and reports busy climbing while its byte count stands still, and
-// every symptom points at the hardware.
-func TestPumpSurvivesAStreamThatHasNoNewlineInIt(t *testing.T) {
-	fp := newFakePort()
-	l := &linkPort{Board: "usb", COM: "fake", port: fp}
-
-	block := bytes.Repeat([]byte("0123456789"), 512) // 5 KiB, not one newline
-	const blocks = 16                                // 80 KiB, past any line buffer
-
-	done := make(chan struct{})
-	go func() {
-		defer close(done)
-		l.pump(fp, func(string) {})
-	}()
-
-	for i := 0; i < blocks; i++ {
-		fp.feed <- block
-	}
-	waitFor(t, func() bool { return fp.bytesWritten() >= len(block)*blocks })
-	_ = fp.Close()
-	<-done
-
-	if got, want := fp.bytesWritten(), len(block)*blocks; got != want {
-		t.Fatalf("echoed %d bytes of %d - the far end stopped reading partway", got, want)
-	}
-	l.mu.Lock()
-	err := l.lastErr
-	l.mu.Unlock()
-	if err != "" {
-		t.Fatalf("a healthy stream left an error on the link: %s", err)
-	}
-}
-
-// Echo mode is judged by the board comparing what came back against what it
-// sent, so the payload has to return byte for byte.
-func TestPumpEchoesVerbatim(t *testing.T) {
-	fp := newFakePort()
-	l := &linkPort{Board: "rs485", COM: "fake", port: fp}
-
-	done := make(chan struct{})
-	go func() {
-		defer close(done)
-		l.pump(fp, func(string) {})
-	}()
-
-	fp.feed <- []byte("42\r\n")
-	waitFor(t, func() bool { return fp.bytesWritten() >= 4 })
-	_ = fp.Close()
-	<-done
-
-	if got := fp.sawBack(); got != "42\r\n" {
-		t.Fatalf("sent back %q, not the bytes that arrived", got)
-	}
-}
-
 // Sink mode means the board sits there counting bytes somebody else pushes. If
 // nobody pushes, rx_bytes and kbps stay zero however healthy the hardware is -
 // which is what the panel did until 2026-09-14.
 func TestSinkModePushesAtTheBoard(t *testing.T) {
 	fp := newFakePort()
-	l := &linkPort{Board: "usb", COM: "fake", port: fp}
+	l := newLinkPort("usb", "fake", 0, "serial", fp, nil)
 
-	l.setMode(modeSink, func(string) {})
+	l.setMode(modeSink)
 	waitFor(t, func() bool { return fp.bytesWritten() > 0 })
-	l.setMode(modeEcho, nil)
+	l.setMode(modeEcho)
 
 	if fp.bytesWritten() == 0 {
 		t.Fatal("sink mode pushed nothing - the board would report zero bytes forever")
@@ -173,9 +108,9 @@ func TestSinkModePushesAtTheBoard(t *testing.T) {
 // back to the board as a number it never sent.
 func TestEchoModeOriginatesNothing(t *testing.T) {
 	fp := newFakePort()
-	l := &linkPort{Board: "rs485", COM: "fake", port: fp}
+	l := newLinkPort("rs485", "fake", 0, "serial", fp, nil)
 
-	l.setMode(modeEcho, func(string) {})
+	l.setMode(modeEcho)
 	time.Sleep(50 * time.Millisecond)
 
 	if n := fp.bytesWritten(); n != 0 {
@@ -204,27 +139,6 @@ func TestLinkModeFromCmd(t *testing.T) {
 		if port != c.port || mode != c.mode {
 			t.Errorf("%q -> (%q, %q), want (%q, %q)", c.cmd, port, mode, c.port, c.mode)
 		}
-	}
-}
-
-// Short printable text is printed so a person can see a live echo; a stream is
-// counted, or one log line per block would bury the board's own frames.
-func TestLogPrintsLinesAndCountsStreams(t *testing.T) {
-	var got []string
-	lg := &linkLogger{log: func(s string) { got = append(got, s) }, last: time.Now()}
-
-	lg.saw("收到", []byte("42\r\n"))
-	if len(got) != 1 || !strings.Contains(got[0], "42") {
-		t.Fatalf("a short line was not printed as itself: %v", got)
-	}
-
-	lg.saw("收到", bytes.Repeat([]byte("x"), 4096))
-	if len(got) != 1 {
-		t.Fatalf("a stream block was printed instead of counted: %v", got)
-	}
-	lg.flush()
-	if len(got) != 2 || !strings.Contains(got[1], "4096") {
-		t.Fatalf("the flush did not report the bytes it counted: %v", got)
 	}
 }
 

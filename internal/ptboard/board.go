@@ -80,7 +80,8 @@ type Board struct {
 	seq      uint64
 	closed   bool
 	readErr  error
-	sendLock sync.Mutex // one command at a time: replies are matched by order
+	lost     chan struct{} // closed when the reader stops, for whatever reason
+	sendLock sync.Mutex    // one command at a time: replies are matched by order
 }
 
 type request struct {
@@ -100,6 +101,7 @@ func New(rw io.ReadWriteCloser, ringCap int) *Board {
 		rw:      rw,
 		subs:    map[int]chan Event{},
 		ringCap: ringCap,
+		lost:    make(chan struct{}),
 	}
 	go b.readLoop()
 	return b
@@ -126,10 +128,22 @@ func (b *Board) readLoop() {
 	req := b.pending
 	b.pending = nil
 	b.mu.Unlock()
+	close(b.lost)
 	if req != nil {
 		req.stop()
 		req.ch <- nil
 	}
+}
+
+// Lost is closed when the reader stops: the port was closed, or it failed -
+// an unplugged adapter, a board that lost power. Err says which.
+func (b *Board) Lost() <-chan struct{} { return b.lost }
+
+// Err is why the reader stopped, or nil while it is running.
+func (b *Board) Err() error {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.readErr
 }
 
 func (b *Board) handleLine(line string) {

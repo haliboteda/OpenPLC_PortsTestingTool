@@ -49,7 +49,6 @@ except AttributeError:
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 sys.path.insert(0, str(HERE.parent.parent / "tools"))
-import tool_repo  # noqa: E402,F401  - finds IAPTranfer_Tool's common.py
 
 from common import Section, Ok, Fail, Warn  # noqa: E402
 import run as h5  # noqa: E402  - the panel launcher and the process cleanup

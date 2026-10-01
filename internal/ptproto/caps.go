@@ -416,6 +416,26 @@ func (c Caps) Port(name string) (Port, bool) {
 	return Port{}, false
 }
 
+// EchoCommand is the reply that closes a frame's loopback count, and whether
+// this frame takes one on the control port at all.
+//
+// Only sessions with loop=ctrl or loop=self, and only a frame that carries
+// seq. A loop=link port takes its echo on the link under test, and the
+// firmware refuses one offered here: answering on the control port would let
+// the counter climb with that link dead (DECISIONS.md 9). The panel and a plan
+// run both ask this, so they cannot disagree about which ports to answer.
+func (c Caps) EchoCommand(f Frame) (string, bool) {
+	p, ok := c.Port(f.Port)
+	if !ok || p.Kind != KindSession || (p.Loop != LoopCtrl && p.Loop != LoopSelf) {
+		return "", false
+	}
+	seq, ok := Get(f.Fields, "seq")
+	if !ok {
+		return "", false
+	}
+	return "pt.echo " + f.Port + " " + seq, true
+}
+
 func splitList(s string) []string {
 	if s == "" {
 		return nil

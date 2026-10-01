@@ -12,13 +12,11 @@ The flags are a set, not a choice, and combine in the order above.
 ⚠️ CubeIDE must be CLOSED for a firmware build: a headless build cannot take a
 locked workspace.
 
-⚠️ After a fixture build, Debug/ holds an image that is NOT a bootloader.
-IAPTranfer_Tool's `build.py --boot` puts the bootloader back.
+⚠️ After a fixture build, $BOOT/Debug/ holds an image that is NOT a bootloader.
 
-It hands off rather than reimplementing: the firmware build drives CubeIDE
-headlessly through IAPTranfer_Tool's TestCase/tools/build_image.py, which also
-builds the bootloader and so stays there (decision 76); compile_tool.sh owns the
-output layout and the three platforms.
+It hands off rather than reimplementing: the firmware build is
+TestCase/tools/build_fixture.py, and compile_tool.sh owns the output layout and
+the three platforms.
 
 Exit 0 = everything asked for was built, 1 = a build failed, 2 = bad usage.
 """
@@ -38,7 +36,6 @@ except AttributeError:
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE / "TestCase" / "tools"))
 
-import tool_repo  # noqa: E402  - finds IAPTranfer_Tool's common.py
 from common import Fail, Ok, Section, Warn, cfg, get_programmer_cli  # noqa: E402
 
 # (显示名, 备注, 编工装固件, 编 PortTool, 烧进板子, 打包交付)
@@ -76,9 +73,8 @@ def ask():
 
 def build_fixture():
     Section("固件：工装")
-    tool_case = tool_repo.TOOL_REPO / "TestCase"
-    args = [sys.executable, str(tool_case / "tools" / "build_image.py"), "--porttool"]
-    return subprocess.call(args, cwd=str(tool_case)) == 0
+    args = [sys.executable, str(HERE / "TestCase" / "tools" / "build_fixture.py")]
+    return subprocess.call(args, cwd=str(HERE / "TestCase")) == 0
 
 
 def rebuild_sim():
@@ -136,7 +132,7 @@ def build_tool():
     bash = find_bash()
     if bash is None:
         Fail("找不到能跑 compile_tool.sh 的 bash。Windows 上 PATH 里那个是 WSL 的启动器，"
-             "不是 shell。在 IAPTranfer_Tool/TestCase 里跑一遍：python tools/init_machine.py "
+             "不是 shell。在 TestCase 里跑一遍：python tools/init_machine.py "
              "—— 它会把 Git Bash 的位置写进 config/machine.py。")
         return False
     return subprocess.call([bash, str(HERE / "compile_tool.sh")], cwd=str(HERE)) == 0
@@ -185,7 +181,7 @@ def main():
        ("，已烧进板子" if flash else "") +
        ("，交付文件夹已更新" if deliver else ""))
     if fixture:
-        Warn("Debug/ 里现在是工装镜像，不是 bootloader。发版前在 IAPTranfer_Tool 跑 build.py --boot 换回去。")
+        Warn("$BOOT/Debug/ 里现在是工装镜像，不是 bootloader。")
     return 0
 
 

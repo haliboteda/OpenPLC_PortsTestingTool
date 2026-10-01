@@ -59,6 +59,11 @@ type Runner struct {
 	// bench. kind is "serial" or "tcp".
 	OpenPeer func(kind, addr string, baud int) (io.ReadWriteCloser, error)
 
+	// FindCDC names the board's USB CDC port for a step whose peer is usb.
+	// Nil uses the real enumeration; a test injects it for the same reason it
+	// injects OpenPeer - otherwise the result depends on what is plugged in.
+	FindCDC func() (string, error)
+
 	// SerialPeer names the adapter this machine recorded for a board port, for
 	// a step whose peer is "serial". Nil or !ok means nobody has chosen one.
 	SerialPeer func(boardPort string) (com string, baud int, ok bool)
@@ -343,7 +348,11 @@ func (r *Runner) doSession(step ptplan.Step, timeout time.Duration, att *ptrepor
 	if open == nil {
 		open = realPeerOpener
 	}
-	pending := newPeerPlan(step, peerCOM, peerBaud, open, r.now())
+	findCDC := r.FindCDC
+	if findCDC == nil {
+		findCDC = ptecho.FindCDC
+	}
+	pending := newPeerPlan(step, peerCOM, peerBaud, open, findCDC, r.now())
 
 	want := step.FrameCount()
 	var last ptproto.Frame
@@ -378,7 +387,7 @@ collect:
 			last = ev.Frame
 			got++
 			att.Raw = append(att.Raw, ev.Line)
-			r.answerEcho(step.Port, ev.Frame, att)
+			r.answerEcho(ev.Frame, att)
 
 			// Every frame is another chance to get the peers up: this one
 			// may be the first that carries a DHCP address, or the CDC port
@@ -424,7 +433,7 @@ collect:
 		return
 	}
 
-	r.judge(step.Checks, frameLookup(last), att)
+	r.judge(step.Checks, FrameLookup(last), att)
 }
 
 // answerEcho closes the loopback count for one frame, the way the panel's
@@ -435,24 +444,15 @@ collect:
 // it was given - so any plan judging miss would fail every time. The panel has
 // answered these since the counter existed; a production run has to as well.
 //
-// Only for loop=ctrl and loop=self. A loop=link port takes its echo on the
-// link under test and the firmware refuses one offered here, which is
-// deliberate: answering on the control port would let the counter climb with
-// the pair under test already dead (DECISIONS.md 9).
-func (r *Runner) answerEcho(port string, f ptproto.Frame, att *ptreport.Attempt) {
+// Which frames take one is ptproto.Caps.EchoCommand's to say.
+func (r *Runner) answerEcho(f ptproto.Frame, att *ptreport.Attempt) {
 	if r.Caps == nil {
 		return
 	}
-	p, ok := r.Caps.Port(port)
-	if !ok || (p.Loop != ptproto.LoopCtrl && p.Loop != ptproto.LoopSelf) {
-		return
-	}
-	seq, ok := ptproto.Get(f.Fields, "seq")
+	cmd, ok := r.Caps.EchoCommand(f)
 	if !ok {
 		return
 	}
-
-	cmd := "pt.echo " + port + " " + seq
 	if _, err := r.Board.Send(cmd, ptboard.ExpectOne, ptboard.DefaultTimeout); err != nil {
 		// Recorded, never fatal: the reading is what the step judges, and a
 		// refused echo shows up as the miss counter climbing anyway.
@@ -487,7 +487,7 @@ func (r *Runner) doRun(step ptplan.Step, timeout time.Duration, att *ptreport.At
 		r.classifyLinkError(err, deadline, att)
 		return
 	}
-	r.judge(step.Checks, replyLookup(lines), att)
+	r.judge(step.Checks, ReplyLookup(lines), att)
 }
 
 func (r *Runner) doRaw(step ptplan.Step, timeout time.Duration, att *ptreport.Attempt) {
@@ -499,7 +499,7 @@ func (r *Runner) doRaw(step ptplan.Step, timeout time.Duration, att *ptreport.At
 		r.classifyLinkError(err, deadline, att)
 		return
 	}
-	r.judge(step.Checks, replyLookup(lines), att)
+	r.judge(step.Checks, ReplyLookup(lines), att)
 }
 
 // doTool runs an external program and judges what it printed or returned.
@@ -803,9 +803,10 @@ func (r *Runner) classifyLinkError(err error, deadline time.Time, att *ptreport.
 	att.Outcome = ptreport.OutcomeError
 }
 
-// frameLookup reads fields out of a sample frame. "_text" is the whole line,
-// for a contains check.
-func frameLookup(f ptproto.Frame) ptcheck.Lookup {
+// FrameLookup reads fields out of a sample frame. "_text" is the whole line,
+// for a contains check. The panel judges by it too, so a field means the same
+// thing on screen and on a line.
+func FrameLookup(f ptproto.Frame) ptcheck.Lookup {
 	return func(field string) (string, bool) {
 		if field == "_text" {
 			return f.Raw, true
@@ -814,10 +815,10 @@ func frameLookup(f ptproto.Frame) ptcheck.Lookup {
 	}
 }
 
-// replyLookup reads fields out of a command reply. Fields come from the first
+// ReplyLookup reads fields out of a command reply. Fields come from the first
 // OK line; "_text" is every line, so a check can look for a word anywhere in
-// a multi-line answer.
-func replyLookup(lines []string) ptcheck.Lookup {
+// a multi-line answer. The panel judges by it too.
+func ReplyLookup(lines []string) ptcheck.Lookup {
 	var pairs []ptproto.Pair
 	for _, l := range lines {
 		if kind, body := ptproto.Classify(l); kind == ptproto.LineOK {

@@ -10,7 +10,7 @@ follow, the panel silently mis-renders and nobody finds out until a board is on
 the bench. All of that is decidable on a PC, so it is decided here.
 
 Compiler, first match wins: $CC, then HOST_CC from config/machine.py, then gcc
-or clang on PATH -- same resolution order as case T1-16 next door.
+or clang on PATH.
 
 Writes the transcript to caps_golden.txt, which is the fixture the Go caps
 parser is tested against. Regenerating it is this script running; nobody types
@@ -26,7 +26,6 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE.parent.parent / "tools"))
-import tool_repo  # noqa: E402,F401  - finds IAPTranfer_Tool's common.py
 
 from common import EXE, cfg, Section, Ok, Warn, Fail, read_text  # noqa: E402
 

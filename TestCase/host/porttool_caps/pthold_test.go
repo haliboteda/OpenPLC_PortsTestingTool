@@ -277,3 +277,66 @@ func TestDisconnectingStopsTheRunBeforeThePortCloses(t *testing.T) {
 		t.Errorf("renewals carried on after disconnect: %d -> %d", n, got)
 	}
 }
+
+// A board that restarts mid-run sends its tick back towards zero. That is the
+// event a burn-in exists to catch, so it stops the run and lights the lamp
+// (decision 77) rather than being folded into the timeline as a wrap.
+func TestABoardRestartMidRunIsAFault(t *testing.T) {
+	ptpanel.RunLogDir = t.TempDir()
+	t.Cleanup(func() { ptpanel.RunLogDir = "" })
+
+	srv, f := newPanel(t)
+	allowHold(f)
+	postJSON(t, srv, "/api/connect", map[string]any{"port": "COM_TEST"})
+	postJSON(t, srv, "/api/hold", map[string]any{"ports": []string{"din"}, "hours": 1})
+
+	f.emit("!din t=90000 seq=7 rx=6 miss=0 v=0x00")
+	f.emit("!din t=120 seq=1 rx=0 miss=0 v=0x00")
+
+	waitFor(t, "the restart to light the lamp", 3*time.Second,
+		func() bool { return countCmd(f, "pt.led fault=1") > 0 })
+	if st := getJSON(t, srv, "/api/state"); st["run"] != nil {
+		t.Errorf("the run survived a restart: %v", st["run"])
+	}
+}
+
+// A board that hangs, or restarts and comes back with its sessions gone, simply
+// stops sending frames. Silence past three of the port's own periods is a fault.
+func TestAPortGoingSilentMidRunIsAFault(t *testing.T) {
+	ptpanel.RunLogDir = t.TempDir()
+	t.Cleanup(func() { ptpanel.RunLogDir = "" })
+
+	srv, f := newPanel(t)
+	allowHold(f)
+	postJSON(t, srv, "/api/connect", map[string]any{"port": "COM_TEST"})
+	postJSON(t, srv, "/api/hold", map[string]any{"ports": []string{"din"}, "hours": 1})
+
+	f.emit("!din t=1000 seq=1 rx=0 miss=0 v=0x00")
+	time.Sleep(200 * time.Millisecond)
+	f.emit("!din t=1200 seq=2 rx=1 miss=0 v=0x00")
+
+	// Three periods of 0.2 s plus the 5 s floor, then the once-a-second check.
+	waitFor(t, "the silence to light the lamp", 9*time.Second,
+		func() bool { return countCmd(f, "pt.led fault=1") > 0 })
+	if st := getJSON(t, srv, "/api/state"); st["run"] != nil {
+		t.Errorf("the run survived its port going silent: %v", st["run"])
+	}
+}
+
+// An unplugged adapter or a board that lost power ends the reader. The page
+// must say so instead of showing "已连上" over a board that answers nothing.
+func TestLosingTheControlPortIsShown(t *testing.T) {
+	srv, f := newPanel(t)
+	postJSON(t, srv, "/api/connect", map[string]any{"port": "COM_TEST"})
+	_ = f.Close()
+
+	var st map[string]any
+	waitFor(t, "the lost port to show in the state", 3*time.Second, func() bool {
+		st = getJSON(t, srv, "/api/state")
+		msg, _ := st["linkError"].(string)
+		return msg != ""
+	})
+	if !strings.Contains(st["linkError"].(string), "控制口断了") {
+		t.Errorf("the message does not say the control port is gone: %v", st["linkError"])
+	}
+}

@@ -1,7 +1,6 @@
 #!/bin/bash
 
 # Builds PortTool for the three platforms, plus an Apple Silicon build.
-# IAPTool is built by IAPTranfer_Tool's own compile_tool.sh (decision 76).
 
 OUTPUT_DIR="./Output"
 

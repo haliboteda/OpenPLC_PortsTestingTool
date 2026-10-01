@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"PortTool/internal/ptboard"
+	"PortTool/internal/ptproto"
 )
 
 // The deadman's span and how often it is renewed.
@@ -120,6 +121,9 @@ func (s *Server) startTimedRun(b *ptboard.Board, ports []string, hours int) {
 	// first tick the outputs are already live, and an unarmed board in that
 	// window would keep driving them if this process died right now.
 	s.holdRenew(b)
+	// A lamp left lit by an earlier fault would read as this run's verdict.
+	_, _ = b.Send("pt.led fault=0", ptboard.ExpectOne, holdTimeout)
+	go s.watchRun(b, run)
 
 	if run.deadline.IsZero() {
 		s.emit("[持续] 开始，不限时长。板子每 6 秒要听到一次上位机还在；听不到就自己关输出。")
@@ -238,24 +242,101 @@ func (s *Server) handleFault(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	var err error
 	if body.On {
 		why := body.Why
 		if why == "" {
 			why = "上位机判出故障"
 		}
-		s.stopTimedRun(why)
-		s.emit("[故障] " + why + "。状态灯已点亮。")
+		err = s.raiseFault(b, why)
+	} else {
+		_, err = b.Send("pt.led fault=0", ptboard.ExpectOne, holdTimeout)
 	}
-
-	arg := "0"
-	if body.On {
-		arg = "1"
-	}
-	if _, err := b.Send("pt.led fault="+arg, ptboard.ExpectOne, holdTimeout); err != nil {
+	if err != nil {
 		writeJSON(w, 200, map[string]any{"error": "点灯这条命令板子没应答：" + err.Error()})
 		return
 	}
 	writeJSON(w, 200, s.stateJSON())
+}
+
+// raiseFault is decision 37 item 3: stop every port, say why, light the lamp.
+// Every fault - a failed verdict from the page, a reset seen by watchRun -
+// goes through here, so they all look the same on the bench.
+func (s *Server) raiseFault(b *ptboard.Board, why string) error {
+	s.stopTimedRun(why)
+	s.emit("[故障] " + why + "。状态灯已点亮。")
+	_, err := b.Send("pt.led fault=1", ptboard.ExpectOne, holdTimeout)
+	return err
+}
+
+// silenceFloor is the shortest gap watchRun will call silence, whatever a
+// port's own period: below it a busy serial line alone can delay a frame.
+const silenceFloor = 5 * time.Second
+
+// watchRun is how a run notices that the board restarted or hung underneath
+// it (decision 77). Two signs, because a restart shows up either way: the
+// sessions die with it, so their frames stop; and if a frame does arrive after
+// one, its tick has gone backwards. A port is called silent after three of its
+// own periods (learnt from the frames themselves - a period has no upper
+// limit) plus silenceFloor.
+func (s *Server) watchRun(b *ptboard.Board, run *timedRun) {
+	events, unsub := b.Subscribe(1024)
+	defer unsub()
+
+	type seen struct {
+		ticks    ptproto.TickUnwrapper
+		last     time.Time
+		interval time.Duration
+		frames   int
+	}
+	watched := map[string]*seen{}
+	for _, p := range run.ports {
+		watched[p] = &seen{}
+	}
+	check := time.NewTicker(time.Second)
+	defer check.Stop()
+
+	for {
+		select {
+		case <-run.stop:
+			return
+		case <-run.done:
+			return
+		case ev, ok := <-events:
+			if !ok {
+				return
+			}
+			if ev.Kind != ptproto.LineFrame {
+				continue
+			}
+			w := watched[ev.Frame.Port]
+			if w == nil {
+				continue
+			}
+			if _, restarted := w.ticks.Unwrap(ev.Frame.Tick); restarted {
+				_ = s.raiseFault(b, "板子复位了（"+ev.Frame.Port+" 的毫秒计数往回跳）")
+				return
+			}
+			now := ev.At
+			if w.frames > 0 {
+				w.interval = now.Sub(w.last)
+			}
+			w.last = now
+			w.frames++
+		case now := <-check.C:
+			for port, w := range watched {
+				if w.frames < 2 {
+					continue // no period learnt yet
+				}
+				if gap := now.Sub(w.last); gap > 3*w.interval+silenceFloor {
+					_ = s.raiseFault(b, fmt.Sprintf(
+						"%s 已经 %d 秒没有数据（平时每 %.1f 秒一帧）：板子可能复位或死机了",
+						port, int(gap.Seconds()), w.interval.Seconds()))
+					return
+				}
+			}
+		}
+	}
 }
 
 // runStateJSON is what the page needs to draw the countdown and the stop button.

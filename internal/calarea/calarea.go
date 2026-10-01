@@ -1,8 +1,8 @@
 // Package calarea builds and reads the per-board calibration area the fixture
 // writes into flash at 0x081E0000.
 //
-// Mirror of the bootloader's IAPServer/calib_area.h, which owns the format; P2
-// checks they agree. Byte table and meaning of the coefficients:
+// Mirror of the bootloader's IAPServer/calib_area.h, which owns the format;
+// this repo's selfcheck (calarea step) checks they agree. Byte table and meaning of the coefficients:
 // $PROD/docs/modules/M1/SECTOR-15.md, "校准值区的格式".
 package calarea
 

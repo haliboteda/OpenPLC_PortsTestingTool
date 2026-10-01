@@ -19,10 +19,9 @@ import (
 	"sort"
 	"strings"
 	"sync"
-	"time"
 
+	"PortTool/internal/portmap"
 	"PortTool/internal/ptplan"
-	"PortTool/internal/ptreport"
 	"PortTool/internal/ptseq"
 )
 
@@ -30,8 +29,6 @@ import (
 type planState struct {
 	mu      sync.Mutex
 	running bool
-	last    *ptreport.Report
-	lastErr string
 }
 
 // PlanDir is where the panel looks for plan files. Set before Serve; empty
@@ -295,19 +292,29 @@ func (s *Server) handlePlanRun(w http.ResponseWriter, r *http.Request) {
 	caps := s.caps
 	port := s.portNam
 	echoWas := s.autoEcho
-	if board != nil {
-		// The executor answers the loop counters itself while a plan runs.
-		// Leaving the panel's responder on as well would answer each frame
-		// twice, and the board would count the second as a stale reply - a
-		// miss on a link that is working.
-		s.autoEcho = false
-	}
 	s.mu.Unlock()
 
 	if board == nil {
 		writeJSON(w, http.StatusOK, map[string]any{"error": "connect a board first"})
 		return
 	}
+	// Refused like the CLI refuses it (decision 77): a report from a plan the
+	// firmware cannot run as written is a verdict on the plan, not the board.
+	if findings := body.Plan.CheckAgainstCaps(caps); len(findings) > 0 {
+		writeJSON(w, http.StatusOK, map[string]any{
+			"error":    "这份方案和板子上的固件对不上，不跑：\n- " + strings.Join(findings, "\n- "),
+			"findings": findings,
+		})
+		return
+	}
+
+	// The executor answers the loop counters itself while a plan runs.
+	// Leaving the panel's responder on as well would answer each frame twice,
+	// and the board would count the second as a stale reply - a miss on a
+	// link that is working.
+	s.mu.Lock()
+	s.autoEcho = false
+	s.mu.Unlock()
 
 	s.plan.mu.Lock()
 	if s.plan.running {
@@ -340,7 +347,7 @@ func (s *Server) handlePlanRun(w http.ResponseWriter, r *http.Request) {
 		SN:          body.SN,
 		PortName:    port,
 		BaseDir:     planDir(),
-		SerialPeer:  RememberedPeer,
+		SerialPeer:  portmap.Peer,
 		// A UserConfirm step fails here rather than blocking: the run is one
 		// synchronous request, so there is nowhere to put the question.
 		Confirm: func(prompt string) (bool, error) {
@@ -351,28 +358,10 @@ func (s *Server) handlePlanRun(w http.ResponseWriter, r *http.Request) {
 
 	report, err := runner.Run(body.Plan)
 	if err != nil {
-		s.plan.mu.Lock()
-		s.plan.lastErr = err.Error()
-		s.plan.mu.Unlock()
 		writeJSON(w, http.StatusOK, map[string]any{"error": err.Error()})
 		return
 	}
 
-	s.plan.mu.Lock()
-	s.plan.last = &report
-	s.plan.lastErr = ""
-	s.plan.mu.Unlock()
-
 	s.emit(report.Summary())
 	writeJSON(w, http.StatusOK, map[string]any{"report": report, "summary": report.Summary()})
-}
-
-// planReportAge is only for the page's "last run" line.
-func (s *Server) lastPlanReport() (*ptreport.Report, string, time.Time) {
-	s.plan.mu.Lock()
-	defer s.plan.mu.Unlock()
-	if s.plan.last == nil {
-		return nil, s.plan.lastErr, time.Time{}
-	}
-	return s.plan.last, s.plan.lastErr, s.plan.last.EndedAt
 }

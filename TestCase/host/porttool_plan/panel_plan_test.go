@@ -20,6 +20,7 @@ import (
 	"strings"
 	"testing"
 
+	"PortTool/internal/portmap"
 	"PortTool/internal/ptpanel"
 	"PortTool/internal/ptplan"
 )
@@ -30,6 +31,10 @@ func planPanel(t *testing.T, handler func(cmd string, nth int) ([]string, []stri
 	was := ptpanel.PlanDir
 	ptpanel.PlanDir = dir
 	t.Cleanup(func() { ptpanel.PlanDir = was })
+
+	// Never the bench's real porttool_ports.json.
+	portmap.File = filepath.Join(t.TempDir(), "porttool_ports.json")
+	t.Cleanup(func() { portmap.File = "" })
 
 	fake := newScriptBoard(t, handler)
 	p := ptpanel.New()
@@ -328,4 +333,29 @@ func equalStrings(a, b []string) bool {
 		}
 	}
 	return true
+}
+
+// A plan the firmware cannot run as written is refused on the panel exactly as
+// the CLI refuses it (decision 77): a report from it would be a verdict on the
+// plan, not on the board.
+func TestPlanRunRefusesAPlanThatDoesNotFitTheFirmware(t *testing.T) {
+	var started bool
+	srv, _ := planPanel(t, func(cmd string, nth int) ([]string, []string) {
+		if strings.HasPrefix(cmd, "pt.start") {
+			started = true
+		}
+		return plainBoard(cmd, nth)
+	})
+	postJSON(t, srv, "/api/connect", map[string]any{"port": "COM_TEST"})
+
+	p := samplePlan("p")
+	p["steps"].([]any)[1].(map[string]any)["port"] = "nosuch"
+	r := postJSON(t, srv, "/api/plan/run", map[string]any{"plan": p})
+	msg, _ := r["error"].(string)
+	if !strings.Contains(msg, "nosuch") {
+		t.Fatalf("an unknown port was not refused by name: %v", r)
+	}
+	if r["report"] != nil || started {
+		t.Fatalf("the plan ran anyway (report %v, started %v)", r["report"] != nil, started)
+	}
 }

@@ -33,7 +33,7 @@ import (
 )
 
 // RunLogDir overrides where run logs are written. Tests set it; a bench never
-// does. Same shape as PlanDir and PortMapFile.
+// does. Same shape as PlanDir and portmap.File.
 var RunLogDir string
 
 func runLogDir() string {

@@ -40,6 +40,10 @@ func refusePeer(kind, addr string, baud int) (io.ReadWriteCloser, error) {
 	return nil, fmt.Errorf("no %s peer on this bench (%s)", kind, addr)
 }
 
+// noCDC stands in for the CDC lookup for the same reason: the real one
+// enumerates this machine's serial ports.
+func noCDC() (string, error) { return "", fmt.Errorf("no CDC port on this bench") }
+
 // ---------- limits ----------
 
 func TestCheckOperators(t *testing.T) {
@@ -258,7 +262,7 @@ func runPlan(t *testing.T, planJSON string, handler func(cmd string, nth int) ([
 	board := ptboard.New(fake, 0)
 	t.Cleanup(func() { board.Close() })
 
-	runner := &ptseq.Runner{OpenPeer: refusePeer,
+	runner := &ptseq.Runner{OpenPeer: refusePeer, FindCDC: noCDC,
 		Board:       board,
 		Sleep:       func(time.Duration) {},
 		ToolVersion: "test",
@@ -531,7 +535,7 @@ func TestToolStepIsJudgedByWhatItPrintedOrReturned(t *testing.T) {
 	board := ptboard.New(fake, 0)
 	t.Cleanup(func() { board.Close() })
 
-	runner := &ptseq.Runner{OpenPeer: refusePeer,
+	runner := &ptseq.Runner{OpenPeer: refusePeer, FindCDC: noCDC,
 		Board: board, Sleep: func(time.Duration) {}, ToolVersion: "test",
 		RunTool: func(name string, args []string, dir string, timeout time.Duration) (string, int, error) {
 			called = append(called, append([]string{name}, args...))
@@ -600,7 +604,7 @@ func TestOperatorAnswerIsTheVerdict(t *testing.T) {
 			})
 			board := ptboard.New(fake, 0)
 			t.Cleanup(func() { board.Close() })
-			runner := &ptseq.Runner{OpenPeer: refusePeer,
+			runner := &ptseq.Runner{OpenPeer: refusePeer, FindCDC: noCDC,
 				Board: board, Sleep: func(time.Duration) {},
 				ToolVersion: "test", Confirm: tc.confirm,
 			}
@@ -637,7 +641,7 @@ func TestSerialNumberComesFromOutsideAndReachesTheReport(t *testing.T) {
 	})
 	board := ptboard.New(fake, 0)
 	t.Cleanup(func() { board.Close() })
-	runner := &ptseq.Runner{OpenPeer: refusePeer,
+	runner := &ptseq.Runner{OpenPeer: refusePeer, FindCDC: noCDC,
 		Board: board, Sleep: func(time.Duration) {},
 		ToolVersion: "test", BaseDir: dir,
 	}
@@ -678,7 +682,7 @@ func TestMissingSerialNumberFailsRatherThanPassingEmpty(t *testing.T) {
 	})
 	board := ptboard.New(fake, 0)
 	t.Cleanup(func() { board.Close() })
-	runner := &ptseq.Runner{OpenPeer: refusePeer, Board: board, Sleep: func(time.Duration) {}, ToolVersion: "test"}
+	runner := &ptseq.Runner{OpenPeer: refusePeer, FindCDC: noCDC, Board: board, Sleep: func(time.Duration) {}, ToolVersion: "test"}
 	rep, err := runner.Run(plan)
 	if err != nil {
 		t.Fatalf("run: %v", err)
@@ -701,7 +705,7 @@ func runWithTool(t *testing.T, planJSON string,
 	})
 	board := ptboard.New(fake, 0)
 	t.Cleanup(func() { board.Close() })
-	runner := &ptseq.Runner{OpenPeer: refusePeer,
+	runner := &ptseq.Runner{OpenPeer: refusePeer, FindCDC: noCDC,
 		Board: board, Sleep: func(time.Duration) {}, ToolVersion: "test", RunTool: tool,
 	}
 	rep, err := runner.Run(p)
@@ -802,7 +806,7 @@ func TestBenchSmokePlanRuns(t *testing.T) {
 		t.Fatalf("caps fixture: %v", err)
 	}
 
-	runner := &ptseq.Runner{OpenPeer: refusePeer,
+	runner := &ptseq.Runner{OpenPeer: refusePeer, FindCDC: noCDC,
 		Board: board, Caps: &parsed,
 		Sleep: func(time.Duration) {}, ToolVersion: "test",
 	}
@@ -943,56 +947,16 @@ func TestPlanRunTargetsUncheckedAgainstOlderFirmware(t *testing.T) {
 // parameter string the port would refuse - is found here rather than at a
 // station with an operator waiting.
 //
-// The frames below are the shapes the firmware really prints, copied from the
-// T4-01 transcript. That is the point: a fake board answering in some other shape
-// would let a broken plan pass here.
+// The caps are the firmware's own, read from the T4-01 transcript, and the
+// frames below are the shapes it really prints. That is the point: a fake board
+// answering in some other shape would let a broken plan pass here.
 func TestStation6PlanRuns(t *testing.T) {
 	plan, err := ptplan.Load(filepath.Join("..", "..", "plans", "station6-poweron.json"))
 	if err != nil {
 		t.Fatalf("the plan we ship does not load: %v", err)
 	}
 
-	caps := []string{
-		"OK porttool=0.10.0 ports=17 lines=33",
-		"OK port=din board=upper kind=session blk=D term=D02-D09 channels=8 loop=ctrl params=ch,period running=0",
-		"OK vals=din ch=1,2,3,4,5,6,7,8 period=200",
-		"OK port=dout board=lower kind=session blk=A term=A03-A10 channels=8 loop=ctrl params=ch,mode,duty,freq,period running=0",
-		"OK vals=dout ch=1 mode=hold duty=1:0 freq=1:1000,2:1000,3:1000,4:1000,5:1000,6:1000,7:1000,8:1000 period=500",
-		"OK port=relay board=lower kind=session blk=B term=B01-B12 channels=6 loop=ctrl params=ch,mode,on,period running=0",
-		"OK vals=relay ch=1 mode=hold on=1:0 period=1000",
-		"OK port=temp board=lower kind=session blk=- term=- channels=2 loop=ctrl params=ch,period running=0",
-		"OK vals=temp ch=1,2 period=1000",
-		"OK port=ain board=upper kind=session blk=D term=D12,D13 channels=2 loop=ctrl params=ch,period running=0",
-		"OK vals=ain ch=1,2 period=500",
-		"OK port=aout board=upper kind=session blk=D term=D14,D15 channels=2 loop=ctrl params=ch,mv,period running=0",
-		"OK vals=aout ch=1 mv=1:0 period=500",
-		"OK port=rs232 board=upper kind=session blk=C term=C05,C06 channels=1 loop=self params=period running=0",
-		"OK vals=rs232 period=3000",
-		"OK port=rs485 board=upper kind=session blk=C term=C10,C11 channels=1 loop=link params=baud,period running=0 runs=rs485.pins",
-		"OK vals=rs485 baud=115200 period=3000",
-		"OK port=can board=upper kind=session blk=C term=C07,C08 channels=1 loop=link params=baud,mode,period running=0",
-		"OK vals=can baud=500000 mode=extloop period=1000",
-		"OK port=knx board=upper kind=session blk=C term=C03,C04 channels=1 loop=link params=mode,period running=0",
-		"OK vals=knx mode=loopback period=1000",
-		// sdram became a session on 2026-09-13: retention only means anything
-		// over a long run, so the waiting moved onto the PC's clock instead of
-		// blocking the board (DECISIONS.md 40). Its one-shots ride on that row.
-		"OK port=sdram board=bridge kind=session blk=- term=U6 channels=1 loop=ctrl params=wait,period running=0 runs=sdram.probe,sdram.sweep,sdram.crc",
-		"OK vals=sdram wait=5000 period=1000",
-		"OK limits=sdram wait:1000.. period:50..",
-		"OK port=sd board=bridge kind=session blk=- term=J6 channels=1 loop=ctrl params=period running=0 runs=sd.probe,sd.integrity,sd.speed",
-		"OK vals=sd period=500",
-		"OK limits=sd period:50..",
-		// A session with a one-shot on the same row: the TCP server and the PHY
-		// probe are one RJ45 (DECISIONS.md 28).
-		"OK port=eth board=bridge kind=session blk=- term=J1 channels=1 loop=link params=mode,port,ip,period running=0 runs=eth.link",
-		"OK vals=eth mode=echo port=5000 ip=dhcp period=1000",
-		"OK port=usb board=bridge kind=session blk=- term=J2 channels=1 loop=link params=mode,period running=0",
-		"OK vals=usb mode=echo period=1000",
-		"OK port=rtc board=bridge kind=run blk=- term=- channels=1 loop=none runs=rtc.read",
-		"OK port=reset board=bridge kind=run blk=- term=- channels=1 loop=none runs=reset.cause",
-		"OK port=led board=bridge kind=run blk=- term=- channels=1 loop=none runs=led.blink",
-	}
+	caps := goldenCaps(t)
 
 	fake := newScriptBoard(t, func(cmd string, nth int) ([]string, []string) {
 		switch {
@@ -1185,7 +1149,7 @@ func TestStation6PlanRuns(t *testing.T) {
 	// A production run has an operator, so the indicator step gets an answer.
 	// Leaving Confirm nil is what a headless run does, and that turns the step
 	// into an error rather than a silent pass - covered elsewhere.
-	runner := &ptseq.Runner{OpenPeer: refusePeer,
+	runner := &ptseq.Runner{OpenPeer: refusePeer, FindCDC: noCDC,
 		Board: board, Caps: &parsed,
 		Sleep:       func(time.Duration) {},
 		ToolVersion: "test",
@@ -1273,7 +1237,7 @@ func runSerialPeer(t *testing.T, chosen func(string) (string, int, bool), open f
 	fake := newScriptBoard(t, serialPeerReplies)
 	board := ptboard.New(fake, 0)
 	t.Cleanup(func() { board.Close() })
-	runner := &ptseq.Runner{OpenPeer: open, SerialPeer: chosen,
+	runner := &ptseq.Runner{OpenPeer: open, FindCDC: noCDC, SerialPeer: chosen,
 		Board: board, Sleep: func(time.Duration) {}, ToolVersion: "test"}
 	rep, err := runner.Run(plan)
 	if err != nil {
@@ -1314,4 +1278,32 @@ func TestSerialPeerOpensTheRecordedAdapter(t *testing.T) {
 	if gotAddr != "/dev/ttyUSB0" || gotBaud != 57600 {
 		t.Fatalf("opened %q at %d, want /dev/ttyUSB0 at 57600", gotAddr, gotBaud)
 	}
+}
+
+// goldenCaps is the firmware's pt.caps reply as T4-01 last recorded it from
+// the real porttool.c. Read rather than copied (DECISIONS.md 29): a copy drifts
+// the first time a port gains a parameter, and the test stays green against a
+// board that no longer exists.
+func goldenCaps(t *testing.T) []string {
+	t.Helper()
+	raw, err := os.ReadFile(filepath.Join("..", "porttool_caps", "caps_golden.txt"))
+	if err != nil {
+		t.Fatalf("read the T4-01 transcript: %v - run TestCase/host/porttool_caps/build.py", err)
+	}
+	chunks := strings.Split(string(raw), ">>> ")
+	for _, chunk := range chunks[1:] {
+		lines := strings.Split(chunk, "\n")
+		if strings.TrimRight(lines[0], "\r") != "pt.caps" {
+			continue
+		}
+		var out []string
+		for _, l := range lines[1:] {
+			if l = strings.TrimRight(l, "\r"); strings.HasPrefix(l, "OK ") {
+				out = append(out, l)
+			}
+		}
+		return out
+	}
+	t.Fatal("the T4-01 transcript has no pt.caps reply")
+	return nil
 }

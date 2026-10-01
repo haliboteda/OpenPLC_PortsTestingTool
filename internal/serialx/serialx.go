@@ -1,11 +1,7 @@
-// Package serialx is the one place either tool opens a serial port.
+// Package serialx is the one place PortTool opens a serial port.
 //
-// IAPTool and PortTool both talk to the same boards through the same kinds of
-// USB adapter, and the retry and timeout behaviour here was arrived at by
-// watching real ones fail. The two repos each carry this package and it must
-// stay byte-identical in both: drift shows up as "works in one tool, flaky in
-// the other" on a bench. P2 compares them; see $PROD/docs/repo/ARCHITECTURE.md,
-// cross-repo mirror 14.
+// The retry and timeout behaviour here was arrived at by watching real USB
+// adapters fail, so every port in the tool goes through it.
 package serialx
 
 import (
@@ -45,31 +41,6 @@ func Open(name string, baud int) (serial.Port, error) {
 		return nil, errors.New("serial.Open returned nil port")
 	}
 	return port, nil
-}
-
-// RetryOpen keeps trying for `attempts`, waiting `gap` between tries, and
-// reports each failure through `log` if one is given.
-//
-// The wait comes first on purpose: the usual reason a port will not open is
-// that the board is still enumerating after a reset, so trying instantly only
-// spends an attempt on a port the OS has not created yet.
-func RetryOpen(name string, baud, attempts int, gap time.Duration, log func(string, ...any)) (serial.Port, error) {
-	var lastErr error
-	for i := 1; i <= attempts; i++ {
-		time.Sleep(gap)
-		port, err := Open(name, baud)
-		if err == nil {
-			if log != nil && i > 1 {
-				log("opened %s on attempt %d", name, i)
-			}
-			return port, nil
-		}
-		lastErr = err
-		if log != nil {
-			log("could not open %s, attempt %d of %d: %v", name, i, attempts, err)
-		}
-	}
-	return nil, fmt.Errorf("could not open %s after %d attempts: %w", name, attempts, lastErr)
 }
 
 // PortInfo is one serial port as the operating system describes it.
