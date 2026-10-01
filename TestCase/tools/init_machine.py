@@ -107,8 +107,6 @@ def detect_git_bash():
 SETTINGS = [
     ("BOOT_REPO", lambda r: detect_repo("open_plc_cube_ide"), True,
      "open_plc_cube_ide: the fixture firmware (TestCase/porttool/) and the CubeIDE project"),
-    ("DOCS_REPO", lambda r: detect_repo("OpenPLC_Docs"), False,
-     "OpenPLC_Docs: DOCS checks that every $PORTTOOL/... path it names exists"),
     ("CUBEIDE", lambda r: detect_cubeide(), False,
      "STM32CubeIDE install root: headless fixture build and STM32_Programmer_CLI"),
     ("WORKSPACE", lambda r: str(Path(r["BOOT_REPO"]).parent) if r.get("BOOT_REPO") else None, False,

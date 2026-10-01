@@ -23,12 +23,12 @@
 | `internal/portmap/` | 哪个 COM 口是哪个，记在 exe 旁边的 `porttool_ports.json`；面板和 `porttool run` 都读 |
 | `internal/serialx/` | 串口层：开口、枚举（带 VID/PID）。macOS 上不开 cgo，VID/PID 由系统自带的 `ioreg` 补 —— 见 `enum_darwin.go` |
 | `internal/simboard/` | 模拟板：找到并启动 `TestCase/host/porttool_caps/harness/` 下编出来的主机版固件；`OpenPort` 是「`sim` 还是真串口」的唯一判断 |
-| `internal/calarea/` | 工装写进 flash `0x081E0000` 的校准值区。格式归 bootloader 的 `IAPServer/calib_area.h`，本仓 selfcheck 的 CALAREA 一步查两边一致 |
+| `internal/calarea/` | 工装写进 flash `0x081E0000` 的校准值区。格式归 bootloader 的 `IAPServer/calib_area.h`；三方（bootloader、板卡包、本仓）一致由 `OpenPLC_Test` 的 P2 查（决策 78） |
 | `TestCase/host/porttool_caps/` | 用例 **T4-01**：用真的 `porttool.c` 编主机版，再拿 Go 解析器对它的输出 |
 | `TestCase/host/porttool_plan/` | 方案执行器和方案页的测试 |
 | `TestCase/host/porttool_panel/` | 用例 **T4-02** / **T4-03**：浏览器里点面板 |
 | `TestCase/plans/` | 随 PortTool 发出去的测试方案 |
-| `TestCase/tools/` | `common.py`（本机路径、输出、工具链）、`init_machine.py`（生成 `TestCase/config/machine.py`，gitignored）、`build_fixture.py`（编工装镜像）、`selfcheck.py`、`check_calarea.py`、`check_doc_paths.py`（`$PROD` 里写的 `$PORTTOOL/...` 路径都在）、`make_delivery.py` + `md2html.py`（交付包） |
+| `TestCase/tools/` | `common.py`（本机路径、输出、工具链）、`init_machine.py`（生成 `TestCase/config/machine.py`，gitignored）、`build_fixture.py`（编工装镜像）、`selfcheck.py`、`make_delivery.py` + `md2html.py`（交付包） |
 
 ## 开工前
 

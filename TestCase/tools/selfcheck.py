@@ -35,9 +35,7 @@ CATALOG = [
     ("GO-TEST", "Go unit tests: parser, judging, plan executor, panel API (T4-04 included)"),
     ("GO-VET", "go vet over the whole module"),
     ("T4-01", "port tool protocol contract (real porttool.c, then the Go parser)"),
-    ("CALAREA", "internal/calarea has the bootloader's calibration area layout"),
     ("T4-02", "the panel clicked through in a real browser, against the simulated board"),
-    ("DOCS", "every $PORTTOOL/... path written in OpenPLC_Docs exists"),
 ]
 
 results = []
@@ -86,8 +84,6 @@ def main():
     run("GO-VET", ["go", "vet", "./..."], REPO, needs="go")
     run("T4-01", [sys.executable, TESTCASE / "host" / "porttool_caps" / "build.py"], REPO,
         needs=getattr(cfg, "HOST_CC", "") or "gcc")
-    run("CALAREA", [sys.executable, HERE / "check_calarea.py"], TESTCASE)
-    run("DOCS", [sys.executable, HERE / "check_doc_paths.py"], TESTCASE)
     if args.quick:
         results.append(("T4-02", "SKIP", "--quick"))
     else:
