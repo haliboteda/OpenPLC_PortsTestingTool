@@ -14,7 +14,7 @@ import (
 // That is the point of them. The far end of a link is the one piece the
 // simulated board cannot exercise: it plays every peer itself, inside the
 // firmware, so the code in link.go never runs during a simulated pass. A
-// session mode that broke this end would sail through H5 and fail the moment
+// session mode that broke this end would sail through T4-02 and fail the moment
 // somebody with a real board pressed the button - which is what happened on
 // 2026-09-14.
 

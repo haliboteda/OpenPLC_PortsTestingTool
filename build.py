@@ -84,7 +84,7 @@ def build_fixture():
 def rebuild_sim():
     """The simulated board compiles the same porttool sources as the fixture.
 
-    *** So a firmware change leaves it stale, and H5 then tests yesterday's
+    *** So a firmware change leaves it stale, and T4-02 then tests yesterday's
     protocol against today's panel. *** Failing to build it is a warning, not an
     error: it needs a host compiler, and a machine without one can still
     build firmware and tools.
@@ -93,7 +93,7 @@ def rebuild_sim():
     rc = subprocess.call([sys.executable, "build.py", "--sim"],
                          cwd=str(HERE / "TestCase" / "host" / "porttool_caps"))
     if rc != 0:
-        Warn("模拟板没重建（多半是主机 gcc 没装）—— H5 会用旧的那个。")
+        Warn("模拟板没重建（多半是主机 gcc 没装）—— T4-02 会用旧的那个。")
     return rc == 0
 
 

@@ -152,7 +152,6 @@ func TestGoldenSessionDetail(t *testing.T) {
 	}
 }
 
-
 func TestGoldenLifecycle(t *testing.T) {
 	runs := transcript(t)["pt.caps"]
 	states := make([]ptproto.Port, 0, 3)

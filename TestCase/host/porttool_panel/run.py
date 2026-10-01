@@ -1,4 +1,4 @@
-"""Clicks through the port tool panel in a real browser. Case H5.
+"""Clicks through the port tool panel in a real browser. Case T4-02.
 
     python run.py --port COM12          the board's RS232 control port
     python run.py --port COM12 --show   watch it happen in a visible window
