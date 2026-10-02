@@ -7,8 +7,8 @@
 //
 // The board is not involved. It reports what it intended to put out and a
 // meter says what actually came out; everything from there is the host's
-// (DECISIONS.md 22 and 38). Nothing here writes a coefficient back to a board
-// either - where a coefficient would live is still open, ISS-C1.
+// (DECISIONS.md 22 and 38). Nothing here writes a coefficient back to a board:
+// station 10 programs the sector-15 image internal/calstore produces (CAL-04).
 //
 // # Why a straight line
 //

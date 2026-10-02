@@ -420,6 +420,10 @@ func (s *Server) handleConnect(w http.ResponseWriter, r *http.Request) {
 
 	b := ptboard.New(port, 0)
 	caps, capsErr := b.Caps()
+	advice := ""
+	if capsErr != nil {
+		advice = noCapsAdvice(port, capsErr) // may wait briefly; kept outside the lock
+	}
 
 	s.mu.Lock()
 	s.board = b
@@ -432,9 +436,7 @@ func (s *Server) handleConnect(w http.ResponseWriter, r *http.Request) {
 		// Connected but not answering is worth staying connected for: the log
 		// pane is now showing whatever the board *is* saying, and that is the
 		// evidence somebody needs to work out why.
-		s.capsErr = fmt.Sprintf(
-			"串口开了，但板子没有回答 pt.caps：%v。检查固件是不是用 PORTTOOL_ENABLE=1 编的，波特率是不是 115200，接线是 C05/C06/C02。",
-			capsErr)
+		s.capsErr = advice
 	}
 	s.mu.Unlock()
 
@@ -444,28 +446,62 @@ func (s *Server) handleConnect(w http.ResponseWriter, r *http.Request) {
 	s.mu.Lock()
 	s.echoStop = stopEcho
 	s.mu.Unlock()
-	go s.watchLost(b)
+	go s.watchLost(b, port)
 
 	writeJSON(w, 200, s.stateJSON())
+}
+
+// simExit waits up to a second for the simulated board's exit code. Its pipe
+// closes as it exits, so a read fails a moment before the code is reaped.
+func simExit(port io.ReadWriteCloser) (code int, exited bool) {
+	for i := 0; i < 20; i++ {
+		if code, exited = simboard.Exited(port); exited {
+			return code, true
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+	return 0, false
+}
+
+// noCapsAdvice says why a freshly opened port gave no pt.caps. The simulated
+// board gets its own wording: firmware flags, baud and terminals mean nothing
+// for a program on this PC, and its exit code is the one fact that does.
+func noCapsAdvice(port io.ReadWriteCloser, capsErr error) string {
+	if path := simboard.Path(port); path != "" {
+		if code, exited := simExit(port); exited {
+			return fmt.Sprintf("模拟板退出了（退出码 %d），没有回答 pt.caps。在命令行里直接运行它，看它打出了什么：%s", code, path)
+		}
+		return fmt.Sprintf("模拟板在运行，但没有回答 pt.caps：%v。多半是模拟板太旧，重编一个：cd TestCase/host/porttool_caps && python build.py --sim", capsErr)
+	}
+	return fmt.Sprintf(
+		"串口开了，但板子没有回答 pt.caps：%v。检查固件是不是用 PORTTOOL_ENABLE=1 编的，波特率是不是 115200，接线是 C05/C06/C02。",
+		capsErr)
 }
 
 // watchLost says so when the control port dies under a connected panel.
 // Without it the page keeps showing "已连上" over a board that answers
 // nothing (decision 77). A disconnect clears s.board before closing, so a
 // close the panel asked for is not reported as a loss.
-func (s *Server) watchLost(b *ptboard.Board) {
+func (s *Server) watchLost(b *ptboard.Board, port io.ReadWriteCloser) {
 	<-b.Lost()
+	why := "读不到数据"
+	if err := b.Err(); err != nil {
+		why = err.Error()
+	}
+	msg := "控制口断了（" + why + "）。板子可能掉电了，或者适配器被拔了、线松了。点「断开」再重新连。"
+	if path := simboard.Path(port); path != "" {
+		if code, exited := simExit(port); exited {
+			msg = fmt.Sprintf("模拟板退出了（退出码 %d）。在命令行里直接运行它，看它打出了什么：%s", code, path)
+		} else {
+			msg = "模拟板的连接断了（" + why + "）。点「断开」再重新连。"
+		}
+	}
 	s.mu.Lock()
 	if s.board != b {
 		s.mu.Unlock()
 		return
 	}
-	why := "读不到数据"
-	if err := b.Err(); err != nil {
-		why = err.Error()
-	}
-	s.linkErr = "控制口断了（" + why + "）。板子可能掉电了，或者适配器被拔了、线松了。点「断开」再重新连。"
-	msg := s.linkErr
+	s.linkErr = msg
 	s.mu.Unlock()
 	s.emit("[连接] " + msg)
 	s.stopTimedRun("控制口断了")

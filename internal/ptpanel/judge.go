@@ -2,15 +2,20 @@ package ptpanel
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"sync"
+	"time"
 
+	"PortTool/internal/calstore"
+	"PortTool/internal/ptboard"
 	"PortTool/internal/ptcal"
 	"PortTool/internal/ptcheck"
 	"PortTool/internal/ptplan"
 	"PortTool/internal/ptproto"
 	"PortTool/internal/ptseq"
+	"PortTool/internal/simboard"
 )
 
 // Judging a port's readings on the panel, using the criteria that already
@@ -370,10 +375,10 @@ func (s *Server) handleCriteria(w http.ResponseWriter, r *http.Request) {
 // here is shared: a production run will fit the same points unattended, and
 // the two must not be able to disagree about what they mean.
 //
-// *** It returns a fit, not a calibrated board. *** Where a coefficient would
-// be stored so it survives the tooling image being replaced is still open
-// (ISS-C1), so this is shown on the page and nothing is written to the board
-// or to disk. Computing is unblocked; storing is not.
+// When the walk names its channel, the fit is also judged against the plan's
+// accuracy limit and archived by board UID, with the sector-15 image once all
+// four channels pass. Nothing is written to the board: the tooling firmware
+// only measures (CAL-04). See PORTTOOL-FLOW.md C.3.2.
 func (s *Server) handleFit(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		Points []struct {
@@ -382,6 +387,8 @@ func (s *Server) handleFit(w http.ResponseWriter, r *http.Request) {
 		} `json:"points"`
 		GainTol   float64 `json:"gain_tol"`
 		OffsetTol float64 `json:"offset_tol"`
+		Channel   string  `json:"channel"`
+		Unit      string  `json:"unit"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		writeErr(w, 400, "没读懂要拟合的那些点。")
@@ -409,9 +416,102 @@ func (s *Server) handleFit(w http.ResponseWriter, r *http.Request) {
 	if gainTol <= 0 {
 		gainTol = 0.01
 	}
-	writeJSON(w, 200, map[string]any{
+	resp := map[string]any{
 		"known": true,
 		"fit":   fit,
 		"ideal": fit.Ideal(gainTol, offsetTol),
-	})
+	}
+	if body.Channel != "" {
+		judge, stored, err := s.storeFit(body.Channel, body.Unit, pts, fit)
+		resp["judge"] = judge
+		if err != nil {
+			resp["store_error"] = err.Error()
+		} else {
+			resp["stored"] = stored
+		}
+	}
+	writeJSON(w, 200, resp)
+}
+
+// fitJudge is a channel's verdict against the plan's accuracy limit.
+type fitJudge struct {
+	Plan          string  `json:"plan"`
+	Limited       bool    `json:"limited"` // false: the plan states no limit for this channel
+	FullScale     float64 `json:"full_scale,omitempty"`
+	MaxPctFS      float64 `json:"max_residual_pct_fs,omitempty"`
+	ResidualPctFS float64 `json:"residual_pct_fs,omitempty"`
+	Pass          *bool   `json:"pass,omitempty"`
+	Why           string  `json:"why,omitempty"`
+}
+
+// storeFit judges one channel's fit and archives it by the connected board's UID.
+func (s *Server) storeFit(channel, unit string, pts []ptcal.Point, fit ptcal.Fit) (fitJudge, calstore.Result, error) {
+	judge := fitJudge{Plan: criteriaPlanName()}
+	limitVersion := ""
+	if path, err := safePlanPath(judge.Plan); err == nil {
+		if plan, err := ptplan.Load(path); err == nil {
+			limitVersion = plan.LimitVersion
+			if lim, ok := plan.Calibration.Limit(channel); ok {
+				pct, pass := ptcheck.ResidualWithin(fit.MaxResidual, lim.FullScale, lim.MaxResidualPctFS)
+				judge.Limited, judge.FullScale, judge.MaxPctFS, judge.ResidualPctFS, judge.Pass = true, lim.FullScale, lim.MaxResidualPctFS, pct, &pass
+			} else {
+				judge.Why = "方案里没有这一路的精度指标，只存档不判"
+			}
+		} else {
+			judge.Why = "方案读不进来：" + err.Error()
+		}
+	} else {
+		judge.Why = "方案读不进来：" + err.Error()
+	}
+	// Two points always lie on their own line; a zero residual from them proves
+	// nothing, so it is never a pass.
+	if fit.Exact && judge.Pass != nil && *judge.Pass {
+		no := false
+		judge.Pass, judge.Why = &no, "只有两个点，残差必然是 0，判不了精度"
+	}
+
+	uid, err := s.boardUID()
+	if err != nil {
+		return judge, calstore.Result{}, err
+	}
+	ch := calstore.Channel{
+		Unit: unit, Gain: fit.Gain, Offset: fit.Offset,
+		MaxResidual: fit.MaxResidual, MaxResidualAt: fit.MaxResidualAt, RMSResidual: fit.RMSResidual,
+		Pass: judge.Pass,
+	}
+	for _, p := range pts {
+		ch.Points = append(ch.Points, calstore.Point{Want: p.Want, Got: p.Got})
+	}
+	if judge.Limited {
+		fs, maxPct, pct := judge.FullScale, judge.MaxPctFS, judge.ResidualPctFS
+		ch.FullScale, ch.MaxResidualPctFS, ch.ResidualPctFS = &fs, &maxPct, &pct
+	}
+	res, err := calstore.Store(uid, channel, ch, calstore.Meta{PortTool: s.Version, Plan: judge.Plan, LimitVersion: limitVersion}, time.Now())
+	return judge, res, err
+}
+
+// boardUID asks the connected board for its UID now, rather than trusting one
+// remembered from earlier: a board swapped between walks must not inherit
+// the previous board's archive.
+func (s *Server) boardUID() (string, error) {
+	s.mu.Lock()
+	b, name := s.board, s.portNam
+	s.mu.Unlock()
+	if b == nil {
+		return "", errors.New("没连板子，拿不到 UID，没存档")
+	}
+	if simboard.IsSim(name) {
+		// Its readings are invented; filed under a UID they would pass for a board's.
+		return "", errors.New("连的是模拟板，读数是假的，不存档")
+	}
+	lines, err := b.Send("pt.id", ptboard.ExpectFor("pt.id"), ptboard.TimeoutFor("pt.id"))
+	if err != nil {
+		return "", fmt.Errorf("问 UID（pt.id）没得到回答：%v", err)
+	}
+	for _, l := range lines {
+		if uid, ok := ptproto.Get(ptproto.Fields(l), "uid"); ok {
+			return uid, nil
+		}
+	}
+	return "", errors.New("pt.id 的回答里没有 uid")
 }

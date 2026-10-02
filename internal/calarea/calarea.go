@@ -33,6 +33,23 @@ const (
 	AO2        // mA
 )
 
+// Names and Units are the channels as plan files and the archive spell them,
+// in format order. The unit is the one the coefficients are fitted in.
+var (
+	Names = [Channels]string{"AI1", "AI2", "AO1", "AO2"}
+	Units = [Channels]string{"mV", "mA", "mA", "mA"}
+)
+
+// Index returns a channel's position in the area, by name.
+func Index(name string) (int, bool) {
+	for i, n := range Names {
+		if n == name {
+			return i, true
+		}
+	}
+	return 0, false
+}
+
 // Channel holds one fit: measured ~= Gain*nominal + Offset.
 type Channel struct {
 	Gain   float32

@@ -20,6 +20,7 @@
 | `internal/ptreport/` | 报告。三条规矩：**每次尝试都留**（重试不覆盖原失败）、**原始值都留**（限值会改，要能重判）、**超时与判定失败分开记**（前者多半是接线/探针，后者多半是板子） |
 | `internal/ptecho/` | loop=link 的对端（eth / usb / rs485）：**按字节原样送回**。面板和方案步骤用的是同一份（决策 77）；`FindCDC` 找板子的 USB CDC 口 |
 | `internal/ptcal/` | 校准点的直线拟合（增益 + 偏移），面板 `/api/fit` 用 |
+| `internal/calstore/` | 校准结果按板子 UID 存档到 exe 旁边的 `calibration/`，四路都合格时写出扇区 15 校准值区的镜像 `calarea.bin`。不往板子写 flash（CAL-04）。格式见 `$PROD/docs/modules/M4/PORTTOOL-FLOW.md` C.3.2 |
 | `internal/portmap/` | 哪个 COM 口是哪个，记在 exe 旁边的 `porttool_ports.json`；面板和 `porttool run` 都读 |
 | `internal/serialx/` | 串口层：开口、枚举（带 VID/PID）。macOS 上不开 cgo，VID/PID 由系统自带的 `ioreg` 补 —— 见 `enum_darwin.go` |
 | `internal/simboard/` | 模拟板：找到并启动 `TestCase/host/porttool_caps/harness/` 下编出来的主机版固件；`OpenPort` 是「`sim` 还是真串口」的唯一判断 |

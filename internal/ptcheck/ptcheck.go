@@ -11,9 +11,22 @@ package ptcheck
 
 import (
 	"fmt"
+	"math"
 	"strconv"
 	"strings"
 )
+
+// ResidualWithin judges one calibrated channel against its accuracy limit: the
+// fit's worst residual as a percentage of full scale must not exceed maxPctFS.
+// Full scale, not the reading: near zero any reading-relative limit is one the
+// converter cannot meet. See PRODUCTION-FRAMEWORK.md, "精度指标".
+func ResidualWithin(maxResidual, fullScale, maxPctFS float64) (pctFS float64, pass bool) {
+	if fullScale <= 0 {
+		return math.Inf(1), false
+	}
+	pctFS = math.Abs(maxResidual) / fullScale * 100
+	return pctFS, pctFS <= maxPctFS
+}
 
 // Op is how a reading is compared to the limit.
 type Op string

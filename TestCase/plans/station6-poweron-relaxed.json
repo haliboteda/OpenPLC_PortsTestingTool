@@ -1,8 +1,18 @@
 {
   "schema": 1,
   "name": "Station 6 - PCBA power-on test (relaxed limits)",
-  "limit_version": "2026-09-10-b-relaxed",
+  "limit_version": "2026-10-03-a-relaxed",
   "_note": "Same steps as station6-poweron.json, with the ANALOG limits widened. It exists so a bench or a line can run against a looser limit set without editing the strict one - and so the report says which was used: every report carries plan and limit_version, so a board passed on relaxed limits is distinguishable from one passed on strict limits forever after. ⚠️ Only readings that are actually MEASURED are widened here. aout's mV is the DAC setting read back, not a measurement, so widening it would mean nothing - the board has no channel that can read its own analog output, and the fixture's meter is the only real verdict. ⚠️ The 0.1% / 0.3% question (PRODUCTION-TEST-GAP.md Q2) is NOT settled by this file. Until the JP1-JP9 range jumpers are known, the terminal-to-pin factor is unknown and no percentage limit can be written at all - both files can only say 'not floating'. When that factor is known, the analog-in and analog-out steps are where the percentage goes, and these two files are where strict and relaxed part company. Each independent group's first step is ALWAYS, so one failure no longer hides every later port: a board with no SD card still gets its ethernet, USB, relay and analog results in the same run. Steps left on the default PASS are the ones whose immediate predecessor is a genuine precondition - stressing SDRAM whose buses failed, or checking the integrity of a card that is not there, measures nothing.",
+  "calibration": {
+    "_note": "Accuracy after calibration at 25 C (decision 70, CAL-02): the worst residual of each channel's straight-line fit, as a percentage of full scale. Judged by internal/ptcheck when the multi-point walk on the panel finishes; the image for station 10 is only produced once all four pass. No all-temperature figure is set yet, so temperature_c is recorded, not judged.",
+    "temperature_c": 25,
+    "channels": [
+      { "channel": "AI1", "unit": "mV", "full_scale": 10000, "max_residual_pct_fs": 0.1 },
+      { "channel": "AI2", "unit": "mA", "full_scale": 20, "max_residual_pct_fs": 0.1 },
+      { "channel": "AO1", "unit": "mA", "full_scale": 20, "max_residual_pct_fs": 0.3 },
+      { "channel": "AO2", "unit": "mA", "full_scale": 20, "max_residual_pct_fs": 0.3 }
+    ]
+  },
   "steps": [
     {
       "id": "identity",

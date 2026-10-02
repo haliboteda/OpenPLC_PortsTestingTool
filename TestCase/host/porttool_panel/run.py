@@ -1017,11 +1017,14 @@ def check_aout_walk(page):
           body[-400:])
     check("两个点" in body,
           "two points are called out as defining their own line", body[-400:])
-    # Computing was unblocked on 2026-09-13; storing was not (ISS-C1), and a
-    # coefficient nobody wrote to the board has to be visibly that.
-    check("没有写进板子" in body,
+    # The tooling firmware never writes flash (CAL-04): the card has to say the
+    # coefficients go to a file for station 10, and a simulated board's fit is
+    # not archived at all - its readings are invented.
+    check("不写进板子" in body,
           "the card says the coefficients are not written to the board",
           body[-400:])
+    check("模拟板" in body and "不存档" in body,
+          "and a simulated board's fit is not archived", body[-400:])
 
 
 def check_limits_are_readonly(page):

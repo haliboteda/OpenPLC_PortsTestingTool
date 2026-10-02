@@ -18,6 +18,7 @@ import (
 	"sort"
 	"strings"
 
+	"PortTool/internal/calarea"
 	"PortTool/internal/ptcheck"
 	"PortTool/internal/ptproto"
 )
@@ -240,11 +241,69 @@ func (s Step) ParamArgs() []string {
 
 // Plan is a whole plan file.
 type Plan struct {
-	Schema       int    `json:"schema"`
-	Name         string `json:"name"`
-	LimitVersion string `json:"limit_version"`
-	Note         string `json:"_note,omitempty"`
-	Steps        []Step `json:"steps"`
+	Schema       int          `json:"schema"`
+	Name         string       `json:"name"`
+	LimitVersion string       `json:"limit_version"`
+	Note         string       `json:"_note,omitempty"`
+	Calibration  *Calibration `json:"calibration,omitempty"`
+	Steps        []Step       `json:"steps"`
+}
+
+// Calibration is the accuracy a board must reach after calibration
+// (decision 70). In the plan so that changing it is changing a file
+// (decision 30). See PRODUCTION-FRAMEWORK.md, "精度指标".
+type Calibration struct {
+	Note string `json:"_note,omitempty"`
+	// TemperatureC is recorded, not judged: no all-temperature figure is set yet.
+	TemperatureC float64      `json:"temperature_c,omitempty"`
+	Channels     []CalChannel `json:"channels"`
+}
+
+// CalChannel is the limit for one calibrated channel.
+type CalChannel struct {
+	Channel          string  `json:"channel"`
+	Unit             string  `json:"unit"`
+	FullScale        float64 `json:"full_scale"`
+	MaxResidualPctFS float64 `json:"max_residual_pct_fs"`
+}
+
+// Limit returns the limit for a channel, if the plan states one.
+func (c *Calibration) Limit(channel string) (CalChannel, bool) {
+	if c == nil {
+		return CalChannel{}, false
+	}
+	for _, ch := range c.Channels {
+		if ch.Channel == channel {
+			return ch, true
+		}
+	}
+	return CalChannel{}, false
+}
+
+func (c *Calibration) validate() error {
+	if len(c.Channels) == 0 {
+		return fmt.Errorf("calibration lists no channels")
+	}
+	seen := map[string]bool{}
+	for _, ch := range c.Channels {
+		i, ok := calarea.Index(ch.Channel)
+		if !ok {
+			return fmt.Errorf("calibration channel %q is not one of %v", ch.Channel, calarea.Names)
+		}
+		if seen[ch.Channel] {
+			return fmt.Errorf("calibration channel %q is listed twice", ch.Channel)
+		}
+		seen[ch.Channel] = true
+		// The coefficients go into the calibration area in that channel's unit;
+		// a limit written in another unit would judge a different number.
+		if ch.Unit != calarea.Units[i] {
+			return fmt.Errorf("calibration channel %s is fitted in %s, not %q", ch.Channel, calarea.Units[i], ch.Unit)
+		}
+		if ch.FullScale <= 0 || ch.MaxResidualPctFS <= 0 {
+			return fmt.Errorf("calibration channel %s needs a positive full_scale and max_residual_pct_fs", ch.Channel)
+		}
+	}
+	return nil
 }
 
 // Load reads a plan file and validates it. A plan that does not validate is
@@ -289,6 +348,11 @@ func (p Plan) Validate() error {
 	}
 	if len(p.Steps) == 0 {
 		return fmt.Errorf("plan has no steps")
+	}
+	if p.Calibration != nil {
+		if err := p.Calibration.validate(); err != nil {
+			return err
+		}
 	}
 
 	seen := map[string]int{}

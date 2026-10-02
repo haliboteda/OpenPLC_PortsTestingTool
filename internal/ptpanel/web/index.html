@@ -2747,10 +2747,9 @@ function allCasesRow(p, cases, build) {
 // *** gain error, and those need different corrections - which is the whole
 // *** reason calibration data is worth collecting at all.
 //
-// *** This records and judges. It does NOT fit a correction curve: what shape
-// *** that curve should be is a question about real hardware, and nobody has
-// *** the measurements yet. Inventing one now would put an unexplainable bias
-// *** underneath every board that follows. See ISS-C1 in $BOOT/docs/work.
+// *** The fit (a straight line, CAL-03), the accuracy verdict and the archive
+// *** by board UID are the server's: /api/fit, internal/ptcal, ptcheck and
+// *** calstore. See PORTTOOL-FLOW.md C.3.2.
 
 
 // 多点测量正在跑。**不是 aocal.busy** —— 那个是给按钮看的，跑完就清；这个要
@@ -2761,7 +2760,7 @@ let aocal = {
   busy: "",
   ch: 1,
   meter: "none",      // "none" = 回显那一档；"manual" = 多点走查
-  pointsText: "1, 10, 20",   // mA, 覆盖量程高中低
+  pointsText: "0, 5, 10, 15, 20",   // mA：满量程的 0 / 25 / 50 / 75 / 100 %（CAL-03）
   tolPct: 2,                 // 合格判据，可配
   rows: [],
   note: "",
@@ -2879,7 +2878,8 @@ async function aocalRun(p, say, render) {
   const fitPts = rows.map(r => ({want: r.wantMa,
                                  got: (r.gotMa === null || !isFinite(r.gotMa)) ? null : r.gotMa}));
   try {
-    aocal.fit = await api("/api/fit", {points: fitPts, gain_tol: 0.01, offset_tol: 0.05});
+    aocal.fit = await api("/api/fit", {points: fitPts, gain_tol: 0.01, offset_tol: 0.05,
+                                       channel: "AO" + ch, unit: "mA"});
   } catch (e) {
     aocal.fit = {known: false, why: String(e)};
   }
@@ -2921,6 +2921,40 @@ function aocalFitBox(r) {
     r.ideal ? "这块板本来就准，不需要补偿。"
             : "这块板要补偿：要它真的输出 10 mA，得让它输出 " +
               (f.gain === 0 ? 10 : (10 - f.offset) / f.gain).toFixed(3) + " mA。"));
+  box.appendChild(aocalVerdict(r));
+  return box;
+}
+
+// 精度判定和存档的结果，都是服务端给的（ptcheck、calstore），页面只负责说出来。
+function aocalVerdict(r) {
+  const box = el("div");
+  const j = r.judge || {};
+  if (j.pass === true) {
+    box.appendChild(el("div", "msg ok", "精度合格：校准后最大残差是满量程的 " + j.residual_pct_fs.toFixed(3) +
+      " %，指标 ±" + j.max_residual_pct_fs + " %（方案 " + j.plan + "）。"));
+  } else if (j.pass === false) {
+    box.appendChild(el("div", "msg bad", "精度不合格：" + (j.why ||
+      ("校准后最大残差是满量程的 " + j.residual_pct_fs.toFixed(3) + " %，超过指标 ±" + j.max_residual_pct_fs + " %（方案 " + j.plan + "）。"))));
+  } else if (j.why) {
+    box.appendChild(el("div", "msg", "没判精度：" + j.why + "。"));
+  }
+  if (r.store_error) {
+    box.appendChild(el("div", "msg bad", "没存档：" + r.store_error));
+  } else if (r.stored) {
+    const st = r.stored;
+    let line = "已按板子 UID 存档：" + st.archive;
+    if (st.kept_archive) line += "（上一次的存档改名留在 " + st.kept_archive + "）";
+    box.appendChild(el("div", "msg", line));
+    if (st.image) {
+      box.appendChild(el("div", "msg ok", "四路都合格，扇区 15 的校准值镜像已生成：" + st.image + " —— 工站 10 用 JLINK 把它写进板子。"));
+    } else {
+      const wait = [];
+      if (st.missing && st.missing.length) wait.push("还没测：" + st.missing.join("、"));
+      if (st.failing && st.failing.length) wait.push("不合格：" + st.failing.join("、"));
+      if (st.unjudged && st.unjudged.length) wait.push("没判精度：" + st.unjudged.join("、"));
+      box.appendChild(el("div", "msg", "还不能出扇区 15 镜像 —— " + wait.join("；") + "。四路都测过、都合格才生成。"));
+    }
+  }
   return box;
 }
 
@@ -3023,8 +3057,8 @@ function aocalResult() {
     if (aocal.fit) { res.appendChild(aocalFitBox(aocal.fit)); }
 
     res.appendChild(richText("div","hint",
-      "⚠️ **系数算出来了，但没有写进板子。** 存在板子哪一块 flash 还没定（ISS-C1），" +
-      "所以这些数只在这一页上 —— 关掉就没了，要留就先抄下来。**先看最大残差再看增益** —— 残差比表本身的误差大得多，" +
+      "⚠️ **系数不写进板子**：测试固件只测，系数按板子 UID 存在电脑上，四路齐了生成扇区 15 的镜像，" +
+      "由工站 10 用 JLINK 写进去。**先看最大残差再看增益** —— 残差比表本身的误差大得多，" +
       "就说明这条响应不是直线，那条直线在哪儿都是错的。"));
   }
 

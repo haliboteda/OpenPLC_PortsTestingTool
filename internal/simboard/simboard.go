@@ -125,9 +125,11 @@ func Find() (string, error) {
 
 // conn is the child process presented as one stream.
 type conn struct {
-	cmd *exec.Cmd
-	in  io.WriteCloser
-	out io.ReadCloser
+	cmd  *exec.Cmd
+	in   io.WriteCloser
+	out  io.ReadCloser
+	done chan struct{} // closed once the process has exited
+	code int           // its exit code, valid after done is closed
 }
 
 func (c *conn) Read(p []byte) (int, error)  { return c.out.Read(p) }
@@ -137,8 +139,34 @@ func (c *conn) Write(p []byte) (int, error) { return c.in.Write(p) }
 // watches for. Killing it outright would leave the last frames unread.
 func (c *conn) Close() error {
 	err := c.in.Close()
-	_ = c.cmd.Wait()
+	<-c.done
 	return err
+}
+
+// Exited reports whether the simulated board behind a port opened here has
+// exited, and with what code. A port that is not the simulated board, or one
+// still running, reports false. The panel needs it because a simulator that
+// died looks exactly like a board that is not answering, and the advice for
+// the two is different.
+func Exited(port io.ReadWriteCloser) (code int, exited bool) {
+	c, ok := port.(*conn)
+	if !ok {
+		return 0, false
+	}
+	select {
+	case <-c.done:
+		return c.code, true
+	default:
+		return 0, false
+	}
+}
+
+// Path is the simulated board executable behind a port, or "" for a serial port.
+func Path(port io.ReadWriteCloser) string {
+	if c, ok := port.(*conn); ok {
+		return c.cmd.Path
+	}
+	return ""
 }
 
 // Open starts the simulated board.
@@ -167,5 +195,19 @@ func Open() (io.ReadWriteCloser, error) {
 		return nil, fmt.Errorf("起不来模拟板 %s：%w", path, err)
 	}
 
-	return &conn{cmd: cmd, in: in, out: out}, nil
+	c := &conn{cmd: cmd, in: in, out: out, done: make(chan struct{})}
+	// Waited on here rather than in Close, so an exit is known the moment it
+	// happens and not only when somebody disconnects.
+	go func() {
+		err := cmd.Wait()
+		c.code = 0
+		var exitErr *exec.ExitError
+		if errors.As(err, &exitErr) {
+			c.code = exitErr.ExitCode()
+		} else if err != nil {
+			c.code = -1
+		}
+		close(c.done)
+	}()
+	return c, nil
 }
