@@ -1027,6 +1027,72 @@ def check_aout_walk(page):
           "and a simulated board's fit is not archived", body[-400:])
 
 
+def check_ain_walk(page):
+    """The multi-point analog-input walk (AI1 in mV, AI2 in mA).
+
+    The AO walk's twin, the other way round: a person sets a signal source and
+    types what it gives, the board's reading is the nominal. What only a
+    browser shows is that the card exists, asks per point, fits, and says a
+    simulated board's fit is not archived.
+    """
+    Section("AIN multi-point walk")
+    page.locator('.tab[data-tab="manual"]').click()
+    page.wait_for_selector(".prow")
+    rows = page.locator(".prow")
+    picked = False
+    for i in range(rows.count()):
+        if rows.nth(i).get_attribute("data-port") == "ain":
+            rows.nth(i).click()
+            page.wait_for_timeout(300)
+            picked = True
+            break
+    if not check(picked, "ain is in the port list"):
+        return
+    card = page.locator('.card[data-port="ain"]')
+    pick = card.locator('input[type=radio][data-aimeter="manual"]')
+    if not check(pick.count() > 0, "the ain card offers 人工给信号 as a choice"):
+        return
+    pick.first.check()
+    page.wait_for_timeout(400)
+    card = page.locator('.card[data-port="ain"]')
+    if not check(card.locator("button.aicalgo").count() > 0,
+                 "picking 人工给信号 turns the button into the walk"):
+        return
+    card.locator('input[data-aical="points"]').fill("0, 10000")
+    page.wait_for_timeout(150)
+    card.locator("button.aicalgo").click()
+
+    # The simulated board cannot follow a signal source, so each point is set on
+    # it first (sim.ain takes the pin millivolts; AI1's divider is 90.6/22.6).
+    base = page.url.split("#")[0].rstrip("/")
+    ask = page.locator("#meterask")
+    for n, (value, pin_mv) in ((1, ("1", 0)), (2, ("9990", 2494))):
+        try:
+            ask.wait_for(state="visible", timeout=15000)
+        except Exception:
+            check(False, "the walk asks for point %d" % n, "#meterask never appeared")
+            return
+        # Set only once the prompt is up: the page samples the previous point
+        # after OK, and the next prompt appears when that sampling is done.
+        page.request.post(base + "/api/command", data={"cmd": "sim.ain 1 %d" % pin_mv})
+        page.wait_for_timeout(600)
+        text = page.locator("#meterwhat").inner_text()
+        check("AI1" in text and "mV" in text, "point %d names the channel and its unit" % n, text)
+        page.locator("#meterval").fill(value)
+        page.locator("#meterok").click()
+    page.wait_for_timeout(4000)
+
+    card = page.locator('.card[data-port="ain"]')
+    body = card.inner_text()
+    check("没读到" not in body, "every point got a board reading", body[-300:])
+    check("增益" in body and "最大残差" in body,
+          "the card reports the fit, residual first", body[-400:])
+    check("两个点" in body, "two points are called out as defining their own line", body[-400:])
+    check("不写进板子" in body, "the card says the coefficients are not written to the board", body[-400:])
+    check("模拟板" in body and "不存档" in body,
+          "and a simulated board's fit is not archived", body[-400:])
+
+
 def check_limits_are_readonly(page):
     """The plan tab's limits, and the save that could put one back.
 
@@ -1642,6 +1708,7 @@ def run_checks(page, com):
     check_peer_binding(page)
     check_plan_runs_from_the_page(page)
     check_aout_walk(page)
+    check_ain_walk(page)
 
     # ---------------------------------------------------- KNX frame mode
     #

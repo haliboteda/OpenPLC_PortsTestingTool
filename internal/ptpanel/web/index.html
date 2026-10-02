@@ -1487,9 +1487,11 @@ async function judge(frame) {
   if (judgeBusy[frame.port]) { return curVerdict(frame.port); }
   // 多点测量正在逐点改这个口的输出，方案那组判据此刻不成立 —— 它是程序在改，
   // 不是人在改，所以 offPlan 看不见（那张表只记人改过的）。
-  if (aocalRunning && frame.port === "aout") {
+  if ((aocalRunning && frame.port === "aout") || (aicalRunning && frame.port === "ain")) {
     delete verdicts[frame.port];
-    judgeWhy[frame.port] = "多点测量在跑，逐点改着输出 —— 方案的判据这会儿不适用";
+    judgeWhy[frame.port] = frame.port === "ain"
+      ? "多点测量在跑，信号源在逐点换值 —— 方案的判据这会儿不适用"
+      : "多点测量在跑，逐点改着输出 —— 方案的判据这会儿不适用";
     renderTree(); renderPanel();
     return null;
   }
@@ -2556,6 +2558,7 @@ function sessionCase(p, no) {
   // 两个还都有先有鸡还是先有蛋的问题：板子要会话起来才拿 IP、才枚举 CDC，所以
   // 「开始之前先选」根本做不到。
   if (p.name === "aout") { cfg.push(aocalConfig(p)); }
+  if (p.name === "ain") { cfg.push(aicalConfig(p)); }
   if (p.name === "eth") { cfg.push(ethPeerRow(p)); }
   else if ((planParams[p.name] || {}).peer === "usb") { cfg.push(linkRow(p, "usb")); }
 
@@ -2684,6 +2687,7 @@ function sessionCase(p, no) {
 
   // 读表那一档的结果是逐点表和拟合，不是一句过 / 不过。
   if (p.name === "aout" && aocal.meter === "manual") { res.appendChild(aocalResult()); }
+  if (p.name === "ain" && aical.meter === "manual") { res.appendChild(aicalResult()); }
 
   const tx = caseTextFor(p, "session");
   const node = caseBlock({
@@ -2891,6 +2895,13 @@ const AOCAL_FS_MA = 20;
 // 拟合结果。**残差摆在增益前面** —— 用直线去拟合一条不是直线的响应，唯一的保护
 // 就是残差会说出来；先读增益的人会先相信它。
 function aocalFitBox(r) {
+  return fitBox(r, "mA", f => "这块板要补偿：要它真的输出 10 mA，得让它输出 " +
+    (f.gain === 0 ? 10 : (10 - f.offset) / f.gain).toFixed(3) + " mA。");
+}
+
+// 拟合结果框，AO 和 AI 两张卡共用。unit 是这一路的单位，adjust 说出这条直线
+// 对这一路意味着什么（AO 要多出多少、AI 读到的数要怎么改）。
+function fitBox(r, unit, adjust) {
   const box = el("div","fitbox");
   if (!r || r.known === false) {
     box.appendChild(el("div","msg",
@@ -2900,12 +2911,12 @@ function aocalFitBox(r) {
   }
   const f = r.fit || {};
   const rows = [
-    ["最大残差", f.max_residual.toFixed(4) + " mA（在 " + f.max_residual_at.toFixed(3) + " mA 那点）",
+    ["最大残差", f.max_residual.toFixed(4) + " " + unit + "（在 " + f.max_residual_at.toFixed(3) + " " + unit + " 那点）",
      f.exact ? "⚠️ 只有两个点 —— 两点必然落在自己那条线上，这个 0 是算出来的，不是量出来的"
              : "比万用表自己的误差大得多，就说明响应不是直线"],
-    ["均方残差", f.rms_residual.toFixed(4) + " mA", "一个点不走运不该左右结论，看这个"],
+    ["均方残差", f.rms_residual.toFixed(4) + " " + unit, "一个点不走运不该左右结论，看这个"],
     ["增益", f.gain.toFixed(5), "1 就是不用改"],
-    ["零点偏差", f.offset.toFixed(4) + " mA", "0 就是不用改"],
+    ["零点偏差", f.offset.toFixed(4) + " " + unit, "0 就是不用改"],
     ["用了几个点", String(f.points), ""],
   ];
   const grid = el("div","rowgrid");
@@ -2918,9 +2929,7 @@ function aocalFitBox(r) {
   }
   box.appendChild(grid);
   box.appendChild(el("div", r.ideal ? "msg ok" : "msg",
-    r.ideal ? "这块板本来就准，不需要补偿。"
-            : "这块板要补偿：要它真的输出 10 mA，得让它输出 " +
-              (f.gain === 0 ? 10 : (10 - f.offset) / f.gain).toFixed(3) + " mA。"));
+    r.ideal ? "这块板本来就准，不需要补偿。" : adjust(f)));
   box.appendChild(aocalVerdict(r));
   return box;
 }
@@ -3062,6 +3071,217 @@ function aocalResult() {
       "就说明这条响应不是直线，那条直线在哪儿都是错的。"));
   }
 
+  return res;
+}
+
+
+// ---- 模拟输入的多点测量（AI1、AI2）-----------------------------------------
+//
+// *** Same walk as the AO card, the other way round: a person sets a signal
+// *** source to each point and types what it gives; the board's reading is the
+// *** nominal. got ~= gain * want + offset, the calibration area's direction.
+//
+// *** The nominal is computed from raw the way the app does it, not taken from
+// *** the frame's millivolts: the firmware scales those by the measured VDDA,
+// *** the app by a fixed 2.5 V, and a fit against the former would carry that
+// *** difference into the coefficients. See PORTTOOL-FLOW.md C.3.2.
+
+let aicalRunning = false;
+
+// Per channel: the calibration-area name, unit, full scale and the app's
+// nominal conversion ($CORE_REPO libraries/OpenPLC_Ports/src/openplc_analog.c).
+const AICAL = {
+  1: { channel: "AI1", unit: "mV", fs: 10000, digits: 1, points: "0, 2500, 5000, 7500, 10000",
+       nominal: raw => aicalPinMv(raw) * 90.6 / 22.6 },
+  2: { channel: "AI2", unit: "mA", fs: 20, digits: 4, points: "0, 5, 10, 15, 20",
+       nominal: raw => aicalPinMv(raw) / 124 },
+};
+// The fixture's ADC is 16-bit, the app's 12-bit; both against 2.5 V.
+function aicalPinMv(raw) { return raw * 2500 / 65535; }
+const AICAL_FRAMES = 8;     // frames averaged per point
+
+let aical = {
+  busy: "",
+  ch: 1,
+  meter: "none",
+  pointsText: { 1: AICAL[1].points, 2: AICAL[2].points },
+  tolPct: 1,
+  rows: [],
+  note: "",
+  fit: null,
+};
+
+function aicalPoints() {
+  return String(aical.pointsText[aical.ch]).split(/[,，\s]+/)
+    .map(s => Number(s))
+    .filter(v => isFinite(v) && v >= 0);
+}
+
+// Average of the raw reading over n frames newer than the call.
+async function aicalSampleRaw(ch, n) {
+  let sum = 0, got = 0;
+  for (let i = 0; i < n; i++) {
+    if (!await waitForNewFrames("ain", 1, 5000)) { break; }
+    const v = String(((reads.ain || {}).fields || {})["ch" + ch] || "");
+    const raw = Number(v.split("/")[0]);
+    if (v.includes("/") && isFinite(raw)) { sum += raw; got++; }
+  }
+  return got ? sum / got : null;
+}
+
+async function aicalRun(p, say, render) {
+  const ch = aical.ch;
+  const def = AICAL[ch];
+  const pts = aicalPoints();
+  if (!pts.length) { say("一个点都没有 —— 先在上面填要测的值。"); return; }
+
+  say("起 ain，把其它会话停掉…");
+  await run("pt.stop all");
+  await run("pt.start ain ch=" + ch + " period=200");
+  if (!await waitForNewFrames("ain", 1, 8000)) {
+    await run("pt.stop all");
+    say("ain 一帧都没来 —— 看日志，可能是 VREFBUF 没起来，启动被拒了。");
+    return;
+  }
+
+  const rows = [];
+  for (let i = 0; i < pts.length; i++) {
+    const target = pts[i];
+    const typed = await askMeter(
+      def.channel + " 第 " + (i + 1) + "/" + pts.length + " 点 —— 把信号源调到 " + target + " " + def.unit +
+        "，稳定后填它实际给出的值",
+      def.unit,
+      "填信号源（或串在回路里的标准表）显示的数，不是目标值。填好按确定，面板接着取 " +
+        AICAL_FRAMES + " 帧求平均。给不出来就点「跳过这一点」。");
+    if (typed === null) { say("中止了。"); break; }
+    say("第 " + (i + 1) + "/" + pts.length + " 点：取 " + AICAL_FRAMES + " 帧…");
+    const raw = await aicalSampleRaw(ch, AICAL_FRAMES);
+    const gotV = (typed === "") ? null : Number(typed);
+    const row = { target: target, raw: raw,
+                  want: raw === null ? null : def.nominal(raw),
+                  got: (gotV === null || !isFinite(gotV)) ? null : gotV };
+    if (row.want !== null && row.got !== null) {
+      row.err = row.want - row.got;
+      row.errPct = (row.err / def.fs) * 100;
+      row.pass = Math.abs(row.errPct) <= aical.tolPct;
+    }
+    rows.push(row);
+    aical.rows = rows;
+    render();
+  }
+
+  say("收尾…");
+  await run("pt.stop all");
+
+  // 拟合、精度判定、存档都在服务端（同 AO 卡）。
+  const fitPts = rows.map(r => ({ want: r.want, got: (r.want === null) ? null : r.got }))
+                     .filter(r => r.want !== null);
+  try {
+    aical.fit = await api("/api/fit", { points: fitPts, gain_tol: 0.01, offset_tol: def.fs * 0.0025,
+                                        channel: def.channel, unit: def.unit });
+  } catch (e) {
+    aical.fit = { known: false, why: String(e) };
+  }
+}
+
+function aicalConfig(p) {
+  const box = el("div", "chvals");
+  box.dataset.param = "aimeter";
+  box.appendChild(el("div", "st", "信号来自"));
+
+  const pick = el("div", "enumpick");
+  for (const [v, nm, why] of [
+    ["none", "不接信号源",
+     "照方案读一轮，看两路读数在不在范围里 —— 能无人值守跑，产线序列走这一档"],
+    ["manual", "人工给信号",
+     "逐点停下来等你用信号源给出一个值、把信号源显示的数填进去，算出偏差和补偿系数 —— 校准走这一档，**必须有人守着**"],
+  ]) {
+    const lb = el("label");
+    const r = el("input"); r.type = "radio"; r.name = "aical-meter";
+    r.value = v; r.checked = (aical.meter === v);
+    r.dataset.aimeter = v;
+    r.onchange = () => { aical.meter = v; renderPanel(); };
+    lb.appendChild(r);
+    lb.appendChild(el("b", null, nm));
+    lb.appendChild(richText("span", "sub", "—— " + why));
+    pick.appendChild(lb);
+  }
+  box.appendChild(pick);
+  if (aical.meter !== "manual") { return box; }
+
+  const def = AICAL[aical.ch];
+  const row = el("div", "row");
+  const mk = (key, label, get, set, width, step) => {
+    const lb = el("label", null, label + " ");
+    const i = el("input");
+    i.dataset.aical = key;      // 断言按属性找，不按屏幕上的字
+    i.value = get();
+    i.style.width = width;
+    if (step) { i.type = "number"; i.step = step; }
+    i.oninput = () => set(i.value);
+    lb.appendChild(i);
+    row.appendChild(lb);
+  };
+  mk("points", "测哪几个点（" + def.unit + "）", () => aical.pointsText[aical.ch],
+     v => aical.pointsText[aical.ch] = v, "220px");
+  mk("tol", "逐点参考判据（±% FS）", () => aical.tolPct, v => aical.tolPct = Number(v) || 0, "70px", "0.1");
+
+  const chsel = el("select");
+  chsel.dataset.param = "aicalch";
+  for (let i = 1; i <= (p.channels || 2); i++) {
+    const o = el("option", null, displayName(p, i) + "（" + AICAL[i].unit + "）"); o.value = i;
+    if (i === aical.ch) o.selected = true;
+    chsel.appendChild(o);
+  }
+  chsel.onchange = () => { aical.ch = Number(chsel.value); aical.rows = []; aical.fit = null; renderPanel(); };
+  const chlb = el("label", null, "测哪一路 "); chlb.appendChild(chsel); row.appendChild(chlb);
+  box.appendChild(row);
+
+  box.appendChild(richText("div", "sub",
+    "⚠ **信号源一次只接一路**，所以这一档只测上面选的那一路，卡片顶上的通道勾选不算数。" +
+    "AI1 是电压档（0–10 V），AI2 是电流档（0–20 mA）。逐点的「过 / 不过」只是参考，" +
+    "**正式结论是拟合之后的残差**，指标在方案文件里。"));
+  return box;
+}
+
+function aicalResult() {
+  const def = AICAL[aical.ch];
+  const res = el("div");
+  res.appendChild(el("span", "tgtres", aical.busy || aical.note || "还没跑"));
+
+  if (aical.rows.length) {
+    const u = def.unit;
+    const grid = el("div","rowgrid");
+    const head = el("div","gridrow hd2");
+    for (const t of ["目标 " + u, "信号源给的 " + u, "板子读到 " + u, "偏差 " + u, "偏差 %FS", "参考"]) {
+      head.appendChild(el("span","c",t));
+    }
+    grid.appendChild(head);
+    for (const r of aical.rows) {
+      const line = el("div","gridrow");
+      line.appendChild(el("span","c", String(r.target)));
+      line.appendChild(el("span","c", r.got === null ? "未测" : r.got.toFixed(def.digits)));
+      line.appendChild(el("span","c", r.want === null ? "没读到" : r.want.toFixed(def.digits)));
+      line.appendChild(el("span","c", r.err === undefined ? "-" : r.err.toFixed(def.digits)));
+      line.appendChild(el("span","c", r.errPct === undefined ? "-" : r.errPct.toFixed(2)));
+      line.appendChild(el("span","c " + (r.pass === undefined ? "" : (r.pass ? "ok" : "bad")),
+                          r.pass === undefined ? "未测" : (r.pass ? "过" : "不过")));
+      grid.appendChild(line);
+    }
+    res.appendChild(grid);
+
+    if (aical.fit) {
+      res.appendChild(fitBox(aical.fit, u, f => {
+        const at = def.fs / 2;
+        return "这块板要补偿：板子读到 " + at + " " + u + " 时，真值是 " +
+          (f.gain * at + f.offset).toFixed(def.digits) + " " + u + "。";
+      }));
+    }
+
+    res.appendChild(richText("div","hint",
+      "⚠️ **系数不写进板子**：测试固件只测，系数按板子 UID 存在电脑上，四路齐了生成扇区 15 的镜像，" +
+      "由工站 10 用 JLINK 写进去。板子读到的数是**照 app 的算法**从原始读数算的，所以和上面那行读数可能差一点 —— 那一行按实测基准换算。"));
+  }
   return res;
 }
 
@@ -3414,7 +3634,8 @@ function startRow(p, cmdFor, only) {
   const off = offPlan(p);
   // 读表那一档自己就是一轮多点走查，没有「持续」这回事（DECISIONS 47）。
   const aoWalk = (p.name === "aout" && aocal.meter === "manual");
-  const session = p.kind === "session" && !!cmdFor && !aoWalk;
+  const aiWalk = (p.name === "ain" && aical.meter === "manual");
+  const session = p.kind === "session" && !!cmdFor && !aoWalk && !aiWalk;
   const mode = runMode[p.name] || "once";
 
   if (session) {
@@ -3447,11 +3668,36 @@ function startRow(p, cmdFor, only) {
     }
   }
 
-  const b = el("button","primary" + (aoWalk ? " aocalgo" : ""),
+  const b = el("button","primary" + (aoWalk ? " aocalgo" : "") + (aiWalk ? " aicalgo" : ""),
                 aoWalk ? (aocal.busy ? "跑着…" : "走一遍")
+                       : aiWalk ? (aical.busy ? "跑着…" : "走一遍")
                        : (busy ? "跑着…" : "开始"));
-  b.disabled = !!busy || (aoWalk && !!aocal.busy);
+  b.disabled = !!busy || (aoWalk && !!aocal.busy) || (aiWalk && !!aical.busy);
   b.onclick = async () => {
+    if (aiWalk) {
+      if (aical.busy) { return; }
+      aicalRunning = true;
+      aical.busy = "跑着…";
+      aical.rows = []; aical.note = ""; aical.fit = null;
+      renderPanel();
+      try {
+        await aicalRun(p, t => { aical.busy = t; renderPanel(); }, () => renderPanel());
+        aical.note = "跑完了。";
+      } catch (e) {
+        aical.note = "出错了：" + e;
+      } finally {
+        aical.busy = "";
+        meterDone(null);
+        setTimeout(() => {
+          aicalRunning = false;
+          delete verdicts.ain;
+          judgeWhy.ain = "刚跑完多点测量 —— 要结论就把「信号来自」改回「不接信号源」再跑一遍";
+          renderTree(); renderPanel();
+        }, 2500);
+        renderPanel();
+      }
+      return;
+    }
     // 多点走查走自己那条路：逐点改输出、每点停下来等人读表。
     if (aoWalk) {
       if (aocal.busy) { return; }

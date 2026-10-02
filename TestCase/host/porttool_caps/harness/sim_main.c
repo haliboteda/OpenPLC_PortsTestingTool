@@ -308,6 +308,9 @@ static int sim_command(const char *line)
     }
     if (sscanf(line, "sim.ain %u %u", &a, &b) == 2 && a >= 1u && a <= PORT_AIN_COUNT) {
         test_ain_mv[a - 1] = b;
+        /* raw against a 2.5 V reference, so a reading the panel computes from
+         * raw (the calibration walk does) follows the value set here. */
+        test_ain_raw[a - 1] = (uint32_t)(((uint64_t)b * 65535u + 1250u) / 2500u);
         printf("SIM  ain%u=%u mV\r\n", a, b);
         return 1;
     }
