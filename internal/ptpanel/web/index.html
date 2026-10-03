@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>端口测试工装</title>
+<title>PortTool</title>
 <style>
 :root{
   --bg:#f3f4f7; --card:#fff; --line:#dbdfe6; --line2:#eef0f4;
@@ -281,10 +281,10 @@ details summary:hover{color:var(--ink2)}
 <body>
 
 <header>
-  <h1>端口测试工装</h1>
-  <span id="status">没有连接</span>
+  <h1 data-t="html.title"></h1>
+  <span id="status" data-t="ui.applyState.6"></span>
   <label id="echobox" hidden style="font-size:12.5px;display:flex;align-items:center;gap:5px">
-    <input type="checkbox" id="autoecho" checked> 自动回环应答
+    <input type="checkbox" id="autoecho" checked> <span data-t="html.autoecho"></span>
     <span id="echostat" class="sub"></span>
   </label>
   <span class="sp"></span>
@@ -293,10 +293,12 @@ details summary:hover{color:var(--ink2)}
        on screen: the same board passes under one limit set and fails under
        another, and a green tick that does not say which is not a claim. -->
   <label id="critbox" hidden style="font-size:12.5px;display:flex;align-items:center;gap:5px">
-    <span class="sub">判据</span>
+    <span class="sub" data-t="html.criteria"></span>
     <select id="critplan"></select>
     <span id="critver" class="sub"></span>
   </label>
+  <!-- Language of this page only; logs and files stay English (decision 82). -->
+  <select id="lang" title=""></select>
 </header>
 
 <main>
@@ -306,66 +308,62 @@ details summary:hover{color:var(--ink2)}
          than collapsing into a dropdown, because which adapter is which is the
          question people actually get wrong. -->
     <div id="connbox">
-      <div class="step">① 选择 RS232 控制口</div>
-      <div id="portlist"><div class="sub">正在找串口…</div></div>
+      <div class="step" data-t="html.step1"></div>
+      <div id="portlist"><div class="sub" data-t="html.searching"></div></div>
       <div class="connrow">
-        <button id="connect" class="primary" disabled>连接</button>
-        <button id="disconnect" hidden>断开</button>
-        <button id="refresh">重新找</button>
+        <button id="connect" class="primary" disabled data-t="html.connect"></button>
+        <button id="disconnect" hidden data-t="html.disconnect"></button>
+        <button id="refresh" data-t="html.refresh"></button>
       </div>
-      <div id="connhint" class="hint">先选一个口，再点连接。板子的控制口是端子
-        <b>C05 / C06</b>，要用 USB-RS232 适配器（端子是真 ±12 V）。</div>
+      <div id="connhint" class="hint" data-t="ui.applyState.2"></div>
     </div>
 
     <div id="afterconn" class="gated">
-      <div class="step">② 端口与方案</div>
+      <div class="step" data-t="html.step2"></div>
       <div class="tabs">
-        <button class="tab on" data-tab="manual">端口</button>
-        <button class="tab" data-tab="plan">方案</button>
+        <button class="tab on" data-tab="manual" data-t="html.tab.manual"></button>
+        <button class="tab" data-tab="plan" data-t="ui.switchTab.2"></button>
       </div>
       <div id="batchbar" class="batchbar" hidden></div>
       <div id="treebody"></div>
       <div id="planlist" hidden>
         <!-- Said once, here, because "方案" means nothing on its own and a
              hardware engineer debugging one port should know to ignore it. -->
-        <div id="planwhat" class="hint">
-          <b>方案 = 产线用。</b>一个文件写好跑哪些步骤、每步什么算过，点一下整套跑完出报告。
-          单个端口调试用左边的「端口」页，不用碰这里。
-        </div>
+        <div id="planwhat" class="hint" data-t="ui.loadPlanList.1"></div>
       </div>
     </div>
   </section>
   <section id="panel">
-    <h2 id="panelhead">面板</h2>
+    <h2 id="panelhead" data-t="ui.switchTab.1"></h2>
     <div id="panelbody"></div>
     <div id="planbody" hidden></div>
   </section>
   <section>
     <div id="logwrap">
       <div id="logbar">
-        <h2 style="margin:0">日志</h2>
+        <h2 style="margin:0" data-t="html.log"></h2>
         <span class="sp"></span>
         <span id="paused" hidden></span>
-        <button id="pause">暂停</button>
-        <button id="clear">清空</button>
-        <button id="save">导出</button>
+        <button id="pause" data-t="ui.top.2"></button>
+        <button id="clear" data-t="html.clear"></button>
+        <button id="save" data-t="html.save"></button>
       </div>
       <div class="row" style="margin:0 0 7px">
-        <label><input type="checkbox" class="filt" value="ok" checked> 应答</label>
-        <label><input type="checkbox" class="filt" value="err" checked> 错误</label>
-        <label><input type="checkbox" class="filt" value="frame" checked> 采样</label>
-        <label><input type="checkbox" class="filt" value="log" checked> 板子日志</label>
-        <label><input type="checkbox" class="filt" value="echo" checked> 回环应答</label>
-        <label><input type="checkbox" class="filt" value="panel" checked> 对端链路</label>
-        <label><input type="checkbox" class="filt" value="caps"> 板子自述</label>
+        <label><input type="checkbox" class="filt" value="ok" checked> <span data-t="html.filter.ok"></span></label>
+        <label><input type="checkbox" class="filt" value="err" checked> <span data-t="html.filter.err"></span></label>
+        <label><input type="checkbox" class="filt" value="frame" checked> <span data-t="html.filter.frame"></span></label>
+        <label><input type="checkbox" class="filt" value="log" checked> <span data-t="html.filter.log"></span></label>
+        <label><input type="checkbox" class="filt" value="echo" checked> <span data-t="html.filter.echo"></span></label>
+        <label><input type="checkbox" class="filt" value="panel" checked> <span data-t="html.filter.panel"></span></label>
+        <label><input type="checkbox" class="filt" value="caps"> <span data-t="html.filter.caps"></span></label>
       </div>
       <div id="log"></div>
       <div class="row" style="margin-top:8px">
-        <input id="raw" placeholder="直接敲命令，比如 pt.start din ch=1,3,5" style="flex:1"
+        <input id="raw" data-t-placeholder="html.raw" style="flex:1"
                autocomplete="off">
-        <button id="send">发送</button>
+        <button id="send" data-t="html.send"></button>
       </div>
-      <div class="hint">面板做不到的事，在这里都能做。命令原样发给板子，回复原样显示。</div>
+      <div class="hint" data-t="html.raw_hint"></div>
     </div>
   </section>
 </main>
@@ -376,11 +374,11 @@ details summary:hover{color:var(--ink2)}
 <div id="meterask" hidden>
   <div id="meterwhat"></div>
   <div class="row" style="margin-top:8px">
-    <input id="meterval" type="number" step="any" placeholder="表上读到多少" style="flex:1">
+    <input id="meterval" type="number" step="any" data-t-placeholder="html.meterval" style="flex:1">
     <span id="meterunit" class="hint"></span>
-    <button id="meterok" class="primary">记下</button>
-    <button id="meterskip">跳过这一点</button>
-    <button id="meterstop">中止</button>
+    <button id="meterok" class="primary" data-t="html.meterok"></button>
+    <button id="meterskip" data-t="html.meterskip"></button>
+    <button id="meterstop" data-t="ui.startRow.24"></button>
   </div>
   <div class="hint" id="meterhint"></div>
 </div>
@@ -388,9 +386,55 @@ details summary:hover{color:var(--ink2)}
 <script>
 "use strict";
 
+// Panel text in three languages (decision 82). The server fills in STRINGS and
+// LANG; T() looks a key up in LANG, falls back to Chinese, and fills {name}
+// from args. $PROD/maps/porttool-panel-languages/map.md
+const STRINGS = /*STRINGS*/{};
+const DE_REVIEWED = /*DE_REVIEWED*/false;
+let LANG = /*LANG*/"zh";
+function T(key, args) {
+  const e = STRINGS[key];
+  let s = e ? (e[LANG] || e.zh) : key;
+  if (args) { s = s.replace(/\{([a-z0-9_]+)\}/g, (m, n) => (n in args ? String(args[n]) : m)); }
+  return s;
+}
+// What f() builds, in language l. The exported log is English whatever the
+// page shows, so log lines are kept as functions and rebuilt for it.
+function inLang(l, f) { const was = LANG; LANG = l; try { return f(); } finally { LANG = was; } }
+// Tables hold keys; the text is looked up on every read, so inLang() reaches it.
+function tr(o) {
+  return new Proxy(o, { get(t, k) {
+    const v = t[k];
+    if (typeof v === "string") { return T(v); }
+    return (v && typeof v === "object") ? tr(v) : v;
+  }});
+}
+
 const $ = s => document.querySelector(s);
 const el = (tag, cls, txt) => { const n = document.createElement(tag);
   if (cls) n.className = cls; if (txt !== undefined) n.textContent = txt; return n; };
+
+document.title = T("html.title");
+for (const n of document.querySelectorAll("[data-t]")) { n.innerHTML = T(n.dataset.t); }
+for (const n of document.querySelectorAll("[data-t-placeholder]")) { n.placeholder = T(n.dataset.tPlaceholder); }
+
+// Changing language reloads the page, so first say what a reload would lose:
+// verdicts, parameters not yet sent and plan edits live only in this page.
+{
+  const sel = $("#lang");
+  sel.title = T("html.lang");
+  for (const [code, name] of [["zh", "中文"], ["en", "English"], ["de", "Deutsch"]]) {
+    if (code === "de" && !DE_REVIEWED && LANG !== "de") { continue; }
+    const o = el("option", null, name); o.value = code; o.selected = code === LANG; sel.appendChild(o);
+  }
+  sel.onchange = async () => {
+    const lose = Object.keys(verdicts).length || Object.keys(edited).length ||
+                 (plan && JSON.stringify(plan) !== planSaved);
+    if (lose && !confirm(T("html.lang_confirm"))) { sel.value = LANG; return; }
+    await api("/api/settings", {lang: sel.value});
+    location.reload();
+  };
+}
 
 let state = { connected:false, ports:[], links:{} };
 let picked = {};        // port name -> Set of selected channel numbers
@@ -433,17 +477,20 @@ function isCaps(kind, line) {
 }
 
 function addLog(kind, line, at) {
-  if (isEchoTraffic(kind, line)) kind = "echo";
-  else if (isCaps(kind, line)) kind = "caps";
+  if (typeof line === "string") {
+    if (isEchoTraffic(kind, line)) kind = "echo";
+    else if (isCaps(kind, line)) kind = "caps";
+  }
   logBuf.push({kind, line, at: at || nowStamp()});
   if (logBuf.length > MAX_LOG) logBuf.splice(0, logBuf.length - MAX_LOG);
-  if (paused) { pausedCount++; $("#paused").textContent = "已暂停，攒了 " + pausedCount + " 行"; return; }
+  if (paused) { pausedCount++; $("#paused").textContent = T("ui.addLog.1", {paused_count: pausedCount}); return; }
   appendLine(logBuf[logBuf.length-1]);
 }
+function lineText(e) { return typeof e.line === "function" ? e.line() : e.line; }
 function logNode(e) {
   const n = el("span", "l " + e.kind);
   n.appendChild(el("span", "ts", e.at + "  "));
-  n.appendChild(document.createTextNode(e.line));
+  n.appendChild(document.createTextNode(lineText(e)));
   return n;
 }
 
@@ -485,10 +532,10 @@ function nowStamp() {
 
 $("#pause").onclick = () => {
   paused = !paused;
-  $("#pause").textContent = paused ? "继续" : "暂停";
+  $("#pause").textContent = paused ? T("ui.top.1") : T("ui.top.2");
   $("#paused").hidden = !paused;
   if (!paused) { pausedCount = 0; redrawLog(); }
-  else { pausedCount = 0; $("#paused").textContent = "已暂停，攒了 0 行"; }
+  else { pausedCount = 0; $("#paused").textContent = T("ui.top.3"); }
 };
 // 清空之后插一条看得见的分隔线。
 //
@@ -498,7 +545,8 @@ $("#pause").onclick = () => {
 // 有一条线在，底下的就都是新的。
 $("#clear").onclick = () => {
   logBuf = [];
-  addLog("log", "—— " + nowStamp() + " 清空，下面都是新的 ——");
+  const at = nowStamp();
+  addLog("log", () => T("ui.top.4", {now_stamp: at}));
   redrawLog();
 };
 // Saved as .txt, and named for the moment it was saved.
@@ -515,16 +563,22 @@ $("#clear").onclick = () => {
 // *** Structured output is a different thing and already exists - `porttool
 // *** run --json/--csv` writes the report a production line archives. This is
 // *** the raw serial conversation, for a person to read.
+// Same shape in every language: YYYY-MM-DD HH:MM:SS, local time.
+function fixedDateTime(d) {
+  const p = n => String(n).padStart(2, "0");
+  return d.getFullYear() + "-" + p(d.getMonth() + 1) + "-" + p(d.getDate()) + " " +
+    p(d.getHours()) + ":" + p(d.getMinutes()) + ":" + p(d.getSeconds());
+}
 $("#save").onclick = () => {
   const stamp = new Date().toISOString().slice(0,19).replace(/[:T]/g,"");
   const head = [
-    "PortTool log  " + new Date().toString(),
+    "PortTool log  " + fixedDateTime(new Date()),
     "control port: " + (state.port || "(not connected)") +
       "   firmware: " + (state.firmware || "?"),
     "lines: " + logBuf.length,
     "".padEnd(60, "-"),
   ].join("\r\n");
-  const text = head + "\r\n" + logBuf.map(e => e.at + "  " + e.line).join("\r\n") + "\r\n";
+  const text = head + "\r\n" + logBuf.map(e => e.at + "  " + inLang("en", () => lineText(e))).join("\r\n") + "\r\n";
   const a = el("a");
   a.href = URL.createObjectURL(new Blob([text], {type:"text/plain;charset=utf-8"}));
   a.download = "porttool-" + stamp + ".txt";
@@ -541,8 +595,21 @@ async function api(path, body) {
   const opt = body ? {method:"POST", headers:{"Content-Type":"application/json"},
                       body:JSON.stringify(body)} : {};
   const r = await fetch(path, opt);
-  const j = await r.json().catch(() => ({error:"服务返回的内容看不懂。"}));
-  return j;
+  const j = await r.json().catch(() => ({error:T("ui.api.1")}));
+  return localize(j);
+}
+
+// Go's sentences arrive as {"$t": key, "args": {...}} and are worded here, in
+// the page's language (decision 82).
+function localize(v) {
+  if (Array.isArray(v)) { return v.map(localize); }
+  if (v && typeof v === "object") {
+    if ("$t" in v) { return T(v.$t, localize(v.args || {})); }
+    const o = {};
+    for (const k of Object.keys(v)) { o[k] = localize(v[k]); }
+    return o;
+  }
+  return v;
 }
 
 let allPorts = [];
@@ -572,7 +639,7 @@ async function loadPorts() {
 
   if (j.error || !j.ports || !j.ports.length) {
     host.appendChild(el("div", "sub",
-      j.error || "没找到串口 —— 插上 USB-RS232 适配器再点「重新找」"));
+      j.error || T("ui.loadPorts.1")));
     $("#connect").disabled = true;
     return;
   }
@@ -592,7 +659,7 @@ async function loadPorts() {
     row.dataset.port = p.name;
     row.textContent = p.label;
     if (looksLikeRs232(p.label)) {
-      row.appendChild(el("span", "sug", "  ← 像是 RS232"));
+      row.appendChild(el("span", "sug", T("ui.loadPorts.2")));
     }
     // 模拟板单独标出来。它排在所有真串口后面，不加个记号就读成了又一个 COM 口 ——
     // 而它给的每一个读数都是编的。
@@ -602,12 +669,12 @@ async function loadPorts() {
         // 找不到就把原因摆出来，而不是从列表里消失 ——
         // “本来就没有”和“没编”在屏幕上长得一模一样。
         row.classList.add("off");
-        row.appendChild(el("span", "tag", "  ← 没编，点不了"));
+        row.appendChild(el("span", "tag", T("ui.loadPorts.3")));
         row.title = p.unavailable;
         row.appendChild(richText("div", "sub",
-          "先编一个：`cd TestCase/host/porttool_caps && python build.py --sim`"));
+          T("ui.loadPorts.4")));
       } else {
-        row.appendChild(el("span", "tag", "  ← 不用接板子"));
+        row.appendChild(el("span", "tag", T("ui.loadPorts.5")));
       }
     }
     if (p.unavailable) {
@@ -618,7 +685,7 @@ async function loadPorts() {
     if (chosenPort === p.name) {
       row.classList.add("on");
       if (state && state.saved && state.saved.control === p.name) {
-        row.appendChild(el("span", "sug", "  ← 上次用的"));
+        row.appendChild(el("span", "sug", T("ui.loadPorts.6")));
       }
     }
     row.onclick = () => {
@@ -627,7 +694,7 @@ async function loadPorts() {
       for (const other of host.querySelectorAll(".p")) { other.classList.remove("on"); }
       row.classList.add("on");
       $("#connect").disabled = false;
-      $("#connhint").innerHTML = "已选 <b>" + p.name + "</b> —— 点「连接」继续。";
+      $("#connhint").innerHTML = T("ui.loadPorts.7", {name: p.name});
     };
     host.appendChild(row);
   }
@@ -669,10 +736,10 @@ function startEvents() {
   evtSource = new EventSource("/api/events");
   evtSource.onmessage = e => {
     const d = JSON.parse(e.data);
-    addLog(d.kind, d.line, d.at);
+    addLog(d.kind, d.msg ? () => localize(d.msg) : d.line, d.at);
     // 故障、复位、断线不能只埋在日志里 —— 摆到最上面，并刷新状态（决策 77）。
-    if (d.kind === "panel" && /^\[(故障|连接)\]/.test(d.line || "")) {
-      refreshState().then(() => showMessage(d.line, true));
+    if (d.kind === "panel" && d.alert) {
+      refreshState().then(() => showMessage(localize(d.msg), true));
       return;
     }
     if (d.kind === "frame" && d.port) {
@@ -708,26 +775,25 @@ function applyState(j) {
   // nothing here that could mean anything.
   $("#afterconn").classList.toggle("live", !!st.connected);
   $("#connhint").innerHTML = st.connected
-    ? "控制口 <b>" + st.port + "</b> 已连上。要换口先点「断开」。"
-    : "先选一个口，再点连接。板子的控制口是端子 <b>C05 / C06</b>，"
-      + "要用 USB-RS232 适配器（端子是真 ±12 V）。";
+    ? T("ui.applyState.1", {port: st.port})
+    : T("ui.applyState.2");
 
   const s = $("#status");
   if (st.connected && st.linkError) {
-    s.classList.add("bad"); s.textContent = "控制口断了";
+    s.classList.add("bad"); s.textContent = T("ui.applyState.3");
   } else if (st.connected) {
     s.classList.remove("bad");
-    s.innerHTML = "已连上 <b>" + st.port + "</b>　固件 " + (st.firmware || "?");
+    s.innerHTML = T("ui.applyState.connected", {port: st.port, firmware: st.firmware || "?"});
   } else {
-    s.classList.add("bad"); s.textContent = "没有连接"; reads = {};
+    s.classList.add("bad"); s.textContent = T("ui.applyState.6"); reads = {};
   }
   $("#echobox").hidden = !st.connected;
   renderCriteria(st);
   $("#autoecho").checked = st.autoEcho !== false;
   const es = $("#echostat");
-  if (st.echoNote) { es.textContent = "回不过去：" + st.echoNote; es.style.color = "var(--err)"; }
-  else if (st.autoEcho === false) { es.textContent = "关着 —— miss 会开始涨"; es.style.color = "var(--warn)"; }
-  else { es.textContent = "已回 " + (st.echoCount || 0) + " 次"; es.style.color = ""; }
+  if (st.echoNote) { es.textContent = T("ui.applyState.7", {echo_note: st.echoNote}); es.style.color = "var(--err)"; }
+  else if (st.autoEcho === false) { es.textContent = T("ui.applyState.8"); es.style.color = "var(--warn)"; }
+  else { es.textContent = T("ui.applyState.9", {echo_count: (st.echoCount || 0)}); es.style.color = ""; }
 
   showMessage(st.linkError || st.capsError, true);
   renderTree(); renderPanel();
@@ -753,14 +819,14 @@ function chanSet(p) {
 }
 // 格子上印工程师嘴里的名字，不印端子号（用户 2026-09-11 定）。
 // 名字取自 Hardware/Klemmenbezeichnungen-R.pdf，按用户的习惯缩写。
-const CHAN_NAME = {
+const CHAN_NAME = tr({
   dout: "DO",  din: "DI",  ain: "AI",  aout: "AO",  relay: "Relay ",
-  temp: "温度",
-};
-const PORT_NAME = {
+  temp: "chan_name.temp",
+});
+const PORT_NAME = tr({
   rs485: "RS485", can: "CAN", rs232: "RS232", knx: "KNX",
-  eth: "网口", usb: "USB", sd: "SD 卡", sdram: "SDRAM", temp: "温度",
-};
+  eth: "port_name.eth", usb: "USB", sd: "port_name.sd", sdram: "SDRAM", temp: "port_name.temp",
+});
 function displayName(p, i) {
   if (CHAN_NAME[p.name]) return CHAN_NAME[p.name] + i;
   if (p.channels === 1 && PORT_NAME[p.name]) return PORT_NAME[p.name];
@@ -818,9 +884,9 @@ function formatReading(portName, ch, v) {
     const r = AIN_RANGE[ch - 1];
     const floating = mv >= AIN_FLOAT_MIN_MV && mv <= AIN_FLOAT_MAX_MV;
     const out = { text: r ? (mv * r.scale).toFixed(r.digits) + " " + r.unit : v,
-                  hint: "引脚 " + mv + " mV，raw " + raw };
+                  hint: T("ui.formatReading.1", {mv, raw}) };
     if (floating) {
-      out.hint = "⚠ 落在悬空带（引脚 " + mv + " mV，raw " + raw + "）—— 跳线可能没焊，这个数不是端子上的信号";
+      out.hint = T("ui.formatReading.2", {mv, raw});
       out.warn = true;
     }
     return out;
@@ -831,7 +897,7 @@ function formatReading(portName, ch, v) {
     if (!isFinite(ua)) return null;
     return { text: (ua / 1000).toFixed(3) + " mA",
              // 这个电流是算出来的，不是量出来的 —— 板上没有任何回读通道。
-             hint: "算出来的，非实测。要 " + asked + " mV，DAC 实际 " + quant + " mV" };
+             hint: T("ui.formatReading.3", {asked, quant}) };
   }
 
   if (portName === "temp" && parts.length === 2) {
@@ -860,25 +926,25 @@ function formatReading(portName, ch, v) {
 // CASE_TEXT 里 —— 一个端口常常有好几个用例，前置和判据互相矛盾：以太网①不用
 // 插网线、②必须先起会话；RS485①不要对端、②非有对端不可。把它们并成端口级的
 // 一段话，等于把互相矛盾的话写在一起，谁也不知道哪句管哪件事。
-const PORT_WIRING = {
-  dout: "可以空着，也可以接已知负载。⚠️ 这八路输出 24 V、每路限流 ≥3.8 A，接负载之前先确认它受得住",
-  din: "八个输入端子给上 24 V 激励 —— 用工装板还是别的夹具，面板不管",
-  relay: "六对干接点，接不接负载都能测 —— 靠听",
-  ain: "两路接 0–10 V 或 0–20 mA 信号源",
-  aout: "两路接万用表或负载",
-  temp: "不用接 —— 两路传感器焊在板上",
-  rs232: "不用另外接 —— 就是控制口那根线",
-  rs485: "接第二个 USB-RS485 适配器，再在上面那个「对端串口」里把它绑上",
-  can: "选「外环回」什么都不用接（总线要有终端电阻）；选「正常」才需要接第二个节点",
-  knx: "接 KNX 总线，总线要有电（20–32 V）",
-  eth: "网口插网线，接到和这台电脑同一个网段",
-  usb: "用 USB 线接到这台电脑 —— 板子自己那个口，不是 ST-Link 那个",
-  sd: "往卡槽插一张卡。FAT16 / FAT32 / exFAT 都认",
-  sdram: "不用接 —— 芯片焊在板上",
-  rtc: "不用接",
-  reset: "不用接",
-  led: "不用接，眼睛盯着板子",
-};
+const PORT_WIRING = tr({
+  dout: "wiring.dout",
+  din: "wiring.din",
+  relay: "wiring.relay",
+  ain: "wiring.ain",
+  aout: "wiring.aout",
+  temp: "wiring.temp",
+  rs232: "wiring.rs232",
+  rs485: "wiring.rs485",
+  can: "wiring.can",
+  knx: "wiring.knx",
+  eth: "wiring.eth",
+  usb: "wiring.usb",
+  sd: "wiring.sd",
+  sdram: "wiring.sdram",
+  rtc: "wiring.rtc",
+  reset: "wiring.reset",
+  led: "wiring.led",
+});
 
 /* 每个用例说什么。外层的键是端口名，内层的键是 pt.run 的目标名；会话那一段的
  * 键固定叫 "session"。
@@ -891,240 +957,191 @@ const PORT_WIRING = {
  * 判据这一行的数字都出自方案文件（TestCase/plans/station6-poweron.json），
  * 面板里改不了。这里是把它翻成人话，不是第二份判据。
  */
-const CASE_TEXT = {
+const CASE_TEXT = tr({
   din: {session: {
-    title: "读八路数字输入",
-    what: "板子只读不驱动，按周期把八路的高低电平合成一个位图报上来。",
-    how: "八个输入端子给上 24 V 激励 → 勾要测的那几路 → 点开始。",
-    pass: "**该给高电平的那几路读到 1**，验收要求八路全高（位图 0xFF）。\n"
-        + "⚠️「丢失」不是判据 —— 数字输入的回环走的是控制口，它只说明控制口活着。\n"
-        + "⚠️ 板子**只读不驱动** —— 那八路 24 V 从哪来是工位的事，面板不知道也不判它。",
+    title: "case.din.session.title",
+    what: "case.din.session.what",
+    how: "case.din.session.how",
+    pass: "case.din.session.pass",
   }},
 
   dout: {session: {
-    title: "驱动八路高侧输出",
-    what: "给八路各设一个占空比和频率，看板子是不是照着驱动了。",
-    how: "⚠️ 先确认负载受得住 24 V → 每路填占空比 → 点开始。",
-    pass: "**每一路读回来的数，就是你给它设的那个数**；没勾的路不出现。验收是八路都 100。\n"
-        + "选了「闪烁」时数字会在 0 和你设的值之间跳，那也是对的 —— 帧报的是此刻引脚上的值。\n"
-        + "⚠️ 过了只说明固件收下并保持住了。**24 V 到底出没出、电流够不够，板子读不回来** —— 那要万用表。",
+    title: "case.dout.session.title",
+    what: "case.dout.session.what",
+    how: "case.dout.session.how",
+    pass: "case.dout.session.pass",
   }},
 
   relay: {session: {
-    title: "逐路吸合继电器",
-    what: "按你设的通断表驱动六路继电器，板子把驱动状态报回来。",
-    how: "每路填 1（通）或 0（断）→ 点开始 → **耳朵听咔哒声**。",
-    pass: "**设成通的那几路读到 1**，验收要求六路全闭合。\n"
-        + "⚠️ 板上没有触点回读，读到 1 只说明驱动过了 —— **真吸没吸只有你能判**。\n"
-        + "⚠️ 触点有寿命（HF41F 额定 3 万次），选「持续」之前想清楚。",
+    title: "case.relay.session.title",
+    what: "case.relay.session.what",
+    how: "case.relay.session.how",
+    pass: "case.relay.session.pass",
   }},
 
   ain: {session: {
-    title: "采两路模拟输入",
-    what: "按周期采 AIN1 / AIN2，每路报两个数：引脚上的原始码 / 毫伏。",
-    how: "两路接上 0–10 V 或 0–20 mA 信号源 → 点开始 → 调信号源，看读数跟不跟。",
-    pass: "**「采样正常」是 1**（基准电压起来了），**两路原始码都不低于 700**。\n"
-        + "⚠️ 低于 700 就是脚悬空、没接信号 —— 出厂九个跳线全开路时这两个脚彻底悬空。\n"
-        + "⚠️ 端子上换算成几伏几毫安，取决于跳线焊成什么样；焊成别的样子，那个换算就是错的。",
+    title: "case.ain.session.title",
+    what: "case.ain.session.what",
+    how: "case.ain.session.how",
+    pass: "case.ain.session.pass",
   }},
 
   aout: {session: {
-    title: "输出两路模拟量",
-    what: "逐路设输出电压，每路报三个数：要求值 / 量化后的值 / 按公式算出来的微安。",
-    how: "填毫伏（验收给的是 AO1=1000、AO2=2000）→ 点开始 → **万用表量端子**。",
-    pass: "**第一个数就是你填的毫伏**。\n"
-        + "⚠️ 微安是算的不是量的 —— 板上没有回读通道，**万用表才是判据**。\n"
-        + "⚠️ 两个「故障脚」读的是引脚电平，**不是结论** —— 哪个电平算故障硬件资料里没写，"
-        + "所以这里只把电平报上来。实测：空载时两路都读 1。\n"
-        + "⚠️ 要出校准系数，用这张卡下面的「模拟输出多点测量」。",
+    title: "case.aout.session.title",
+    what: "case.aout.session.what",
+    how: "case.aout.session.how",
+    pass: "case.aout.session.pass",
   }},
 
   temp: {session: {
-    title: "读两路板载温度",
-    what: "两路板载 LM50 传感器，每路报两个数：毫伏 / 0.1 ℃。",
-    how: "什么都不用接，直接点开始。",
-    pass: "**「采样正常」1、参考电压 2400–2600 毫伏、两路温度都落在 0–60.0 ℃**"
-        + "（第二个数的单位是 0.1 ℃，600 就是 60 度）。\n"
-        + "室温下通常读到 200–350；板子通电久了会往上走，那是正常的。",
+    title: "case.temp.session.title",
+    what: "case.temp.session.what",
+    how: "case.temp.session.how",
+    pass: "case.temp.session.pass",
   }},
 
   rs232: {session: {
-    title: "回环（就在控制口这条线上）",
-    what: "板子按周期发一行带序号的字，从控制口这条链路绕回来，自己比对。",
-    how: "不用另外接线，直接点开始。",
-    pass: "**「丢失」保持 0，「收到行数」一直涨**。\n"
-        + "⚠️ 它和控制口是同一条链路 —— 过了只说明这条线好，别的端口不沾光。",
+    title: "case.rs232.session.title",
+    what: "case.rs232.session.what",
+    how: "case.rs232.session.how",
+    pass: "case.rs232.session.pass",
   }},
 
   rs485: {
     "rs485.pins": {
-      title: "引脚通断", tag: "不用接对端",
-      what: "把方向脚 PD4 和发送脚 PD5 暂时当普通 GPIO：驱一个电平再读回来，看跟不跟随。"
-          + "问的是「这两个脚和 MCU 之间断没断、短没短」，**不经过收发器，也不需要对端**。",
-      how: "⚠️ **②跑着的时候板子会拒绝这一项**（引脚被会话占着）—— 先把②停了再点执行。"
-         + "跑完它会把引脚还给串口，②可以接着跑。",
-      pass: "**查过 1、被占用 0、跟随 1**。",
+      title: "case.rs485.rs485.pins.title", tag: "case.rs485.rs485.pins.tag",
+      what: "case.rs485.rs485.pins.what",
+      how: "case.rs485.rs485.pins.how",
+      pass: "case.rs485.rs485.pins.pass",
     },
     session: {
-      title: "回环（发出去要原样收回来）", tag: "必须先绑对端串口",
-      what: "板子按周期在被测的那对差分线上发一行带序号的字，对端原样送回来，板子自己比对。",
-      how: "先在上面的「对端串口」里绑好那个 USB-RS485 适配器 → 选波特率 → 点开始。",
-      pass: "**「丢失」「杂字节」「溢出次数」三个都保持 0**。\n"
-          + "⚠️ 没绑对端时「丢失」会一直涨 —— 那是接线不全，不是端口坏了。",
+      title: "case.rs485.session.title", tag: "case.rs485.session.tag",
+      what: "case.rs485.session.what",
+      how: "case.rs485.session.how",
+      pass: "case.rs485.session.pass",
     },
   },
 
   can: {session: {
-    title: "回环（帧穿过收发器再回来）", tag: "外环回不用接对端",
-    what: "帧从控制器发出去，穿过收发器上到总线，再从总线收回来。"
-        + "选「外环回」时回路就在板子自己身上闭合，总线上要有终端电阻。",
-    how: "选模式（外环回什么都不用接；正常要接第二个节点）→ 选波特率 → 点开始。",
-    pass: "**「丢失」0、「杂字节」0、「最后一次错误码」0、「收到帧」至少 4**。\n"
-        + "⚠️「收发器活着」和两个错误计数**不是**总线判据 —— 总线断了它们照样好看。\n"
-        + "⚠️ 选「回显」时板子不主动发，「发/收/丢」都不动，可判的是「回了多少帧」。",
+    title: "case.can.session.title", tag: "case.can.session.tag",
+    what: "case.can.session.what",
+    how: "case.can.session.how",
+    pass: "case.can.session.pass",
   }},
 
   knx: {session: {
-    title: "回环（走 STKNX 上总线再回来）",
-    what: "选「内环回」时回路是 MCU→STKNX→总线→STKNX→MCU；"
-        + "选「发真报文」会往总线上发真的组地址报文。",
-    how: "接好 KNX 总线并确认总线有电（20–32 V）→ 选模式 → 点开始。",
-    pass: "**「总线」正常、「总线供电」1、「字符数」至少 1、「坏帧」0**。\n"
-        + "⚠️ 总线没电时会看到「不对劲」和一串 0 —— 那是没供电，不是芯片坏。\n"
-        + "⚠️ 收到的字节要不要按位取反，由校验字节判，不由眼睛判（下面「报文事件」里那一列）。",
+    title: "case.knx.session.title",
+    what: "case.knx.session.what",
+    how: "case.knx.session.how",
+    pass: "case.knx.session.pass",
   }},
 
   eth: {
     "eth.link": {
-      title: "读网口芯片", tag: "不用接网线也能测",
-      what: "MCU 通过两根管理线直接问网口芯片（LAN8742A）：**你是谁、网线插了没、"
-          + "协商到多少速率**。不经过网络，也不需要对端和 IP。",
-      how: "直接点执行。",
-      pass: "**找到芯片 1、型号码 0x0007C131、管理线出错 0**。\n"
-          + "⚠️ 链路 0 多半只是没插网线，不是板子坏 —— 那两件事这一项分得开。",
+      title: "case.eth.eth.link.title", tag: "case.eth.eth.link.tag",
+      what: "case.eth.eth.link.what",
+      how: "case.eth.eth.link.how",
+      pass: "case.eth.eth.link.pass",
     },
     session: {
-      title: "TCP 回环 / 吞吐", tag: "要先起会话，板子才有 IP",
-      what: "板子在网口上开一个 TCP 服务端，这台电脑当客户端连上去收发。",
-      how: "先选模式和参数 → 点开始 → 对端会自动连上。**对端只能在会话跑着的时候连** ——"
-         + "板子是会话起来才去要 IP、才开始监听的。",
-      pass: "**连接数 1、丢失 0、收发字节一直在涨**。\n"
-          + "⚠️ 连接数一直是 0 就是对端没连上 —— 先看配置里那行本机地址和板子是不是同网段，"
-          + "再 ping 一下。",
+      title: "case.eth.session.title", tag: "case.eth.session.tag",
+      what: "case.eth.session.what",
+      how: "case.eth.session.how",
+      pass: "case.eth.session.pass",
     },
   },
 
   usb: {session: {
-    title: "CDC 回环", tag: "板子那个串口要起了会话才出现",
-    what: "板子枚举成一个 USB CDC 串口，这台电脑把它当对端，收到什么原样送回去。",
-    how: "点开始 → 板子这时才枚举出串口 → 面板会自己把它绑上当对端。"
-       + "⚠️ **先点开始再找串口** —— 没起会话时串口列表里根本没有它。",
-    pass: "**「状态」是「已配置」、「丢失」0、「枚举完成」0**。\n"
-        + "⚠️「枚举完成」大于 0 说明线或者主机在反复重连 —— 那种情况用「读信息」模式看得最清楚。",
+    title: "case.usb.session.title", tag: "case.usb.session.tag",
+    what: "case.usb.session.what",
+    how: "case.usb.session.how",
+    pass: "case.usb.session.pass",
   }},
 
   sd: {
     "sd.probe": {
-      title: "认卡",
-      what: "问板子三件事：卡在位吗、初始化成功吗、文件系统认出来是什么。**不读写任何文件**。",
-      how: "插好卡，点执行。",
-      pass: "**卡在位 1、就绪 1、文件系统不是「没有」**。\n"
-          + "⚠️ 文件系统读成「没有」多半是卡没格式化，不是卡槽坏 —— 那两件事这一项分得开。",
+      title: "case.sd.sd.probe.title",
+      what: "case.sd.sd.probe.what",
+      how: "case.sd.sd.probe.how",
+      pass: "case.sd.sd.probe.pass",
     },
     "sd.integrity": {
-      title: "写一个文件再读回来比对",
-      what: "在卡上写一个文件，读回来逐字节比对，跑几轮由方案给。"
-          + "这是「卡能不能真存住东西」最直接的问法；**轮数填大就是压力测试** —— "
-          + "偶发的坏块和接触不良跑一轮碰不到。",
-      how: "点执行。轮数填得大时几十秒起，跑着的时候别点别的。",
-      pass: "**内容一致 1、跑了几轮 = 过了几轮、文件系统返回码 0**。\n"
-          + "⚠️ 判据要**同时**看「跑了几轮」和「过了几轮」 —— 中途停下来时前者跟着变小，"
-          + "只看后者会把「跑一轮就放弃」判成通过。",
+      title: "case.sd.sd.integrity.title",
+      what: "case.sd.sd.integrity.what",
+      how: "case.sd.sd.integrity.how",
+      pass: "case.sd.sd.integrity.pass",
     },
     "sd.speed": {
-      title: "读写速率",
-      what: "写一段、读一段，量用时，算出读写速率。",
-      how: "点执行。",
-      pass: "**只判文件系统返回码 0**。\n"
-          + "⚠️ **速率本身只记录不判** —— 卡的牌子不同能差十倍，这个工位没有可比的值。",
+      title: "case.sd.sd.speed.title",
+      what: "case.sd.sd.speed.what",
+      how: "case.sd.sd.speed.how",
+      pass: "case.sd.sd.speed.pass",
     },
     session: {
-      title: "一直盯着卡在不在位",
-      what: "⚠️ 这个会话**只轮询「卡在位」那一个引脚**，不读写任何文件 —— 读写是上面那四个单项。",
-      how: "点开始。想验插拔就在跑着的时候把卡拔出来再插回去。",
-      pass: "**「卡在位」1**。拔插一次「插拔次数」应该加 2（拔一次插一次）。",
+      title: "case.sd.session.title",
+      what: "case.sd.session.what",
+      how: "case.sd.session.how",
+      pass: "case.sd.session.pass",
     },
   },
 
   sdram: {
     "sdram.probe": {
-      title: "查地址线和数据线",
-      what: "往阵列写几个特征值再读回来，判断数据线和地址线有没有断路、短路、接反。顺带报出容量。",
-      how: "点执行。",
-      pass: "**容量 67108864 字节、就绪 1、数据线 1、地址线 1**。",
+      title: "case.sdram.sdram.probe.title",
+      what: "case.sdram.sdram.probe.what",
+      how: "case.sdram.sdram.probe.how",
+      pass: "case.sdram.sdram.probe.pass",
     },
     "sdram.sweep": {
-      title: "全片扫描（四种花样）", tag: "⚠️ 慢，整片 64 MB",
-      what: "用四种花样把整片写一遍读一遍，找单个坏位。",
-      how: "点执行，然后等着。",
-      pass: "**就绪 1、花样数 4、对不上的字 0**。",
+      title: "case.sdram.sdram.sweep.title", tag: "case.sdram.sdram.sweep.tag",
+      what: "case.sdram.sdram.sweep.what",
+      how: "case.sdram.sdram.sweep.how",
+      pass: "case.sdram.sdram.sweep.pass",
     },
     "sdram.crc": {
-      title: "算一段校验和",
-      what: "对指定的一段算校验和，把值报上来。",
-      how: "点执行。",
-      pass: "**只判「就绪 1」和「起始地址、长度和方案给的一致」**。\n"
-          + "⚠️ **校验值本身不判** —— 它算的是阵列里碰巧存着的东西，这个工位没人往里写过，"
-          + "没有可比的值。",
+      title: "case.sdram.sdram.crc.title",
+      what: "case.sdram.sdram.crc.what",
+      how: "case.sdram.sdram.crc.how",
+      pass: "case.sdram.sdram.crc.pass",
     },
     session: {
-      title: "保持测试一轮接一轮",
-      what: "**这个会话就是保持测试在循环**：写一批随机地址、让它坐着、再读回来，一轮接一轮。",
-      how: "点开始。选「持续」跑得越久越容易抓到偶发的丢位。",
-      pass: "**就绪 1、循环数至少 1、失败的块 0**。\n"
-          + "⚠️ 失败数是整轮累计的 —— 三小时前坏过一次，现在也还看得见。",
+      title: "case.sdram.session.title",
+      what: "case.sdram.session.what",
+      how: "case.sdram.session.how",
+      pass: "case.sdram.session.pass",
     },
   },
 
   rtc: {"rtc.read": {
-    title: "读实时钟",
-    what: "按需拉起实时钟读一次日历，顺带报出它用的是哪个时钟源。**只读不写**。",
-    how: "点执行。",
-    pass: "**能读出时间，而且「时钟源」是「外部晶振」**。\n"
-        + "⚠️ 读到「内部 RC」说明 32.768 kHz 晶振没起来。\n"
-        + "⚠️「设过时间」是 0 属于正常 —— 没人给它设过时间。",
+    title: "case.rtc.rtc.read.title",
+    what: "case.rtc.rtc.read.what",
+    how: "case.rtc.rtc.read.how",
+    pass: "case.rtc.rtc.read.pass",
   }},
 
   reset: {"reset.cause": {
-    title: "上次为什么复位",
-    what: "读芯片记下的上一次复位原因。这个值板子一开机第一句就抓下来了 —— "
-        + "芯片里那个寄存器是粘滞的，晚一点读就被别的代码清掉了。",
-    how: "点执行。",
-    pass: "**IWDG / WWDG 都不该出现** —— 那是板子自己卡死、被看门狗救回来的，"
-        + "在测试工位上意味着缺陷比测试先到。\n"
-        + "POR（上电）/ PIN（按了复位）/ SOFT（软件复位）/ BOR（掉压）都是正常到达工位的方式，"
-        + "具体是哪个取决于操作员怎么上的电，不该拿它当判据。\n"
-        + "⚠️ **「板子刚才复没复位」不用问它** —— 上位机看每一帧里那个毫秒计数往回跳就知道了；"
-        + "这一项回答的是「为什么」。",
+    title: "case.reset.reset.cause.title",
+    what: "case.reset.reset.cause.what",
+    how: "case.reset.reset.cause.how",
+    pass: "case.reset.reset.cause.pass",
   }},
 
   led: {"led.blink": {
-    title: "状态灯闪六次", tag: "只有你能判",
-    what: "让状态灯闪六次，每次半秒。",
-    how: "**眼睛盯着板子**，再点执行。",
-    pass: "**回复里「脉冲数」是 6，可是灯到底亮没亮只有你能判** —— "
-        + "这个脚没有回读，板子回的「看到了吗」永远是「不知道」。",
+    title: "case.led.led.blink.title", tag: "case.led.led.blink.tag",
+    what: "case.led.led.blink.what",
+    how: "case.led.led.blink.how",
+    pass: "case.led.led.blink.pass",
   }},
-};
+});
 
 // 一个用例的说明。没写的端口给一段老实话，不编。
 function caseTextFor(p, key) {
   const t = ((CASE_TEXT[p.name] || {})[key]) || {};
   if (t.title) { return t; }
   return {
-    title: key === "session" ? "持续采样" : targetCN(key),
-    what: "这一项还没有写说明。板子报了它，能跑也能看读数，只是判据要问人。",
-    how: key === "session" ? "点开始。" : "点执行。",
+    title: key === "session" ? T("ui.caseTextFor.1") : targetCN(key),
+    what: T("ui.caseTextFor.2"),
+    how: key === "session" ? T("ui.caseTextFor.3") : T("ui.caseTextFor.4"),
     pass: "",
   };
 }
@@ -1139,30 +1156,30 @@ function caseTextFor(p, key) {
 // 测试是旁边那四个单项、一次性的 —— 可「持续」两个字让人以为是长时间读写文件。
 // 用户 2026-09-14：「sd 卡的持续，指的是什么长时间读写文件么还是什么？这都没说
 // 清楚」。所以一个口一句，说清楚它循环的是什么。
-const SESSION_WHAT = {
-  sd: "这个口的会话**只盯着「卡在位」那一个脚** —— 持续就是一直盯着它有没有被拔出来、插回去。**读写不在会话里**，那是下面那四个单项，每个跑一轮就回来",
-  sdram: "这个口的会话**就是保持测试**：写一批随机地址、让它坐着、再读回来，一轮接一轮。持续就是一直这么循环 —— 跑得越久越容易抓到偶发的丢位。**全片扫描和校验和不在会话里**，是下面的单项",
-  din: "持续就是一直按周期读那八路的电平。**板子只读不驱动**，所以持续多久都不会动输出",
-  dout: "持续就是一直按你设的占空比和频率驱动那几路。⚠️ **24 V 会一直输出着**",
-  relay: "持续就是按周期一直吸合释放。⚠️ **触点有寿命**（HF41F 额定 3 万次），持续跑之前想清楚",
-  temp: "持续就是一直按周期读那两路板载温度 —— 看它随板子发热怎么爬",
-  ain: "持续就是一直按周期采那两路 —— 信号源变了读数要跟着变",
-  aout: "持续就是一直输出你设的那个值。⚠️ **电流会一直往外走**",
-  eth: "持续就是一直收发 —— 长时间跑才看得出偶发丢包和吞吐塌下去",
-  usb: "持续就是一直收发 —— 长时间跑才看得出枚举会不会反复掉",
-  can: "持续就是一直按周期发帧收帧 —— 看总线错误计数会不会慢慢涨",
-  rs485: "持续就是一直按周期发号收号 —— 看丢失和溢出会不会慢慢涨",
-  rs232: "持续就是一直按周期在控制口这条线上发号收号",
-  knx: "持续就是一直按周期发报文收报文",
-};
+const SESSION_WHAT = tr({
+  sd: "session_what.sd",
+  sdram: "session_what.sdram",
+  din: "session_what.din",
+  dout: "session_what.dout",
+  relay: "session_what.relay",
+  temp: "session_what.temp",
+  ain: "session_what.ain",
+  aout: "session_what.aout",
+  eth: "session_what.eth",
+  usb: "session_what.usb",
+  can: "session_what.can",
+  rs485: "session_what.rs485",
+  rs232: "session_what.rs232",
+  knx: "session_what.knx",
+});
 
-const PORT_LABEL = {
-  din: "DI 数字输入", dout: "DO 高侧输出", relay: "继电器",
-  ain: "AI 模拟输入", aout: "AO 模拟输出", temp: "板载温度",
+const PORT_LABEL = tr({
+  din: "port_label.din", dout: "port_label.dout", relay: "port_label.relay",
+  ain: "port_label.ain", aout: "port_label.aout", temp: "port_label.temp",
   rs232: "RS232", rs485: "RS485", can: "CAN", knx: "KNX",
-  sdram: "SDRAM", sd: "SD 卡", eth: "以太网", usb: "USB 口",
-  rtc: "实时钟", led: "指示灯", reset: "复位原因",
-};
+  sdram: "SDRAM", sd: "port_label.sd", eth: "port_label.eth", usb: "port_label.usb",
+  rtc: "port_label.rtc", led: "port_label.led", reset: "port_label.reset",
+});
 
 function portLabel(name) { return PORT_LABEL[name] || name; }
 
@@ -1174,97 +1191,97 @@ function portLabel(name) { return PORT_LABEL[name] || name; }
 // *** 协议字面量本身不变 —— 下拉框的 value、发出去的命令、板子回的字段名都还是
 // *** 原来那些。变的只是印在屏幕上的那一层，原文进 title 悬停，谁要对着日志查
 // *** 还是查得到。
-const PARAM_CN = {
-  ch: "通道", mode: "模式", period: "采样周期（毫秒）",
-  duty: "占空比（%）", freq: "频率（Hz）", baud: "波特率",
-  on: "通断（0 断 1 通）", mv: "输出电压（毫伏）",
-  ip: "IP 地址", port: "TCP 端口",
-  ga: "组地址", src: "源地址", val: "发送值",
+const PARAM_CN = tr({
+  ch: "param.ch", mode: "param.mode", period: "param.period",
+  duty: "param.duty", freq: "param.freq", baud: "param.baud",
+  on: "param.on", mv: "param.mv",
+  ip: "param.ip", port: "param.port",
+  ga: "param.ga", src: "param.src", val: "param.val",
   // 保持测试让数据在阵列里坐多久。下限 1000 毫秒 —— 不刷新的单元几十毫秒就掉电，
   // 比这更短的等待在一块刷新根本没启动的板子上也会通过。
-  wait: "让数据坐多久（毫秒）",
-  minutes: "跑多久（分钟）",
-};
+  wait: "param.wait",
+  minutes: "param.minutes",
+});
 
 // 枚举值和读数里出现的取值。板子发什么还是什么，这里只管印。
-const VALUE_CN = {
-  hold: "保持", blink: "闪烁", square: "方波",
-  level: "电平", quad: "正交编码",
-  normal: "正常", listen: "只听", loopback: "内环回", extloop: "外环回",
-  frames: "发真报文",
+const VALUE_CN = tr({
+  hold: "value.hold", blink: "value.blink", square: "value.square",
+  level: "value.level", quad: "value.quad",
+  normal: "value.normal", listen: "value.listen", loopback: "value.loopback", extloop: "value.extloop",
+  frames: "value.frames",
   // SDRAM 保持会话走到哪一步了
-  write: "写进去", wait: "坐着等", verify: "读回来对",
-  echo: "回显", sink: "只收", source: "只发", info: "读信息",
-  toggle: "翻转",
-  raw: "原样就对", inv: "取反才对", ack: "单字节应答", bad: "两种读法都不对",
-  ok: "正常", odd: "不对劲",
-  dhcp: "自动获取", cfg: "已配置", unknown: "不知道", dead: "没电",
-  lse: "外部晶振", lsi: "内部 RC",
-  none: "没有", self: "自环", ctrl: "控制口", link: "被测链路",
-  tx: "发出", rx: "收到", gvwrite: "写组对象",
+  write: "value.write", wait: "value.wait", verify: "value.verify",
+  echo: "value.echo", sink: "value.sink", source: "value.source", info: "value.info",
+  toggle: "value.toggle",
+  raw: "value.raw", inv: "value.inv", ack: "value.ack", bad: "value.bad",
+  ok: "value.ok", odd: "value.odd",
+  dhcp: "value.dhcp", cfg: "value.cfg", unknown: "value.unknown", dead: "value.dead",
+  lse: "value.lse", lsi: "value.lsi",
+  none: "value.none", self: "value.self", ctrl: "value.ctrl", link: "value.link",
+  tx: "value.tx", rx: "value.rx", gvwrite: "value.gvwrite",
   exfat: "exFAT", fat32: "FAT32", fat16: "FAT16",
-};
+});
 
 // 帧里的读数字段。只收在卡片上露面的那些 —— 日志里的原文不动。
-const FIELD_CN = {
-  t: "板上时间（毫秒）", seq: "发出", rx: "收到", miss: "丢失",
-  tick: "中断率（Hz）", mode: "模式", period: "采样周期（毫秒）",
-  duty: "占空比（%）", freq: "频率（Hz）", baud: "波特率",
-  v: "输入电平（位图）", vdda: "参考电压 VDDA（毫伏）", ok: "采样正常",
-  rxlines: "收到行数", rxbytes: "收到字节", junk: "杂字节", overrun: "溢出次数",
-  bps: "速率（位/秒）", alive: "收发器活着", tx: "发出帧", rx_frames: "收到帧",
-  tec: "发送错误计数", rec: "接收错误计数", lec: "最后一次错误码",
-  bus: "总线", vcc: "总线供电", idle: "空闲", pulses: "脉冲数",
-  dropped: "丢弃", chars: "字符数", bad: "坏帧", mismatch: "对不上",
-  w_avg: "平均脉宽（微秒）", d_avg: "平均间隔（微秒）", quiet_ms: "静默（毫秒）",
-  ip: "IP 地址", link: "链路", conn: "连接数", port: "TCP 端口",
-  rx_bytes: "收到字节", tx_bytes: "发出字节", kbps: "速率（千位/秒）",
-  state: "状态", enum: "枚举完成", busy: "忙",
-  detected: "卡在位", changes: "插拔次数", in: "插入次数", out: "拔出次数",
-  elapsed_s: "已跑（秒）", left_s: "还剩（秒）", cycles: "循环数",
-  din: "输入电平（位图）", relay_ops: "继电器动作次数", faults: "故障数",
-  done: "跑完了", tmin: "最低温（0.1℃）", tmax: "最高温（0.1℃）",
-  found: "找到芯片", autoneg: "自协商", speed: "速率（Mbit/s）", fd: "全双工",
-  fs: "文件系统", err: "错误码", size: "容量（字节）", clk: "时钟源",
-  crc: "校验字节", runs: "跑过几次", mounted: "挂载上了",
-  init: "设过时间", ready: "就绪", n: "个数",
+const FIELD_CN = tr({
+  t: "field.t", seq: "field.seq", rx: "field.rx", miss: "field.miss",
+  tick: "field.tick", mode: "field.mode", period: "field.period",
+  duty: "field.duty", freq: "field.freq", baud: "field.baud",
+  v: "field.v", vdda: "field.vdda", ok: "field.ok",
+  rxlines: "field.rxlines", rxbytes: "field.rxbytes", junk: "field.junk", overrun: "field.overrun",
+  bps: "field.bps", alive: "field.alive", tx: "field.tx", rx_frames: "field.rx_frames",
+  tec: "field.tec", rec: "field.rec", lec: "field.lec",
+  bus: "field.bus", vcc: "field.vcc", idle: "field.idle", pulses: "field.pulses",
+  dropped: "field.dropped", chars: "field.chars", bad: "field.bad", mismatch: "field.mismatch",
+  w_avg: "field.w_avg", d_avg: "field.d_avg", quiet_ms: "field.quiet_ms",
+  ip: "field.ip", link: "field.link", conn: "field.conn", port: "field.port",
+  rx_bytes: "field.rx_bytes", tx_bytes: "field.tx_bytes", kbps: "field.kbps",
+  state: "field.state", enum: "field.enum", busy: "field.busy",
+  detected: "field.detected", changes: "field.changes", in: "field.in", out: "field.out",
+  elapsed_s: "field.elapsed_s", left_s: "field.left_s", cycles: "field.cycles",
+  din: "field.din", relay_ops: "field.relay_ops", faults: "field.faults",
+  done: "field.done", tmin: "field.tmin", tmax: "field.tmax",
+  found: "field.found", autoneg: "field.autoneg", speed: "field.speed", fd: "field.fd",
+  fs: "field.fs", err: "field.err", size: "field.size", clk: "field.clk",
+  crc: "field.crc", runs: "field.runs", mounted: "field.mounted",
+  init: "field.init", ready: "field.ready", n: "field.n",
   // pt.run 的回复里那些 —— 判据大多判在这些数上
-  id: "芯片型号码", mdio_errors: "MDIO 出错次数",
-  databus: "数据线", addrbus: "地址线", patterns: "花样数",
-  checked: "查过的块", failed: "失败的块", mismatches: "对不上的字",
-  wrote: "写进去了", read_back: "读回来了", identical: "内容一致",
-  fresult: "文件系统返回码", passes: "跑了几轮", passed: "过了几轮",
-  first_bad_pass: "第一次出错在第几轮", class: "卡类别",
-  first_bad: "第一个出错的地址", seed: "这一轮用的地址种子",
-  phase: "当前步骤", wait_ms: "坐了多久（毫秒）",
-  ef1: "AO1 故障脚", ef2: "AO2 故障脚",
+  id: "field.id", mdio_errors: "field.mdio_errors",
+  databus: "field.databus", addrbus: "field.addrbus", patterns: "field.patterns",
+  checked: "field.checked", failed: "field.failed", mismatches: "field.mismatches",
+  wrote: "field.wrote", read_back: "field.read_back", identical: "field.identical",
+  fresult: "field.fresult", passes: "field.passes", passed: "field.passed",
+  first_bad_pass: "field.first_bad_pass", class: "field.class",
+  first_bad: "field.first_bad", seed: "field.seed",
+  phase: "field.phase", wait_ms: "field.wait_ms",
+  ef1: "field.ef1", ef2: "field.ef2",
   // 回声模式下板子不主动发，所以「发/收/丢」都不是判据 —— 可判的是这个。
-  replied: "回了多少帧",
-  bytes: "字节数", block_size: "块大小", blocks: "块数",
-  read_bps: "读速率（位/秒）", write_bps: "写速率（位/秒）",
-  read_ms: "读用时（毫秒）", write_ms: "写用时（毫秒）",
-  verify_ms: "校验用时（毫秒）", elapsed_ms: "用时（毫秒）",
-  time: "时间", date: "日期", uid: "芯片 UID", observed: "看到了吗",
-  _text: "整行回复",
+  replied: "field.replied",
+  bytes: "field.bytes", block_size: "field.block_size", blocks: "field.blocks",
+  read_bps: "field.read_bps", write_bps: "field.write_bps",
+  read_ms: "field.read_ms", write_ms: "field.write_ms",
+  verify_ms: "field.verify_ms", elapsed_ms: "field.elapsed_ms",
+  time: "field.time", date: "field.date", uid: "field.uid", observed: "field.observed",
+  _text: "field._text",
   // KNX 的报文事件
-  dst: "目标组地址", apci: "报文类型", raw: "原始字节", inv: "按位取反后",
-  crc_raw: "原样就对的帧", crc_inv: "取反才对的帧", crc_bad: "两种都不对的帧",
-  acks: "应答字节", ack_other: "别人的应答", tx_frames: "发出帧", rx_frames: "收到帧",
-};
+  dst: "field.dst", apci: "field.apci", raw: "field.raw", inv: "field.inv",
+  crc_raw: "field.crc_raw", crc_inv: "field.crc_inv", crc_bad: "field.crc_bad",
+  acks: "field.acks", ack_other: "field.ack_other", tx_frames: "field.tx_frames", rx_frames: "field.rx_frames.2",
+});
 
 // pt.run 的目标。名字是协议里的，印出来的是这件事本身。
-const TARGET_CN = {
-  "eth.link": "以太网 PHY 探测",
-  "sd.probe": "SD 卡探测", "sd.info": "SD 卡信息",
-  "sd.integrity": "SD 卡数据校验", "sd.integrity.soak": "SD 卡数据校验（长跑）",
-  "sd.speed": "SD 卡读写速率",
-  "sdram.probe": "SDRAM 地址/数据线", "sdram.sweep": "SDRAM 全片扫描",
-  "sdram.capacity": "SDRAM 容量", "sdram.crc": "SDRAM 校验",
-  "rtc.read": "读实时钟", "led.blink": "指示灯闪",
-  "reset.cause": "上次为什么复位", "rs485.pins": "RS485 引脚通断",
-  can: "CAN 收发", "can.soak": "CAN 长跑", "can.scope": "CAN 看波形",
-  "can.echo": "CAN 回显", knx: "KNX 收发", rs485: "RS485 收发",
-};
+const TARGET_CN = tr({
+  "eth.link": "target.eth.link",
+  "sd.probe": "target.sd.probe", "sd.info": "target.sd.info",
+  "sd.integrity": "target.sd.integrity", "sd.integrity.soak": "target.sd.integrity.soak",
+  "sd.speed": "target.sd.speed",
+  "sdram.probe": "target.sdram.probe", "sdram.sweep": "target.sdram.sweep",
+  "sdram.capacity": "target.sdram.capacity", "sdram.crc": "target.sdram.crc",
+  "rtc.read": "target.rtc.read", "led.blink": "target.led.blink",
+  "reset.cause": "target.reset.cause", "rs485.pins": "target.rs485.pins",
+  can: "target.can", "can.soak": "target.can.soak", "can.scope": "target.can.scope",
+  "can.echo": "target.can.echo", knx: "target.knx", rs485: "target.rs485",
+});
 
 // 说明里的 **一段** 印成粗体。
 //
@@ -1289,63 +1306,58 @@ function richText(tag, cls, s) {
 //
 // *** 这几句的出处是固件自己的注释（$BOOT/TestCase/porttool/ 下每个口自己的 .c
 // *** 文件头），不是猜的。改固件那边的模式，这里要跟着改。
-const VALUE_HELP = {
+const VALUE_HELP = tr({
   dout: {
-    hold:  "一直按你设的占空比输出 —— 测 PWM、量电压用这个",
-    blink: "八路整体在「占空比」和 0 之间来回翻，每个采样周期一次。" +
-           "八路整体在「占空比」和 0 之间来回翻，每个采样周期一次 —— 用来看输出能不能跟着变",
+    hold:  "value_help.dout.hold",
+    blink: "value_help.dout.blink",
   },
   relay: {
-    hold:   "保持你设的通断状态不动",
-    square: "每个采样周期翻一次（默认 2 秒开、2 秒关），用来听咔哒声",
+    hold:   "value_help.relay.hold",
+    square: "value_help.relay.square",
   },
   din: {
-    level: "直接报八个脚的高低电平",
-    quad:  "按正交编码解：相邻两路一组，四组，报格数和方向",
+    level: "value_help.din.level",
+    quad:  "value_help.din.quad",
   },
   can: {
-    loopback: "控制器内部绕回来，根本不到引脚 —— 只证明外设、时钟、位时序，" +
-              "收发器和总线一概证明不了",
-    extloop:  "穿过收发器上总线再回来，覆盖 ISO1044 和它的隔离供电 U7 —— " +
-              "不用第二个节点就能测全链路，产线用这个。总线要有终端电阻",
-    listen:   "只听不发，闭合计数永远不动 —— 判据要看「收到帧」和「杂字节」",
-    normal:   "真总线、真的第二个节点。没有第二个节点就没有应答",
-    echo:     "板子不主动发，收到什么就原样发回去 —— 给对面那个节点当回声墙用。" +
-              "这个模式下「发/收/丢」都不动，可判的是「回了多少帧」",
+    loopback: "value_help.can.loopback",
+    extloop:  "value_help.can.extloop",
+    listen:   "value_help.can.listen",
+    normal:   "value_help.can.normal",
+    echo:     "value_help.can.echo",
   },
   knx: {
-    loopback: "回路是 MCU→STKNX→总线→STKNX→MCU",
-    listen:   "只听总线上别人的报文，自己不发",
-    frames:   "发真正的组值写报文，用校验字节判极性",
+    loopback: "value_help.knx.loopback",
+    listen:   "value_help.knx.listen",
+    frames:   "value_help.knx.frames",
     // 「发真报文」时往那个组地址里写什么值。只在那个模式下有用。
-    toggle:   "每次发的都和上次相反 —— 不用先知道总线上那个对象现在是什么状态",
-    "0":      "每次都发 0（关）",
-    "1":      "每次都发 1（开）",
+    toggle:   "value_help.knx.toggle",
+    "0":      "value_help.knx.0",
+    "1":      "value_help.knx.1",
   },
   eth: {
-    echo:   "板子发计数，对端原样送回 —— 证明链路双向通，这是「发/收/丢」有意义的唯一模式",
-    sink:   "对端往板子灌一大片数据，板子数字节报速率 —— 证明持续接收能力",
-    source: "板子拼命往外发并统计 —— 证明持续发送能力",
+    echo:   "value_help.eth.echo",
+    sink:   "value_help.eth.sink",
+    source: "value_help.eth.source",
   },
   usb: {
-    echo:   "板子发，对端原样送回 —— 证明双向通",
-    sink:   "对端往板子灌，板子数字节",
-    source: "板子往外灌",
-    info:   "一个字节都不传，只报枚举状态和枚举过几次 —— " +
-            "线或主机反复重新枚举时，别的模式看起来都像链路死了",
+    echo:   "value_help.usb.echo",
+    sink:   "value_help.usb.sink",
+    source: "value_help.usb.source",
+    info:   "value_help.usb.info",
   },
-};
+});
 
 function valueHelp(port, v) { return (VALUE_HELP[port] || {})[v] || ""; }
 
 // 参数框自己的说明，跟在标题后面。同样只写这一处。
-const PARAM_HELP = {
-  dout: {duty: "100 是常通，0 是关断，中间就是脉宽调制",
-         freq: "脉宽调制的快慢。只想控制通断就不用管它 —— 框里回显的是板子实际落到的值，不是你敲进去的值"},
-  relay: {on: "1 闭合，0 断开"},
-  aout: {mv: "要这一路输出多少毫伏"},
-  din:  {period: "多久报一次读数"},
-};
+const PARAM_HELP = tr({
+  dout: {duty: "param_help.dout.duty",
+         freq: "param_help.dout.freq"},
+  relay: {on: "param_help.relay.on"},
+  aout: {mv: "param_help.aout.mv"},
+  din:  {period: "param_help.din.period"},
+});
 
 function paramHelp(port, name) { return (PARAM_HELP[port] || {})[name] || ""; }
 
@@ -1361,39 +1373,39 @@ function targetCN(t)   { return TARGET_CN[t] || t; }
 //
 // *** 只译标签，不译值。那些格子改的就是文件本身，把 "PtSession" 换成中文写
 // *** 回去，文件就读不了了。原词一律进 title 悬停，和面板别处一样。
-const STEPTYPE_CN = {
-  PtSession:   "跑一个端口",
-  PtRun:       "跑一个一次性动作",
-  PtRaw:       "直接发一条命令",
-  Tool:        "调外部程序",
-  UserConfirm: "问人一句",
-  ReadSN:      "读序列号",
-  PushResult:  "把结果推出去",
-};
+const STEPTYPE_CN = tr({
+  PtSession:   "steptype.PtSession",
+  PtRun:       "steptype.PtRun",
+  PtRaw:       "steptype.PtRaw",
+  Tool:        "steptype.Tool",
+  UserConfirm: "steptype.UserConfirm",
+  ReadSN:      "steptype.ReadSN",
+  PushResult:  "steptype.PushResult",
+});
 
-const PLANFIELD_CN = {
-  port:              "哪个端口",
-  frames:            "收几帧才算完",
-  target:            "哪个动作",
-  command:           "命令原文",
-  tool_name:         "程序名",
-  prompt:            "问什么",
-  source:            "从哪读",
-  sink:              "推到哪",
-  execute_condition: "什么情况下才跑这一步",
-  retry_count:       "失败了重试几次",
-  retry_interval_ms: "两次重试之间等多久（毫秒）",
-  sleep_before_ms:   "开跑前先等多久（毫秒）",
-  sleep_after_ms:    "跑完再等多久（毫秒）",
-  timeout_ms:        "等多久还不回就算超时（毫秒）",
-};
+const PLANFIELD_CN = tr({
+  port:              "planfield.port",
+  frames:            "planfield.frames",
+  target:            "planfield.target",
+  command:           "planfield.command",
+  tool_name:         "planfield.tool_name",
+  prompt:            "planfield.prompt",
+  source:            "planfield.source",
+  sink:              "planfield.sink",
+  execute_condition: "planfield.execute_condition",
+  retry_count:       "planfield.retry_count",
+  retry_interval_ms: "planfield.retry_interval_ms",
+  sleep_before_ms:   "planfield.sleep_before_ms",
+  sleep_after_ms:    "planfield.sleep_after_ms",
+  timeout_ms:        "planfield.timeout_ms",
+});
 
 // 门的三个取值。值发回文件，所以照旧是大写英文，只有印出来的字是中文。
-const EXECCOND_CN = {
-  PASS:   "上一步过了才跑",
-  FAIL:   "上一步没过才跑",
-  ALWAYS: "不管上一步，一律跑",
-};
+const EXECCOND_CN = tr({
+  PASS:   "execcond.PASS",
+  FAIL:   "execcond.FAIL",
+  ALWAYS: "execcond.ALWAYS",
+});
 
 function stepTypeCN(t)  { return STEPTYPE_CN[t] || t; }
 function planFieldCN(k) { return PLANFIELD_CN[k] || paramCN(k); }
@@ -1401,7 +1413,7 @@ function planFieldCN(k) { return PLANFIELD_CN[k] || paramCN(k); }
 // 标签印中文，原词挂在 title 上。方案页每一处都这么做，所以抽出来。
 function planLabel(text, raw) {
   const d = el("div", "k", text);
-  d.title = "文件里的写法：" + raw;
+  d.title = T("ui.planLabel.1", {raw});
   return d;
 }
 
@@ -1413,7 +1425,7 @@ function planLabel(text, raw) {
 // *** 为什么不让 Go 那边直接出中文：同一份文案还要进命令行和 CSV 报告，而
 // *** 那两处按约定是英文（~/.claude/rules/language.md）。所以英文留在 Go 里，
 // *** 屏幕上这一层自己拼。
-const OP_CN = {eq: "要等于", ne: "不能是", contains: "要包含"};
+const OP_CN = tr({eq: "op.eq", ne: "op.ne", contains: "op.contains"});
 
 function fieldLabel(port, field) {
   const m = /^([A-Za-z0-9_.]+)(?:\[(\d+)\])?$/.exec(String(field || ""));
@@ -1421,20 +1433,20 @@ function fieldLabel(port, field) {
   const p = (state.ports || []).find(x => x.name === port);
   const ch = /^ch(\d+)$/.exec(m[1]);
   const base = (ch && p) ? displayName(p, Number(ch[1])) : fieldCN(m[1]);
-  return m[2] === undefined ? base : (base + "（第 " + (Number(m[2]) + 1) + " 个数）");
+  return m[2] === undefined ? base : (T("ui.fieldLabel.1", {base, m: (Number(m[2]) + 1)}));
 }
 
 function checkCN(port, c) {
-  if (!c || !c.field) { return "这条判据"; }
+  if (!c || !c.field) { return T("ui.checkCN.1"); }
   const f = fieldLabel(port, c.field);
   const unit = c.unit ? " " + c.unit : "";
   const has = v => v !== undefined && v !== null;
   if (c.op === "range") {
-    if (has(c.min) && has(c.max)) { return f + " 要在 " + c.min + "–" + c.max + unit + " 之间"; }
-    if (has(c.min)) { return f + " 要不小于 " + c.min + unit; }
-    return f + " 要不大于 " + c.max + unit;
+    if (has(c.min) && has(c.max)) { return T("ui.checkCN.2", {f, min: c.min, max: c.max, unit}); }
+    if (has(c.min)) { return T("ui.checkCN.3", {f, min: c.min, unit}); }
+    return T("ui.checkCN.4", {f, max: c.max, unit});
   }
-  if (c.op === "count_zero") { return f + " 必须一次都没有"; }
+  if (c.op === "count_zero") { return T("ui.checkCN.5", {f}); }
   return f + " " + (OP_CN[c.op] || c.op) + " " + valueCN(c.value) + unit;
 }
 
@@ -1443,30 +1455,30 @@ function failCN(port, x) {
   const c = x.check || {};
   const what = checkCN(port, c);
   if (x.missing) {
-    return what + "，可是板子这一帧里根本没有" + fieldLabel(port, c.field) + "这个读数";
+    return T("ui.failCN.1", {what, field: fieldLabel(port, c.field)});
   }
-  return what + "，读到的是 " + (x.got === "" ? "空" : valueCN(x.got));
+  return T("ui.failCN.got", {what, got: x.got === "" ? T("ui.failCN.3") : valueCN(x.got)});
 }
 
 // 卡片头印中文名，协议里的 port= 名进悬停 —— 对着日志查的时候还要它。
 function cardName(p) {
   const s = el("span","nm", portLabel(p.name));
-  s.title = "协议里的名字：" + p.name;
+  s.title = T("ui.cardName.1", {name: p.name});
   return s;
 }
 
 // 端子排 = Klemmblock。端子号本身是硬件事实，不译。
 function blkTerm(p) {
-  return p.blk === "-" ? p.term : ("端子排 " + p.blk + " · " + p.term);
+  return p.blk === "-" ? p.term : (T("ui.blkTerm.1", {blk: p.blk, term: p.term}));
 }
 
-const BOARD_LABEL = {
-  bridge:   "Bridge 主控板",
-  upper:    "Upper Deck 上层板",
-  lower:    "Lower Deck 下层板",
-  junction: "Junction Link 底板",
-  whole:    "整机（跨板）",
-};
+const BOARD_LABEL = tr({
+  bridge:   "board_label.bridge",
+  upper:    "board_label.upper",
+  lower:    "board_label.lower",
+  junction: "board_label.junction",
+  whole:    "board_label.whole",
+});
 
 // What a hardware engineer wants off this list at a glance: has this port been
 // tested, and did it pass. Nothing else.
@@ -1490,8 +1502,8 @@ async function judge(frame) {
   if ((aocalRunning && frame.port === "aout") || (aicalRunning && frame.port === "ain")) {
     delete verdicts[frame.port];
     judgeWhy[frame.port] = frame.port === "ain"
-      ? "多点测量在跑，信号源在逐点换值 —— 方案的判据这会儿不适用"
-      : "多点测量在跑，逐点改着输出 —— 方案的判据这会儿不适用";
+      ? T("ui.judge.1")
+      : T("ui.judge.2");
     renderTree(); renderPanel();
     return null;
   }
@@ -1526,12 +1538,15 @@ async function judge(frame) {
       judgeWhy[frame.port] = (r.results || [])
         .filter(x => !x.pass)
         .map(x => failCN(frame.port, x))
-        .join("；");
+        .join(T("ui.judge.3"));
       // 持续测试里判出不过：停掉整轮、点故障灯（决策 37 第 3 件）。只在持续测试里，
       // 因为单次测试的「不过」就摆在卡片上，人就在跟前。
       if (!r.pass && state.run && (state.run.ports || []).includes(frame.port)) {
-        api("/api/fault", {on: true,
-          why: portLabel(frame.port) + " 判为不过：" + (judgeWhy[frame.port] || "")})
+        // English: the server writes it into the run log.
+        api("/api/fault", {on: true, why: inLang("en", () => T("ui.judge.fault_why", {
+          port: portLabel(frame.port),
+          why: (r.results || []).filter(x => !x.pass).map(x => failCN(frame.port, x)).join(T("ui.judge.3")),
+        }))})
           .then(refreshState);
       }
     }
@@ -1649,7 +1664,7 @@ function offPlan(p) {
       const was = String(planned).split(",").map(s => Number(s.trim()))
                     .filter(n => n >= 1).sort((a,b) => a-b).join(",");
       if (now !== was) {
-        out.push({what: "测哪几路", was: chanNames(p, was), now: chanNames(p, now)});
+        out.push({what: T("ui.offPlan.1"), was: chanNames(p, was), now: chanNames(p, now)});
       }
       continue;
     }
@@ -1675,30 +1690,29 @@ function offPlan(p) {
 // 撑满半屏，而真正要看的「哪里不一样」反而埋在里面。
 function chanNames(p, list) {
   const ns = String(list).split(",").filter(Boolean).map(Number);
-  if (!ns.length) { return "一个都没选"; }
-  if (ns.length === p.channels) { return "全部 " + p.channels + " 路"; }
-  return ns.map(n => displayName(p, n)).join("、");
+  if (!ns.length) { return T("ui.chanNames.1"); }
+  if (ns.length === p.channels) { return T("ui.chanNames.2", {channels: p.channels}); }
+  return ns.map(n => displayName(p, n)).join(T("ui.chanNames.3"));
 }
 
 function perChText(p, m) {
   const keys = Object.keys(m).map(Number).sort((a,b) => a-b);
-  if (!keys.length) { return "没有"; }
+  if (!keys.length) { return T("ui.perChText.1"); }
   const vals = [...new Set(keys.map(k => String(m[k])))];
   if (vals.length === 1 && keys.length > 1) {
-    return (keys.length === p.channels ? "全部 " + p.channels + " 路" : keys.length + " 路") +
-           "都是 " + vals[0];
+    return T("ui.perChText.all_same", {
+      which: keys.length === p.channels ? T("ui.perChText.2", {channels: p.channels}) : T("ui.perChText.3", {keys: keys.length}),
+      value: vals[0]});
   }
-  return keys.map(k => displayName(p, k) + "=" + m[k]).join("、");
+  return keys.map(k => displayName(p, k) + "=" + m[k]).join(T("ui.perChText.5"));
 }
 
 // 判据为什么这次不适用。细节写在卡片顶上的说明块里，按钮旁边只留一句短的 ——
 // 同一段话印两遍，等于两处都没人读。
 function offPlanWhy(off) {
-  const plan = state.criteriaPlan || "方案";
-  return "**这次只给读数、不给结论** —— 判据是照 " + plan +
-         " 里那组参数写的，配成别的样子它就不适用了。\n" +
-         off.map(d => "**" + d.what + "**：方案是 " + d.was + "，现在是 " + d.now).join("；") +
-         "。点「恢复方案参数」就回到能判的状态。";
+  const plan = state.criteriaPlan || T("ui.offPlanWhy.1");
+  return T("ui.offPlanWhy.text", {plan,
+    diffs: off.map(d => T("ui.offPlanWhy.4", {what: d.what, was: d.was, now: d.now})).join(T("ui.offPlanWhy.5"))});
 }
 
 // The plan's channel list, applied once when a port is first selected. Once,
@@ -1720,16 +1734,16 @@ function applyPlanChannels(p) {
 }
 
 function portStatus(p) {
-  if (p.running) { return {icon:"⏳", cls:"testing", text:"测试中"}; }
+  if (p.running) { return {icon:"⏳", cls:"testing", text:T("ui.portStatus.1")}; }
   const v = verdicts[p.name];
-  if (v === true)  { return {icon:"✅", cls:"pass", text:"通过"}; }
-  if (v === false) { return {icon:"❌", cls:"fail", text:"失败"}; }
-  return {icon:"⬜", cls:"untested", text:"未测"};
+  if (v === true)  { return {icon:"✅", cls:"pass", text:T("ui.portStatus.2")}; }
+  if (v === false) { return {icon:"❌", cls:"fail", text:T("ui.portStatus.3")}; }
+  return {icon:"⬜", cls:"untested", text:T("ui.portStatus.4")};
 }
 
 function renderTree() {
   const host = $("#treebody"); host.textContent = "";
-  if (!state.connected) { host.appendChild(el("div","hint","连上板子以后，这里会列出它自己报的端口。")); return; }
+  if (!state.connected) { host.appendChild(el("div","hint",T("ui.renderTree.1"))); return; }
 
   // Group by the firmware's board= field, in the order boards are stacked.
   const order = ["bridge","upper","lower","junction","whole"];
@@ -1753,7 +1767,7 @@ function renderTree() {
       // stays reachable - but it is not printed here any more. The panel is
       // read in Chinese (user 2026-09-11), and the key has its own labelled
       // row on the card.
-      row.title = "协议里的名字：" + p.name;
+      row.title = T("ui.renderTree.2", {name: p.name});
       // 协议名不上屏了，但机器还要认得出这一行是哪个端口 —— 浏览器测试按这个挑。
       row.dataset.port = p.name;
       row.appendChild(el("span","stat", st.text));
@@ -1765,7 +1779,7 @@ function renderTree() {
         const c = el("input","pick"); c.type = "checkbox";
         c.checked = picked2.has(p.name);
         c.dataset.pick = p.name;
-        c.title = "勾上，和别的端口一起跑";
+        c.title = T("ui.renderTree.3");
         c.onclick = (e) => {
           e.stopPropagation();
           c.checked ? picked2.add(p.name) : picked2.delete(p.name);
@@ -1797,14 +1811,14 @@ function renderBatchBar() {
   if (live) {
     const left = live.left_s;
     bar.appendChild(richText("div","note",
-      "**持续测试跑着**：" + (live.ports || []).map(portLabel).join("、") +
+      T("ui.renderBatchBar.1") + (live.ports || []).map(portLabel).join(T("ui.renderBatchBar.2")) +
       "\n" + (left === null || left === undefined
-        ? "不限时长，点停止才结束。"
-        : "还剩 " + Math.floor(left / 60) + " 分 " + (left % 60) + " 秒。") +
+        ? T("ui.renderBatchBar.3")
+        : T("ui.renderBatchBar.4", {left: Math.floor(left / 60), left2: (left % 60)})) +
       // 页面的日志窗只留最后几分钟，跑几小时的那部分靠这个文件。说出来，
       // 否则人跑完四小时才发现要找的东西早滚没了。
-      (live.log ? "\n全程日志边跑边写进：**" + live.log + "**" : "")));
-    const stop = el("button","primary","停止");
+      (live.log ? T("ui.renderBatchBar.5", {log: live.log}) : "")));
+    const stop = el("button","primary",T("ui.renderBatchBar.6"));
     stop.dataset.batch = "stop";
     stop.onclick = () => stopContinuous();
     bar.appendChild(stop);
@@ -1813,11 +1827,11 @@ function renderBatchBar() {
 
   const names = [...picked2];
   const head = el("div","note");
-  head.appendChild(el("b", null, "一起跑：" + (names.length
-    ? names.map(portLabel).join("、") : "还没勾端口")));
+  head.appendChild(el("b", null, T("ui.renderBatchBar.7") + (names.length
+    ? names.map(portLabel).join(T("ui.renderBatchBar.8")) : T("ui.renderBatchBar.9"))));
   bar.appendChild(head);
   if (!names.length) {
-    bar.appendChild(el("div","sub","在下面的端口前面打勾，可以勾多个。"));
+    bar.appendChild(el("div","sub",T("ui.renderBatchBar.10")));
     return;
   }
 
@@ -1826,7 +1840,7 @@ function renderBatchBar() {
   const warn = bandwidthWarning(names);
   if (warn) { bar.appendChild(richText("div","sub warn", warn)); }
 
-  const go = el("button","primary","开始");
+  const go = el("button","primary",T("ui.renderBatchBar.11"));
   go.dataset.batch = "start";
   go.disabled = !!warn;
   go.onclick = async () => {
@@ -1850,16 +1864,16 @@ function renderTreeDetail() {
     cb.onchange = () => { expanded[p.name] = cb.checked; renderTree(); renderPanel(); };
     hd.appendChild(cb);
     hd.appendChild(el("span","blk " + (["A","B","C","D"].includes(p.blk) ? p.blk : "x"),
-                      p.blk === "-" ? "板载" : p.blk));
+                      p.blk === "-" ? T("ui.renderTreeDetail.1") : p.blk));
     hd.appendChild(el("span","nm", p.name));
-    if (p.running) hd.appendChild(el("span","tag run","跑着"));
-    hd.appendChild(el("span","tag " + p.kind, "会话"));
+    if (p.running) hd.appendChild(el("span","tag run",T("ui.renderTreeDetail.2")));
+    hd.appendChild(el("span","tag " + p.kind, T("ui.renderTreeDetail.3")));
     g.appendChild(hd);
 
     if (expanded[p.name]) {
       const kids = el("div","kids");
       if (p.kind === "session" && p.channels > 1) {
-        const all = el("button","selall","全选 / 全不选");
+        const all = el("button","selall",T("ui.renderTreeDetail.4"));
         all.onclick = () => {
           const s = chanSet(p);
           if (s.size === p.channels) s.clear(); else
@@ -1907,7 +1921,7 @@ function applyLimit(p, name, inp) {
   if (!l) { return; }
   if (l.min !== null && l.min !== undefined) { inp.min = l.min; }
   if (l.max !== null && l.max !== undefined) { inp.max = l.max; }
-  if (l.spec) { inp.title = paramCN(name) + "（协议里叫 " + name + "）接受 " + l.spec; }
+  if (l.spec) { inp.title = T("ui.applyLimit.1", {name: paramCN(name), name2: name, spec: l.spec}); }
   watchRange(p, name, inp);
 }
 
@@ -1931,11 +1945,11 @@ function watchRange(p, name, inp) {
     const v = Number(raw);
     let why = "";
     if (raw === "") { why = ""; }
-    else if (!isFinite(v)) { why = "这不是一个数"; }
+    else if (!isFinite(v)) { why = T("ui.watchRange.1"); }
     else if (lo !== null && v < lo) {
-      why = "板子最小收 " + lo + "，填 " + raw + " 会被它拒绝";
+      why = T("ui.watchRange.2", {lo, raw});
     } else if (hi !== null && v > hi) {
-      why = "板子最大收 " + hi + "，填 " + raw + " 会被它拒绝";
+      why = T("ui.watchRange.3", {hi, raw});
     }
     inp.classList.toggle("bad", !!why);
     // 说明贴在这一格自己后面 —— 八路各一格时，说「有一格超了」等于没说。
@@ -1967,9 +1981,8 @@ function relayWearSays() {
   const hours = runHours || 4;
   const cycles = Math.round(hours * 3600 * 1000 / per);
   const pct = Math.round(cycles / 30000 * 100);
-  return "周期 " + per + " 毫秒跑 " + (runHours ? runHours + " 小时" : "四小时")
-       + " 是 " + cycles.toLocaleString() + " 次吸合，**一轮就吃掉额定寿命的 "
-       + pct + " %**。";
+  return T("ui.relayWearSays.text", {per, cycles, pct,
+    hours: runHours ? T("ui.relayWearSays.3", {run_hours: runHours}) : T("ui.relayWearSays.4")});
 }
 
 function headsUp(p) {
@@ -1979,25 +1992,19 @@ function headsUp(p) {
   // 一种夹具选择，不是必然的接法 —— 面板替产线定夹具，就是替它定了
   // 工位怎么建（DECISIONS 43）。板子那一侧的事实照说：DI 只等输入，DO 只管输出。
   if (p.name === "din") {
-    out.push("这个口**只读不驱动** —— 它等的是外面给到端子上的 24 V。"
-           + "激励从哪来是工位的事（工装板、别的夹具、手里一根线都行），"
-           + "面板不知道，也不判它。");
+    out.push(T("ui.headsUp.1"));
   }
   if (p.name === "dout") {
-    out.push("这一段只证明**固件收下并保持住了你设的值**。"
-           + "**端子上真出没出 24 V、电流够不够，板上没有回读，读不回来** —— "
-           + "那要工位自己的办法去量。");
+    out.push(T("ui.headsUp.2"));
   }
 
   // 出厂九个跳线全开路。这不是配置，是板子焊成什么样 —— 软件读不回来，所以只能
   // 在人按下去之前说一句，免得把「没焊跳线」当成「AI 坏了」。
   if (p.name === "ain" && chanSet(p).size) {
-    out.push("⚠️ **出厂九个跳线全是开路的**，那时这两个脚彻底悬空，读数会趴在 0 附近而判失败 ——"
-           + "那是**跳线没焊**，不是 AI 坏了。先确认 JP5 / JP6 / JP8 / JP9 焊了没有。");
+    out.push(T("ui.headsUp.3"));
   }
   if (p.name === "aout" && chanSet(p).size) {
-    out.push("⚠️ **端子上出来的是几伏还是几毫安，取决于 JP3 / JP4 焊成什么样** ——"
-           + "软件读不回来。判据只看板子收没收下你填的毫伏；**万用表量到多少，是另一件事**。");
+    out.push(T("ui.headsUp.4"));
   }
 
   // 半双工：发的时候收发器被切去发，所以板子听不见自己。这解释了为什么这个口
@@ -2007,20 +2014,16 @@ function headsUp(p) {
   // 而「这个口为什么非要对端」正是接上之后最容易忘的那件事。要不要现在去接
   // 是另一句话，跟在后面，只在真台子上没接的时候说。
   if (p.name === "rs485") {
-    let t = "⚠️ **RS485 是半双工的** —— 一根方向脚同时管收和发，板子说话的时候是聋的，"
-          + "**听不见自己**。所以这个口不像 RS232 那样能自己绕回来，"
-          + "要靠对端把每一行送回来。";
+    let t = T("ui.headsUp.5");
     if (!(state.links || {})[p.name] && state.port !== "sim") {
-      t += "**现在还没绑对端** —— 在上面那一行选上适配器再跑。";
+      t += T("ui.headsUp.6");
     }
     out.push(t);
   }
 
   // 触点是消耗品，而「持续」会一直吸合释放。这一句只在真要那么跑的时候说。
   if (p.name === "relay" && (runMode[p.name] || "once") === "loop") {
-    out.push("⚠️ **继电器不做持续测试**（DECISIONS 46）。触点是消耗品，"
-           + "HF41F 额定 3 万次 —— " + relayWearSays()
-           + "**通不通「单次」就能证明**，选「单次」跑。");
+    out.push(T("ui.headsUp.7", {relay_wear_says: relayWearSays()}));
   }
 
   return out;
@@ -2040,7 +2043,7 @@ function fillHeads(p, slot) {
   slot.hidden = !out.length;
   if (!out.length) { return; }
   const box = el("div", "headsup");
-  box.appendChild(el("div", "st", "按之前先知道"));
+  box.appendChild(el("div", "st", T("ui.fillHeads.1")));
   for (const t of out) { box.appendChild(richText("div", "v", t)); }
   slot.appendChild(box);
 }
@@ -2092,10 +2095,10 @@ async function renderCriteria(st) {
 
   const ver = $("#critver");
   if (st.criteriaProblem) {
-    ver.textContent = "读不了：" + st.criteriaProblem;
+    ver.textContent = T("ui.renderCriteria.1", {criteria_problem: st.criteriaProblem});
     ver.style.color = "var(--err)";
   } else {
-    ver.textContent = st.criteriaLimits ? "限值 " + st.criteriaLimits : "";
+    ver.textContent = st.criteriaLimits ? T("ui.renderCriteria.2", {criteria_limits: st.criteriaLimits}) : "";
     // A limit set that is not the default is worth noticing, since a board can
     // pass under it and fail under the strict one.
     ver.style.color = /relax|宽/i.test(st.criteriaPlan || "") ? "var(--warn)" : "";
@@ -2108,8 +2111,7 @@ $("#critplan").onchange = async () => {
   // Every verdict on screen was produced by the old limits, so they are no
   // longer claims about anything. Cleared rather than left to look current.
   verdicts = {}; judgeWhy = {};
-  addLog("panel", "判据换成 " + j.plan + "（限值 " + (j.limitVersion || "?") +
-                  "）—— 之前的结论已经清掉，要重新测");
+  addLog("panel", () => T("ui.top.crit_changed", {plan: j.plan, limits: j.limitVersion || "?"}));
   const st = await api("/api/state");
   applyState(st);
 };
@@ -2120,7 +2122,7 @@ function renderPanel() {
   host.textContent = ""; if (msg) host.appendChild(msg);
 
   if (!state.connected) {
-    host.appendChild(el("div","hint","上面选一个串口，点「连接」。板子要用 PORTTOOL_ENABLE=1 编的固件，接线是端子 C05 / C06 / C02，115200。"));
+    host.appendChild(el("div","hint",T("ui.renderPanel.1")));
     return;
   }
   // One rule for this column: it always explains whatever the left list has
@@ -2128,7 +2130,7 @@ function renderPanel() {
   // explaining pane would be a second rule to learn.
   const p = (state.ports||[]).find(x => x.name === selected);
   if (!p) {
-    host.appendChild(el("div","hint","左边选一个端口，这里就说明它怎么测。"));
+    host.appendChild(el("div","hint",T("ui.renderPanel.2")));
     return;
   }
   ensurePortPlan(p.name);
@@ -2143,9 +2145,9 @@ function renderPanel() {
   const hb = el("div","howto");
   hb.appendChild(el("div","howhd",
     portLabel(p.name) + "\u3000" + portStatus(p).text + "\u3000"));
-  for (const [k, v] of [["接线", wiring ||
-        "这个端口还没有写接线说明 —— 板子报了它，能跑也能看读数，只是接法要问人。"],
-                        ["协议名", p.name]]) {
+  for (const [k, v] of [[T("ui.renderPanel.3"), wiring ||
+        T("ui.renderPanel.4")],
+                        [T("ui.renderPanel.5"), p.name]]) {
     const r = el("div","howrow");
     r.appendChild(el("span","k", k));
     r.appendChild(richText("span","v", v));
@@ -2183,7 +2185,7 @@ function caseBlock(o) {
   if (o.tag) { hd.appendChild(el("span", "casetag", o.tag)); }
   box.appendChild(hd);
 
-  for (const [k, v] of [["测什么", o.what], ["怎么做", o.how], ["什么算过", o.pass]]) {
+  for (const [k, v] of [[T("ui.caseBlock.1"), o.what], [T("ui.caseBlock.2"), o.how], [T("ui.caseBlock.3"), o.pass]]) {
     if (!v) continue;
     const r = el("div", "caserow");
     r.appendChild(el("span", "k", k));
@@ -2193,7 +2195,7 @@ function caseBlock(o) {
 
   if (o.config && o.config.length) {
     const cfg = el("div", "casecfg");
-    cfg.appendChild(el("div", "st", "配置"));
+    cfg.appendChild(el("div", "st", T("ui.caseBlock.4")));
     for (const n of o.config) { if (n) cfg.appendChild(n); }
     box.appendChild(cfg);
   }
@@ -2203,8 +2205,8 @@ function caseBlock(o) {
   box.appendChild(act);
 
   const res = el("div", "caseres");
-  res.appendChild(el("span", "st", "结果"));
-  res.appendChild(o.result || el("span", "sub", "—— 还没跑"));
+  res.appendChild(el("span", "st", T("ui.caseBlock.5")));
+  res.appendChild(o.result || el("span", "sub", T("ui.caseBlock.6")));
   box.appendChild(res);
   return box;
 }
@@ -2212,7 +2214,7 @@ function caseBlock(o) {
 /* 一个标量参数的输入框，带板子报的取值范围。 */
 function scalarParam(p, name, build) {
   const lb = el("label", null, paramCN(name) + " ");
-  lb.title = "协议里的名字：" + name;
+  lb.title = T("ui.scalarParam.1", {name});
   lb.dataset.param = name;
   const inp = el("input");
   inp.value = paramDefault(p, name);
@@ -2229,7 +2231,7 @@ function enumParam(p, name, build) {
   const box = el("div", "chvals");
   box.dataset.param = name;
   const st = el("div", "st", paramCN(name));
-  st.title = "协议里的名字：" + name;
+  st.title = T("ui.enumParam.1", {name});
   box.appendChild(st);
   const pick = el("div", "enumpick");
   const cur = paramDefault(p, name);
@@ -2291,9 +2293,7 @@ function peerMissing(p) {
   if (!pk || pk.peer !== "com") { return ""; }
   if (state.port === "sim") { return ""; }
   if ((state.links || {})[p.name]) { return ""; }
-  return "「" + portLabel(p.name) + "」还没绑对端串口 —— 在卡片最上面的「对端串口」" +
-         "里选上那个适配器、点「绑上」，再回来跑。" +
-         "这个端口的回环走被测链路本身，没有对端永远闭合不了。";
+  return T("ui.peerMissing.1", {name: portLabel(p.name)});
 }
 
 // 一个端口一张卡。会话口、一次性口、两者都有的口，走的都是这一条路径。
@@ -2309,8 +2309,7 @@ function portCard(p) {
   const cases = portCases(p);
   if (cases.length > 1) {
     c.appendChild(el("div", "hint",
-      "这个口有 " + cases.length + " 个用例，每个用例自己一个按钮、自己一个结果。" +
-      "想一口气跑完用最下面那一行。"));
+      T("ui.portCard.1", {cases: cases.length})));
   }
 
   // *** 要人插适配器的口，那一行排在所有用例前面。*** 它是开始之前必须先办的
@@ -2359,7 +2358,7 @@ function runCase(p, t, no) {
     const row = el("div", "row");
     for (const [k, v] of named) {
       const lb = el("label", null, paramCN(k) + " ");
-      lb.title = "协议里的名字：" + k;
+      lb.title = T("ui.runCase.1", {k});
       lb.dataset.param = k;
       const inp = el("input");
       inp.dataset.run = t;
@@ -2374,18 +2373,17 @@ function runCase(p, t, no) {
     }
     cfg.push(row);
     cfg.push(richText("div", "sub",
-      "默认是方案给的那组。**改了也有结论** —— 方案里有对应这组参数的判据就按它判，"
-    + "没有就只给读数。"));
+      T("ui.runCase.2")));
   }
 
-  const b = el("button", "primary", "执行");
+  const b = el("button", "primary", T("ui.runCase.3"));
   b.dataset.run = t;
-  b.title = "协议里的名字：pt.run " + t;
+  b.title = T("ui.runCase.4", {t});
   b.onclick = () => runOne(p, t);
 
   const note = caseNote[p.name + "|" + t];
   const res = el("span", "tgtres" + (note && note.indexOf("❌") >= 0 ? " bad" : ""),
-                 note || "还没跑");
+                 note || T("ui.runCase.5"));
   res.dataset.case = t;
 
   return caseBlock({
@@ -2401,7 +2399,7 @@ function runCase(p, t, no) {
 // *** 要跑到另一个面板去，中间还隔着「哪个数字对应哪个端子」这一层。
 function channelPicker(p) {
   const pick = el("div", "chvals");
-  pick.appendChild(el("div", "st", "测哪几路 —— 不勾的路这次不动"));
+  pick.appendChild(el("div", "st", T("ui.channelPicker.1")));
   const pg = el("div", "chgrid");
   for (let i = 1; i <= p.channels; i++) {
     const lb = el("label");
@@ -2417,7 +2415,7 @@ function channelPicker(p) {
     pg.appendChild(lb);
   }
   pick.appendChild(pg);
-  const all = el("button", null, "全选 / 全不选");
+  const all = el("button", null, T("ui.channelPicker.2"));
   all.onclick = () => {
     const set = chanSet(p);
     if (set.size === p.channels) { set.clear(); }
@@ -2453,10 +2451,10 @@ function sessionCase(p, no) {
       // 参数名后面跟上板子自己报的取值范围。范围出自 limits= 行，不是写死的。
       const spec = ((p.limits || {})[name] || {}).spec;
       const st = el("div", "st",
-        paramCN(name) + " —— 每路一个" + (spec ? "（" + spec + "）" : ""));
-      st.title = "协议里的名字：" + name;
+        paramCN(name) + T("ui.sessionCase.1") + (spec ? T("ui.sessionCase.2", {spec}) : ""));
+      st.title = T("ui.sessionCase.3", {name});
       const ph = paramHelp(p.name, name);
-      if (ph) { st.appendChild(el("span", "sub", "　" + ph)); }
+      if (ph) { st.appendChild(el("span", "sub", T("ui.sessionCase.4", {ph}))); }
       box.appendChild(st);
       const grid = el("div", "chgrid");
       perCh[name] = {};
@@ -2479,7 +2477,7 @@ function sessionCase(p, no) {
         grid.appendChild(lb);
       }
       box.appendChild(grid);
-      const same = el("button", null, "全都设成第一路的值");
+      const same = el("button", null, T("ui.sessionCase.5"));
       same.onclick = () => {
         const first = Object.values(perCh[name])[0];
         for (const [ch, inp] of Object.entries(perCh[name])) {
@@ -2517,7 +2515,7 @@ function sessionCase(p, no) {
     }
 
     const lb = el("label", null, paramCN(name) + " ");
-    lb.title = "协议里的名字：" + name;
+    lb.title = T("ui.sessionCase.6", {name});
     lb.dataset.param = name;
     let inp;
     // 板子把某个参数报成一组取值，它就变成下拉 —— 任何参数，不只是「模式」。
@@ -2547,7 +2545,7 @@ function sessionCase(p, no) {
     lb.appendChild(inp); inputs[name] = inp; row.appendChild(lb);
   }
   if (p.channels > 1) {
-    row.appendChild(el("span", "hint", "这次要动：" + chanNames(p, chList(p))));
+    row.appendChild(el("span", "hint", T("ui.sessionCase.7", {p: chanNames(p, chList(p))})));
   }
   if (row.childNodes.length) { cfg.push(row); }
 
@@ -2581,20 +2579,19 @@ function sessionCase(p, no) {
       // 数字只在板子确实按这个档位焊了的时候才成立。
       if (p.name === "ain") {
         res.appendChild(el("div", "sub",
-          "按已定档位换算：AIN1 电压（0–10 V）、AIN2 电流（0–20 mA）。跳线焊成别的样子，这两个数就是错的"));
+          T("ui.sessionCase.8")));
       }
       if (p.name === "aout") {
         res.appendChild(richText("div", "sub",
-          "毫安是按 Iout = Vin × 10 / 1024 算的，**不是实测** —— 板上没有回读通道，万用表才是判据"));
+          T("ui.sessionCase.9")));
       }
       if (p.name === "dout" && fr.fields.tick !== undefined) {
         res.appendChild(el("div", "sub",
-          "中断率 " + fr.fields.tick + " Hz 是八路共用的，由最快的那一路定 —— " +
-          "慢的那几路因此分辨得更细，不会更粗。每一路的占空比和频率互不影响"));
+          T("ui.sessionCase.10", {tick: fr.fields.tick})));
       }
       if (anyFloating) {
         res.appendChild(el("div", "sub warn",
-          "⚠ 有通道落在悬空带（引脚 300–450 mV）。出厂九个跳线全开路，此时 MCU 引脚彻底悬空 —— 先确认 JP5/JP6/JP8/JP9 焊了没有"));
+          T("ui.sessionCase.11")));
       }
     }
     // 帧里除通道读数以外的那些数，印中文名。原文在悬停里 —— 对着日志查还要它。
@@ -2602,14 +2599,14 @@ function sessionCase(p, no) {
       .filter(([k]) => !/^ch\d+$/.test(k) && !["seq", "rx", "miss"].includes(k))
       .map(([k, v]) => fieldCN(k) + " " + valueCN(v));
     if (extra.length) {
-      const line = el("div", "sub", extra.join("　"));
+      const line = el("div", "sub", extra.join(" "));
       line.title = Object.entries(fr.fields)
         .filter(([k]) => !/^ch\d+$/.test(k) && !["seq", "rx", "miss"].includes(k))
         .map(([k, v]) => k + "=" + v).join(" ");
       res.appendChild(line);
     }
   } else if (p.running) {
-    res.appendChild(el("div", "sub", "起来了，等第一帧…"));
+    res.appendChild(el("div", "sub", T("ui.sessionCase.13")));
   }
   // 没起来就什么都不加 —— 下面那个结论span已经写着「还没跑」，再说一遍只会让
   // 人以为那是两件事。
@@ -2618,7 +2615,7 @@ function sessionCase(p, no) {
   const ev = events[p.name];
   if (ev && ev.length) {
     const box = el("div", "chvals");
-    box.appendChild(el("div", "st", "报文事件 —— 最近 " + ev.length + " 条，新的在上"));
+    box.appendChild(el("div", "st", T("ui.sessionCase.14", {ev: ev.length})));
     for (let i = ev.length - 1; i >= 0; i--) {
       const e = ev[i];
       const bad = e.fields.crc === "bad";
@@ -2630,7 +2627,7 @@ function sessionCase(p, no) {
         parts.push(fieldCN(k) + " " + valueCN(v));
         raw.push(k + "=" + v);
       }
-      line.textContent = parts.join("　");
+      line.textContent = parts.join(" ");
       line.title = raw.join(" ");
       box.appendChild(line);
     }
@@ -2638,8 +2635,7 @@ function sessionCase(p, no) {
     // 哪一种读法才是真报文由校验字节判，不由眼睛判。
     if (p.name === "knx") {
       box.appendChild(el("div", "sub",
-        "crc=raw 表示收到的字节原样就是合法报文；crc=inv 表示要按位取反才对（极性反了）；" +
-        "crc=ack 是单字节应答，没有校验字节可判；crc=bad 是两种读法都不对"));
+        T("ui.sessionCase.16")));
     }
     res.appendChild(box);
   }
@@ -2647,7 +2643,7 @@ function sessionCase(p, no) {
   // 回环计数，故意和读数分开摆。
   if (fr && fr.fields.seq !== undefined) {
     const lk = el("div", "link");
-    lk.appendChild(el("span", null, "链路健康"));
+    lk.appendChild(el("span", null, T("ui.sessionCase.17")));
     for (const k of ["seq", "rx", "miss"]) {
       if (fr.fields[k] !== undefined) {
         const s = el("span"); s.title = k + "=" + fr.fields[k];
@@ -2656,8 +2652,8 @@ function sessionCase(p, no) {
       }
     }
     lk.appendChild(el("span", "hint", p.loop === "link"
-      ? "回环走的是被测链路本身，这个数在涨就说明那条线双向通。"
-      : "回环走的是 RS232 控制口，这个数只说明控制口活着 —— 这个端口好不好，看上面的读数。"));
+      ? T("ui.sessionCase.18")
+      : T("ui.sessionCase.19")));
     res.appendChild(lk);
   }
 
@@ -2665,7 +2661,7 @@ function sessionCase(p, no) {
   // 尤其如此。
   const note = caseNote[p.name + "|session"];
   const vd = el("span", "tgtres" + (note && note.indexOf("❌") >= 0 ? " bad" : ""),
-                note || "还没跑");
+                note || T("ui.sessionCase.20"));
   vd.dataset.case = "session";
   res.insertBefore(vd, res.firstChild);
 
@@ -2708,17 +2704,17 @@ function allCasesRow(p, cases, build) {
   const row = el("div", "allrow");
   const busy = testing[p.name];
   const nos = cases.map((_, i) => CASE_NO[i] || String(i + 1)).join("");
-  const b = el("button", null, busy ? "跑着…" : nos + " 依次跑一遍");
+  const b = el("button", null, busy ? T("ui.allCasesRow.1") : T("ui.allCasesRow.2", {nos}));
   b.dataset.all = p.name;
   b.disabled = !!busy;
   b.onclick = async () => {
     const why = peerMissing(p);
     if (why) { showMessage(why, true); return; }
     if (p.channels > 1 && chanSet(p).size === 0) {
-      showMessage("「" + portLabel(p.name) + "」一个通道都没勾，先勾上要测的那几路。", true);
+      showMessage(T("ui.allCasesRow.3", {name: portLabel(p.name)}), true);
       return;
     }
-    testing[p.name] = "启动…";
+    testing[p.name] = T("ui.allCasesRow.4");
     delete cancelled[p.name];
     renderPanel();
     try {
@@ -2730,8 +2726,8 @@ function allCasesRow(p, cases, build) {
   };
   row.appendChild(b);
   row.appendChild(el("span", "sub",
-    "上面这 " + cases.length + " 段按顺序跑完，中间有一段不过就停下。" +
-    (build ? "会话那一段按「单次」跑，跑完自动停。" : "")));
+    T("ui.allCasesRow.n", {n: cases.length}) +
+    (build ? T("ui.allCasesRow.7") : "")));
   return row;
 }
 
@@ -2823,14 +2819,14 @@ function aocalPoints() {
 async function aocalRun(p, say, render) {
   const ch = aocal.ch;
   const pts = aocalPoints();
-  if (!pts.length) { say("一个点都没有 —— 先在上面填要测的电流值。"); return; }
+  if (!pts.length) { say(T("ui.aocalRun.1")); return; }
 
-  say("起 aout，把其它会话停掉…");
+  say(T("ui.aocalRun.2"));
   await run("pt.stop all");
   await run("pt.start aout ch=" + ch + " mv=" + ch + ":0 period=500");
   if (!await waitForNewFrames("aout", 1, 8000)) {
     await run("pt.stop all");
-    say("aout 一帧都没来 —— 看日志，可能是 VREFBUF 没起来，启动被拒了。");
+    say(T("ui.aocalRun.3"));
     return;
   }
 
@@ -2838,7 +2834,7 @@ async function aocalRun(p, say, render) {
   for (let i = 0; i < pts.length; i++) {
     const ma = pts[i];
     const mv = aocalMaMv(ma);
-    say("第 " + (i + 1) + "/" + pts.length + " 点：要 " + ma + " mA（DAC " + mv + " mV）");
+    say(T("ui.aocalRun.4", {i: (i + 1), pts: pts.length, ma, mv}));
     await run("pt.set aout mv=" + ch + ":" + mv);
     await waitForNewFrames("aout", 2, 5000);
 
@@ -2850,12 +2846,11 @@ async function aocalRun(p, say, render) {
     const wantUa = Number(parts[2]);
 
     const typed = await askMeter(
-      "AO" + ch + " 第 " + (i + 1) + "/" + pts.length + " 点 —— 板子在输出 "
-        + (wantUa / 1000).toFixed(3) + " mA，万用表读到多少？",
+      T("ui.aocalRun.ask", {ch, i: i + 1, n: pts.length, ma: (wantUa / 1000).toFixed(3)}),
       "mA",
-      "串进 D14 → 万用表 → Analog GND。读不到就点「跳过这一点」，那一点会记成未测。");
+      T("ui.aocalRun.8"));
 
-    if (typed === null) { say("中止了。"); break; }
+    if (typed === null) { say(T("ui.aocalRun.9")); break; }
     const gotMa = (typed === "") ? null : Number(typed);
     const wantMa = wantUa / 1000;
     const row = {ma: ma, mv: mv, wantMa: wantMa, gotMa: gotMa};
@@ -2873,7 +2868,7 @@ async function aocalRun(p, say, render) {
     render();
   }
 
-  say("收尾：把输出放回 0…");
+  say(T("ui.aocalRun.10"));
   await run("pt.set aout mv=" + ch + ":0");
   await run("pt.stop all");
 
@@ -2895,8 +2890,8 @@ const AOCAL_FS_MA = 20;
 // 拟合结果。**残差摆在增益前面** —— 用直线去拟合一条不是直线的响应，唯一的保护
 // 就是残差会说出来；先读增益的人会先相信它。
 function aocalFitBox(r) {
-  return fitBox(r, "mA", f => "这块板要补偿：要它真的输出 10 mA，得让它输出 " +
-    (f.gain === 0 ? 10 : (10 - f.offset) / f.gain).toFixed(3) + " mA。");
+  return fitBox(r, "mA", f => T("ui.aocalFitBox.text",
+    {ma: (f.gain === 0 ? 10 : (10 - f.offset) / f.gain).toFixed(3)}));
 }
 
 // 拟合结果框，AO 和 AI 两张卡共用。unit 是这一路的单位，adjust 说出这条直线
@@ -2905,19 +2900,18 @@ function fitBox(r, unit, adjust) {
   const box = el("div","fitbox");
   if (!r || r.known === false) {
     box.appendChild(el("div","msg",
-      "没算出补偿系数：" + ((r && r.why) || "点不够") +
-      " —— 一个点分不出零点偏差和增益偏差，至少要两个不同的点。"));
+      T("ui.fitBox.unknown", {why: (r && r.why) || T("ui.fitBox.2")})));
     return box;
   }
   const f = r.fit || {};
   const rows = [
-    ["最大残差", f.max_residual.toFixed(4) + " " + unit + "（在 " + f.max_residual_at.toFixed(3) + " " + unit + " 那点）",
-     f.exact ? "⚠️ 只有两个点 —— 两点必然落在自己那条线上，这个 0 是算出来的，不是量出来的"
-             : "比万用表自己的误差大得多，就说明响应不是直线"],
-    ["均方残差", f.rms_residual.toFixed(4) + " " + unit, "一个点不走运不该左右结论，看这个"],
-    ["增益", f.gain.toFixed(5), "1 就是不用改"],
-    ["零点偏差", f.offset.toFixed(4) + " " + unit, "0 就是不用改"],
-    ["用了几个点", String(f.points), ""],
+    [T("ui.fitBox.4"), T("ui.fitBox.5", {f: f.max_residual.toFixed(4), unit, f2: f.max_residual_at.toFixed(3), unit2: unit}),
+     f.exact ? T("ui.fitBox.6")
+             : T("ui.fitBox.7")],
+    [T("ui.fitBox.8"), f.rms_residual.toFixed(4) + " " + unit, T("ui.fitBox.9")],
+    [T("ui.fitBox.10"), f.gain.toFixed(5), T("ui.fitBox.11")],
+    [T("ui.fitBox.12"), f.offset.toFixed(4) + " " + unit, T("ui.fitBox.13")],
+    [T("ui.fitBox.14"), String(f.points), ""],
   ];
   const grid = el("div","rowgrid");
   for (const [k, v, why] of rows) {
@@ -2929,7 +2923,7 @@ function fitBox(r, unit, adjust) {
   }
   box.appendChild(grid);
   box.appendChild(el("div", r.ideal ? "msg ok" : "msg",
-    r.ideal ? "这块板本来就准，不需要补偿。" : adjust(f)));
+    r.ideal ? T("ui.fitBox.15") : adjust(f)));
   box.appendChild(aocalVerdict(r));
   return box;
 }
@@ -2939,29 +2933,29 @@ function aocalVerdict(r) {
   const box = el("div");
   const j = r.judge || {};
   if (j.pass === true) {
-    box.appendChild(el("div", "msg ok", "精度合格：校准后最大残差是满量程的 " + j.residual_pct_fs.toFixed(3) +
-      " %，指标 ±" + j.max_residual_pct_fs + " %（方案 " + j.plan + "）。"));
+    box.appendChild(el("div", "msg ok", T("ui.aocalVerdict.1", {j: j.residual_pct_fs.toFixed(3), max_residual_pct_fs: j.max_residual_pct_fs, plan: j.plan})));
   } else if (j.pass === false) {
-    box.appendChild(el("div", "msg bad", "精度不合格：" + (j.why ||
-      ("校准后最大残差是满量程的 " + j.residual_pct_fs.toFixed(3) + " %，超过指标 ±" + j.max_residual_pct_fs + " %（方案 " + j.plan + "）。"))));
+    box.appendChild(el("div", "msg bad", T("ui.aocalVerdict.2") + (j.why ||
+      (T("ui.aocalVerdict.3", {j: j.residual_pct_fs.toFixed(3), max_residual_pct_fs: j.max_residual_pct_fs, plan: j.plan})))));
   } else if (j.why) {
-    box.appendChild(el("div", "msg", "没判精度：" + j.why + "。"));
+    box.appendChild(el("div", "msg", T("ui.aocalVerdict.4", {why: j.why})));
   }
   if (r.store_error) {
-    box.appendChild(el("div", "msg bad", "没存档：" + r.store_error));
+    box.appendChild(el("div", "msg bad", T("ui.aocalVerdict.5", {store_error: r.store_error})));
   } else if (r.stored) {
     const st = r.stored;
-    let line = "已按板子 UID 存档：" + st.archive;
-    if (st.kept_archive) line += "（上一次的存档改名留在 " + st.kept_archive + "）";
+    let line = T("ui.aocalVerdict.6", {archive: st.archive});
+    if (st.kept_archive) line += T("ui.aocalVerdict.7", {kept_archive: st.kept_archive});
     box.appendChild(el("div", "msg", line));
     if (st.image) {
-      box.appendChild(el("div", "msg ok", "四路都合格，扇区 15 的校准值镜像已生成：" + st.image + " —— 工站 10 用 JLINK 把它写进板子。"));
+      box.appendChild(el("div", "msg ok", T("ui.aocalVerdict.8", {image: st.image})));
     } else {
       const wait = [];
-      if (st.missing && st.missing.length) wait.push("还没测：" + st.missing.join("、"));
-      if (st.failing && st.failing.length) wait.push("不合格：" + st.failing.join("、"));
-      if (st.unjudged && st.unjudged.length) wait.push("没判精度：" + st.unjudged.join("、"));
-      box.appendChild(el("div", "msg", "还不能出扇区 15 镜像 —— " + wait.join("；") + "。四路都测过、都合格才生成。"));
+      const sep = T("ui.aocalVerdict.10");
+      if (st.missing && st.missing.length) wait.push(T("ui.aocalVerdict.missing", {list: st.missing.join(sep)}));
+      if (st.failing && st.failing.length) wait.push(T("ui.aocalVerdict.failing", {list: st.failing.join(sep)}));
+      if (st.unjudged && st.unjudged.length) wait.push(T("ui.aocalVerdict.unjudged", {list: st.unjudged.join(sep)}));
+      box.appendChild(el("div", "msg", T("ui.aocalVerdict.cannot", {why: wait.join(T("ui.aocalVerdict.16"))})));
     }
   }
   return box;
@@ -2973,14 +2967,14 @@ function aocalVerdict(r) {
 function aocalConfig(p) {
   const box = el("div", "chvals");
   box.dataset.param = "meter";
-  box.appendChild(el("div", "st", "读数来自"));
+  box.appendChild(el("div", "st", T("ui.aocalConfig.1")));
 
   const pick = el("div", "enumpick");
   for (const [v, nm, why] of [
-    ["none", "不读表",
-     "只证明板子收下并保持住了你填的毫伏 —— **端子上出没出电流，板上没有回读通道**。判据用方案里那组，能无人值守跑，产线序列走这一档"],
-    ["manual", "人工读表",
-     "逐点停下来等你把万用表读数填进去，算出偏差和补偿系数 —— 校准走这一档，**必须有人守着**"],
+    ["none", T("ui.aocalConfig.2"),
+     T("ui.aocalConfig.3")],
+    ["manual", T("ui.aocalConfig.4"),
+     T("ui.aocalConfig.5")],
   ]) {
     const lb = el("label");
     const r = el("input"); r.type = "radio"; r.name = "aocal-meter";
@@ -3008,8 +3002,8 @@ function aocalConfig(p) {
     lb.appendChild(i);
     row.appendChild(lb);
   };
-  mk("points", "测哪几个点（mA）", () => aocal.pointsText, v => aocal.pointsText = v, "180px");
-  mk("tol", "合格判据（±% FS）", () => aocal.tolPct, v => aocal.tolPct = Number(v) || 0, "70px", "0.1");
+  mk("points", T("ui.aocalConfig.6"), () => aocal.pointsText, v => aocal.pointsText = v, "180px");
+  mk("tol", T("ui.aocalConfig.7"), () => aocal.tolPct, v => aocal.tolPct = Number(v) || 0, "70px", "0.1");
 
   // *** 这一档只测一路。*** 表一次只能串进一条回路，上面那组通道复选这里不算数。
   const chsel = el("select");
@@ -3020,26 +3014,23 @@ function aocalConfig(p) {
     chsel.appendChild(o);
   }
   chsel.onchange = () => { aocal.ch = Number(chsel.value); renderPanel(); };
-  const chlb = el("label", null, "测哪一路 "); chlb.appendChild(chsel); row.appendChild(chlb);
+  const chlb = el("label", null, T("ui.aocalConfig.8")); chlb.appendChild(chsel); row.appendChild(chlb);
   box.appendChild(row);
 
   box.appendChild(richText("div", "sub",
-    "⚠ **表一次只能串进一路**，所以这一档只测上面选的那一路，卡片顶上的通道勾选不算数。" +
-    "判据是**满量程的百分比**（满量程 " + AOCAL_FS_MA + " mA），不是读数的百分比 —— " +
-    "DAC 是 12 位，一步约 5.9 µA，在 1 mA 那一点一步就占读数的 0.6%，" +
-    "「读数的 0.1%」在量程低端是硬件到不了的指标。"));
+    T("ui.aocalConfig.9", {aocal_fs_ma: AOCAL_FS_MA})));
   return box;
 }
 
 // 多点走查的结果：逐点表 + 拟合。只在「人工读表」那一档出现。
 function aocalResult() {
   const res = el("div");
-  res.appendChild(el("span", "tgtres", aocal.busy || aocal.note || "还没跑"));
+  res.appendChild(el("span", "tgtres", aocal.busy || aocal.note || T("ui.aocalResult.1")));
 
   if (aocal.rows.length) {
     const grid = el("div","rowgrid");
     const head = el("div","gridrow hd2");
-    for (const t of ["目标 mA", "板子应出 mA", "表读到 mA", "偏差 mA", "偏差 %FS", "结论"]) {
+    for (const t of [T("ui.aocalResult.2"), T("ui.aocalResult.3"), T("ui.aocalResult.4"), T("ui.aocalResult.5"), T("ui.aocalResult.6"), T("ui.aocalResult.7")]) {
       head.appendChild(el("span","c",t));
     }
     grid.appendChild(head);
@@ -3047,11 +3038,11 @@ function aocalResult() {
       const line = el("div","gridrow");
       line.appendChild(el("span","c", String(r.ma)));
       line.appendChild(el("span","c", r.wantMa.toFixed(3)));
-      line.appendChild(el("span","c", r.gotMa === null ? "未测" : r.gotMa.toFixed(3)));
+      line.appendChild(el("span","c", r.gotMa === null ? T("ui.aocalResult.8") : r.gotMa.toFixed(3)));
       line.appendChild(el("span","c", r.errMa === undefined ? "-" : r.errMa.toFixed(3)));
       line.appendChild(el("span","c", r.errPct === undefined ? "-" : r.errPct.toFixed(2)));
       line.appendChild(el("span","c " + (r.pass === undefined ? "" : (r.pass ? "ok" : "bad")),
-                          r.pass === undefined ? "未测" : (r.pass ? "过" : "不过")));
+                          r.pass === undefined ? T("ui.aocalResult.9") : (r.pass ? T("ui.aocalResult.10") : T("ui.aocalResult.11"))));
       grid.appendChild(line);
     }
     res.appendChild(grid);
@@ -3060,15 +3051,13 @@ function aocalResult() {
     if (measured.length) {
       const bad = measured.filter(r => !r.pass).length;
       res.appendChild(el("div", bad ? "msg bad" : "msg",
-        bad ? (measured.length + " 个点里 " + bad + " 个超出 ±" + aocal.tolPct + "% FS")
-            : (measured.length + " 个点全部在 ±" + aocal.tolPct + "% FS 以内")));
+        bad ? (T("ui.aocalResult.12", {measured: measured.length, bad, tol_pct: aocal.tolPct}))
+            : (T("ui.aocalResult.13", {measured: measured.length, tol_pct: aocal.tolPct}))));
     }
     if (aocal.fit) { res.appendChild(aocalFitBox(aocal.fit)); }
 
     res.appendChild(richText("div","hint",
-      "⚠️ **系数不写进板子**：测试固件只测，系数按板子 UID 存在电脑上，四路齐了生成扇区 15 的镜像，" +
-      "由工站 10 用 JLINK 写进去。**先看最大残差再看增益** —— 残差比表本身的误差大得多，" +
-      "就说明这条响应不是直线，那条直线在哪儿都是错的。"));
+      T("ui.aocalResult.14")));
   }
 
   return res;
@@ -3133,14 +3122,14 @@ async function aicalRun(p, say, render) {
   const ch = aical.ch;
   const def = AICAL[ch];
   const pts = aicalPoints();
-  if (!pts.length) { say("一个点都没有 —— 先在上面填要测的值。"); return; }
+  if (!pts.length) { say(T("ui.aicalRun.1")); return; }
 
-  say("起 ain，把其它会话停掉…");
+  say(T("ui.aicalRun.2"));
   await run("pt.stop all");
   await run("pt.start ain ch=" + ch + " period=200");
   if (!await waitForNewFrames("ain", 1, 8000)) {
     await run("pt.stop all");
-    say("ain 一帧都没来 —— 看日志，可能是 VREFBUF 没起来，启动被拒了。");
+    say(T("ui.aicalRun.3"));
     return;
   }
 
@@ -3148,13 +3137,11 @@ async function aicalRun(p, say, render) {
   for (let i = 0; i < pts.length; i++) {
     const target = pts[i];
     const typed = await askMeter(
-      def.channel + " 第 " + (i + 1) + "/" + pts.length + " 点 —— 把信号源调到 " + target + " " + def.unit +
-        "，稳定后填它实际给出的值",
+      T("ui.aicalRun.4", {channel: def.channel, i: (i + 1), pts: pts.length, target, unit: def.unit}),
       def.unit,
-      "填信号源（或串在回路里的标准表）显示的数，不是目标值。填好按确定，面板接着取 " +
-        AICAL_FRAMES + " 帧求平均。给不出来就点「跳过这一点」。");
-    if (typed === null) { say("中止了。"); break; }
-    say("第 " + (i + 1) + "/" + pts.length + " 点：取 " + AICAL_FRAMES + " 帧…");
+      T("ui.aicalRun.5", {aical_frames: AICAL_FRAMES}));
+    if (typed === null) { say(T("ui.aicalRun.6")); break; }
+    say(T("ui.aicalRun.7", {i: (i + 1), pts: pts.length, aical_frames: AICAL_FRAMES}));
     const raw = await aicalSampleRaw(ch, AICAL_FRAMES);
     const gotV = (typed === "") ? null : Number(typed);
     const row = { target: target, raw: raw,
@@ -3170,7 +3157,7 @@ async function aicalRun(p, say, render) {
     render();
   }
 
-  say("收尾…");
+  say(T("ui.aicalRun.8"));
   await run("pt.stop all");
 
   // 拟合、精度判定、存档都在服务端（同 AO 卡）。
@@ -3187,14 +3174,14 @@ async function aicalRun(p, say, render) {
 function aicalConfig(p) {
   const box = el("div", "chvals");
   box.dataset.param = "aimeter";
-  box.appendChild(el("div", "st", "信号来自"));
+  box.appendChild(el("div", "st", T("ui.aicalConfig.1")));
 
   const pick = el("div", "enumpick");
   for (const [v, nm, why] of [
-    ["none", "不接信号源",
-     "照方案读一轮，看两路读数在不在范围里 —— 能无人值守跑，产线序列走这一档"],
-    ["manual", "人工给信号",
-     "逐点停下来等你用信号源给出一个值、把信号源显示的数填进去，算出偏差和补偿系数 —— 校准走这一档，**必须有人守着**"],
+    ["none", T("ui.aicalConfig.2"),
+     T("ui.aicalConfig.3")],
+    ["manual", T("ui.aicalConfig.4"),
+     T("ui.aicalConfig.5")],
   ]) {
     const lb = el("label");
     const r = el("input"); r.type = "radio"; r.name = "aical-meter";
@@ -3222,50 +3209,48 @@ function aicalConfig(p) {
     lb.appendChild(i);
     row.appendChild(lb);
   };
-  mk("points", "测哪几个点（" + def.unit + "）", () => aical.pointsText[aical.ch],
+  mk("points", T("ui.aicalConfig.6", {unit: def.unit}), () => aical.pointsText[aical.ch],
      v => aical.pointsText[aical.ch] = v, "220px");
-  mk("tol", "逐点参考判据（±% FS）", () => aical.tolPct, v => aical.tolPct = Number(v) || 0, "70px", "0.1");
+  mk("tol", T("ui.aicalConfig.7"), () => aical.tolPct, v => aical.tolPct = Number(v) || 0, "70px", "0.1");
 
   const chsel = el("select");
   chsel.dataset.param = "aicalch";
   for (let i = 1; i <= (p.channels || 2); i++) {
-    const o = el("option", null, displayName(p, i) + "（" + AICAL[i].unit + "）"); o.value = i;
+    const o = el("option", null, T("ui.aicalConfig.8", {displayname: displayName(p, i), unit: AICAL[i].unit})); o.value = i;
     if (i === aical.ch) o.selected = true;
     chsel.appendChild(o);
   }
   chsel.onchange = () => { aical.ch = Number(chsel.value); aical.rows = []; aical.fit = null; renderPanel(); };
-  const chlb = el("label", null, "测哪一路 "); chlb.appendChild(chsel); row.appendChild(chlb);
+  const chlb = el("label", null, T("ui.aicalConfig.9")); chlb.appendChild(chsel); row.appendChild(chlb);
   box.appendChild(row);
 
   box.appendChild(richText("div", "sub",
-    "⚠ **信号源一次只接一路**，所以这一档只测上面选的那一路，卡片顶上的通道勾选不算数。" +
-    "AI1 是电压档（0–10 V），AI2 是电流档（0–20 mA）。逐点的「过 / 不过」只是参考，" +
-    "**正式结论是拟合之后的残差**，指标在方案文件里。"));
+    T("ui.aicalConfig.10")));
   return box;
 }
 
 function aicalResult() {
   const def = AICAL[aical.ch];
   const res = el("div");
-  res.appendChild(el("span", "tgtres", aical.busy || aical.note || "还没跑"));
+  res.appendChild(el("span", "tgtres", aical.busy || aical.note || T("ui.aicalResult.1")));
 
   if (aical.rows.length) {
     const u = def.unit;
     const grid = el("div","rowgrid");
     const head = el("div","gridrow hd2");
-    for (const t of ["目标 " + u, "信号源给的 " + u, "板子读到 " + u, "偏差 " + u, "偏差 %FS", "参考"]) {
+    for (const t of [T("ui.aicalResult.2", {u}), T("ui.aicalResult.3", {u}), T("ui.aicalResult.4", {u}), T("ui.aicalResult.5", {u}), T("ui.aicalResult.6"), T("ui.aicalResult.7")]) {
       head.appendChild(el("span","c",t));
     }
     grid.appendChild(head);
     for (const r of aical.rows) {
       const line = el("div","gridrow");
       line.appendChild(el("span","c", String(r.target)));
-      line.appendChild(el("span","c", r.got === null ? "未测" : r.got.toFixed(def.digits)));
-      line.appendChild(el("span","c", r.want === null ? "没读到" : r.want.toFixed(def.digits)));
+      line.appendChild(el("span","c", r.got === null ? T("ui.aicalResult.8") : r.got.toFixed(def.digits)));
+      line.appendChild(el("span","c", r.want === null ? T("ui.aicalResult.9") : r.want.toFixed(def.digits)));
       line.appendChild(el("span","c", r.err === undefined ? "-" : r.err.toFixed(def.digits)));
       line.appendChild(el("span","c", r.errPct === undefined ? "-" : r.errPct.toFixed(2)));
       line.appendChild(el("span","c " + (r.pass === undefined ? "" : (r.pass ? "ok" : "bad")),
-                          r.pass === undefined ? "未测" : (r.pass ? "过" : "不过")));
+                          r.pass === undefined ? T("ui.aicalResult.10") : (r.pass ? T("ui.aicalResult.11") : T("ui.aicalResult.12"))));
       grid.appendChild(line);
     }
     res.appendChild(grid);
@@ -3273,14 +3258,12 @@ function aicalResult() {
     if (aical.fit) {
       res.appendChild(fitBox(aical.fit, u, f => {
         const at = def.fs / 2;
-        return "这块板要补偿：板子读到 " + at + " " + u + " 时，真值是 " +
-          (f.gain * at + f.offset).toFixed(def.digits) + " " + u + "。";
+        return T("ui.aicalResult.adjust", {at, unit: u, truth: (f.gain * at + f.offset).toFixed(def.digits)});
       }));
     }
 
     res.appendChild(richText("div","hint",
-      "⚠️ **系数不写进板子**：测试固件只测，系数按板子 UID 存在电脑上，四路齐了生成扇区 15 的镜像，" +
-      "由工站 10 用 JLINK 写进去。板子读到的数是**照 app 的算法**从原始读数算的，所以和上面那行读数可能差一点 —— 那一行按实测基准换算。"));
+      T("ui.aicalResult.16")));
   }
   return res;
 }
@@ -3317,7 +3300,7 @@ function netFor(ip) {
 // 「网段不对」还是「应用层没起来」的辅助（用户 2026-09-14 定）。
 function ethPeerRow(p) {
   const box = el("div","linkbox");
-  box.appendChild(el("div","st","网口对端 —— 板子是 TCP 服务端，这台电脑当客户端连上去"));
+  box.appendChild(el("div","st",T("ui.ethPeerRow.1")));
 
   const fr = reads[p.name];
   const ip = fr && fr.fields ? fr.fields.ip : null;
@@ -3325,12 +3308,12 @@ function ethPeerRow(p) {
 
   if (!ip || ip === "dhcp" || ip === "0.0.0.0") {
     box.appendChild(el("div","hint",
-      "板子还没报出 IP —— 先点「开始」把会话跑起来，DHCP 拿到地址才有得连。"));
+      T("ui.ethPeerRow.2")));
     return box;
   }
 
   const info = el("div","row");
-  info.appendChild(el("span","sub","板子"));
+  info.appendChild(el("span","sub",T("ui.ethPeerRow.3")));
   info.appendChild(el("b",null, ip));
   box.appendChild(info);
 
@@ -3338,31 +3321,31 @@ function ethPeerRow(p) {
   box.appendChild(mine);
   const n = netFor(ip);
   if (!n) {
-    mine.textContent = "本机地址：查着…";
+    mine.textContent = T("ui.ethPeerRow.4");
   } else if (n.error) {
-    mine.textContent = "查不到本机网卡。";
+    mine.textContent = T("ui.ethPeerRow.5");
   } else {
     if (n.match) {
-      mine.appendChild(el("div",null,"本机 " + n.match + " 和板子同网段，够得着。"));
+      mine.appendChild(el("div",null,T("ui.ethPeerRow.6", {match: n.match})));
     } else {
       const bad = el("div",null,
-        "⚠️ 本机没有一个地址和板子同网段 —— 连不上跟板子好坏无关，是网段不对。");
+        T("ui.ethPeerRow.7"));
       bad.style.color = "var(--warn)";
       mine.appendChild(bad);
     }
     mine.appendChild(el("div","sub", (n.nics || []).map(x =>
-      x.name + " " + x.ip + (x.same ? "  ← 和板子同网段" : "")).join(" · ")));
+      x.name + " " + x.ip + (x.same ? T("ui.ethPeerRow.8") : "")).join(" · ")));
   }
 
   const acts = el("div","row");
-  const pingBtn = el("button",null,"ping 一下");
+  const pingBtn = el("button",null,T("ui.ethPeerRow.9"));
   const said = el("span","sub","");
   pingBtn.onclick = async () => {
-    pingBtn.disabled = true; said.textContent = "ping 中…";
+    pingBtn.disabled = true; said.textContent = T("ui.ethPeerRow.10");
     try {
       const r = await api("/api/ping?ip=" + encodeURIComponent(ip));
-      said.textContent = r.received + "/" + r.sent + " 通" +
-        (r.received ? "，平均 " + r.avg_ms.toFixed(1) + " 毫秒" : "");
+      said.textContent = T("ui.ethPeerRow.pings", {got: r.received, sent: r.sent}) +
+        (r.received ? T("ui.ethPeerRow.12", {r: r.avg_ms.toFixed(1)}) : "");
       said.style.color = r.received ? "var(--ok)" : "var(--err)";
     } catch (e) { said.textContent = String(e); }
     pingBtn.disabled = false;
@@ -3371,13 +3354,13 @@ function ethPeerRow(p) {
 
   const bound = (state.links || {})[p.name];
   if (bound) {
-    const off = el("button",null,"断开对端");
+    const off = el("button",null,T("ui.ethPeerRow.13"));
     off.onclick = () => api("/api/unlink", {port: p.name}).then(applyState);
     acts.appendChild(off);
     acts.appendChild(el("span","sub",
-      "已连 " + bound.com + "，收 " + bound.rxLines + " 回 " + bound.echoed));
+      T("ui.ethPeerRow.14", {com: bound.com, rx_lines: bound.rxLines, echoed: bound.echoed})));
   } else {
-    const on = el("button","primary","连上对端");
+    const on = el("button","primary",T("ui.ethPeerRow.15"));
     on.onclick = async () => {
       on.disabled = true;
       const r = await api("/api/link", {port: p.name, tcp: ip + ":" + port});
@@ -3390,8 +3373,7 @@ function ethPeerRow(p) {
   box.appendChild(acts);
 
   box.appendChild(el("div","hint",
-    "ping 不用板子上跑任何程序 —— 它只证明网线、PHY、网段、协议栈活着。" +
-    "ping 通了「连接数」还是 0，那才是应用层的事。"));
+    T("ui.ethPeerRow.16")));
   return box;
 }
 
@@ -3405,24 +3387,23 @@ function linkRow(p, kind) {
   const box = el("div","chvals peerbox");
   box.dataset.peer = kind || "com";
   box.appendChild(el("div","st", usb
-    ? "对端 —— 板子自己那个 CDC 口，面板会自己接上"
-    : "对端串口 —— 这个端口的回环走被测链路本身"));
+    ? T("ui.linkRow.1")
+    : T("ui.linkRow.2")));
 
   if (bound) {
     const r = el("div","row");
-    r.appendChild(el("span","sub", bound.com + " @ " + bound.baud +
-      "　收 " + bound.rxLines + " 行，送回 " + bound.echoed + " 行"));
-    const off = el("button",null,"解开");
+    r.appendChild(el("span","sub", T("ui.linkRow.3", {com: bound.com, baud: bound.baud, rx_lines: bound.rxLines, echoed: bound.echoed})));
+    const off = el("button",null,T("ui.linkRow.4"));
     off.onclick = async () => { applyState(await api("/api/unlink", {port:p.name})); };
     r.appendChild(off);
     box.appendChild(r);
     if (bound.error) {
-      const e = el("div","hint", "出问题了：" + bound.error);
+      const e = el("div","hint", T("ui.linkRow.5", {error: bound.error}));
       e.style.color = "var(--err)";
       box.appendChild(e);
     }
     box.appendChild(el("div","hint",
-      "对端把板子发来的每一行原样送回去。板子自己比对送出和收回的数 —— 所以这里不能改动内容。"));
+      T("ui.linkRow.6")));
   } else {
     const r = el("div","row");
     const sel = el("select");
@@ -3431,13 +3412,13 @@ function linkRow(p, kind) {
     // picked the same COM out of a list of five on every connect.
     const was = ((state.saved || {}).peers || {})[p.name];
     for (const o of linkChoices()) {
-      const op = el("option",null,o.label + (was && was.com === o.name ? "　← 上次" : ""));
+      const op = el("option",null,o.label + (was && was.com === o.name ? T("ui.linkRow.7") : ""));
       op.value = o.name;
       if (was && was.com === o.name) { op.selected = true; }
       sel.appendChild(op);
     }
     r.appendChild(sel);
-    const on = el("button","primary","绑上");
+    const on = el("button","primary",T("ui.linkRow.8"));
     on.onclick = async () => {
       const j = await api("/api/link", {port:p.name, com:sel.value});
       if (j.error) showMessage(j.error, true); else applyState(j);
@@ -3445,11 +3426,9 @@ function linkRow(p, kind) {
     r.appendChild(on);
     box.appendChild(r);
     box.appendChild(richText("div","hint", usb
-      ? "**不用先选。**点「开始」之后板子才枚举出这个口，面板会自己把它接上。" +
-        "要是它没接上（比如线没插好），再回到这里手动选板子那个口。"
-      : "**还没绑。**这个端口的回环走被测链路，没有对端就永远闭合不了 —— " +
-        "那时「丢失」会一直涨，但那是接线不全，不是端口坏了。" +
-        (was ? "上次这个端口绑的是 " + was.com + "。" : "")));
+      ? T("ui.linkRow.9")
+      : T("ui.linkRow.unbound") +
+        (was ? T("ui.linkRow.12", {com: was.com}) : "")));
   }
   return box;
 }
@@ -3507,8 +3486,8 @@ let runMode = {};
 let runHours = 1;
 
 const HOUR_CHOICES = [
-  [1, "1 小时"], [2, "2 小时"], [3, "3 小时"], [4, "4 小时"],
-  [0, "一直跑"],
+  [1, T("ui.top.8")], [2, T("ui.top.9")], [3, T("ui.top.10")], [4, T("ui.top.11")],
+  [0, T("ui.top.12")],
 ];
 
 // 一个会话端口每帧要占多少字节。板子推一帧、上位机回一条 pt.echo、板子再回一个
@@ -3544,7 +3523,7 @@ function bandwidthOf(names) {
 // 两个地方各记一份，人换了一边另一边不动，那是个必然会咬人的坑。
 function hoursPicker(onChange, disabled) {
   const box = el("div","runhow hours");
-  box.appendChild(el("span","sub","跑多久："));
+  box.appendChild(el("span","sub",T("ui.hoursPicker.1")));
   for (const [h, nm] of HOUR_CHOICES) {
     const lb = el("label");
     const r = el("input"); r.type = "radio"; r.name = "runhours";
@@ -3593,9 +3572,7 @@ function bandwidthWarning(names) {
   const used = bandwidthOf(names);
   if (used <= LINE_BYTES_PER_SEC * 0.8) { return ""; }
   const pct = Math.round(used * 100 / LINE_BYTES_PER_SEC);
-  return "这些端口一起跑要占控制口 " + pct + "%（" + Math.round(used) +
-         " 字节/秒，线只有 " + LINE_BYTES_PER_SEC + "）。**把周期调大一点，或者少勾几个。**" +
-         "\n线一堵，板子的主循环就慢下来，所有端口的采样周期会一起失准，而且不会有任何报错。";
+  return T("ui.bandwidthWarning.1", {pct, used: Math.round(used), line_bytes_per_sec: LINE_BYTES_PER_SEC});
 }
 
 // 起一轮持续测试：先把每个端口发起来，再交给服务端计时和续期。
@@ -3641,8 +3618,8 @@ function startRow(p, cmdFor, only) {
   if (session) {
     const box = el("div","runhow");
     for (const [v, nm, why] of [
-      ["once", "单次", "跑一轮，跑完自动停下，给一个结论 —— 验收用"],
-      ["loop", "持续", "一直跑到时长用完；不自动给结论 —— 老化、调波形、量电压用"],
+      ["once", T("ui.startRow.1"), T("ui.startRow.2")],
+      ["loop", T("ui.startRow.3"), T("ui.startRow.4")],
     ]) {
       const lb = el("label");
       const r = el("input"); r.type = "radio"; r.name = "run-" + p.name;
@@ -3669,29 +3646,29 @@ function startRow(p, cmdFor, only) {
   }
 
   const b = el("button","primary" + (aoWalk ? " aocalgo" : "") + (aiWalk ? " aicalgo" : ""),
-                aoWalk ? (aocal.busy ? "跑着…" : "走一遍")
-                       : aiWalk ? (aical.busy ? "跑着…" : "走一遍")
-                       : (busy ? "跑着…" : "开始"));
+                aoWalk ? (aocal.busy ? T("ui.startRow.5") : T("ui.startRow.6"))
+                       : aiWalk ? (aical.busy ? T("ui.startRow.7") : T("ui.startRow.8"))
+                       : (busy ? T("ui.startRow.9") : T("ui.startRow.10")));
   b.disabled = !!busy || (aoWalk && !!aocal.busy) || (aiWalk && !!aical.busy);
   b.onclick = async () => {
     if (aiWalk) {
       if (aical.busy) { return; }
       aicalRunning = true;
-      aical.busy = "跑着…";
+      aical.busy = T("ui.startRow.11");
       aical.rows = []; aical.note = ""; aical.fit = null;
       renderPanel();
       try {
         await aicalRun(p, t => { aical.busy = t; renderPanel(); }, () => renderPanel());
-        aical.note = "跑完了。";
+        aical.note = T("ui.startRow.12");
       } catch (e) {
-        aical.note = "出错了：" + e;
+        aical.note = T("ui.startRow.13", {e});
       } finally {
         aical.busy = "";
         meterDone(null);
         setTimeout(() => {
           aicalRunning = false;
           delete verdicts.ain;
-          judgeWhy.ain = "刚跑完多点测量 —— 要结论就把「信号来自」改回「不接信号源」再跑一遍";
+          judgeWhy.ain = T("ui.startRow.14");
           renderTree(); renderPanel();
         }, 2500);
         renderPanel();
@@ -3702,14 +3679,14 @@ function startRow(p, cmdFor, only) {
     if (aoWalk) {
       if (aocal.busy) { return; }
       aocalRunning = true;
-      aocal.busy = "跑着…";
+      aocal.busy = T("ui.startRow.15");
       aocal.rows = []; aocal.note = ""; aocal.fit = null;
       renderPanel();
       try {
         await aocalRun(p, t => { aocal.busy = t; renderPanel(); }, () => renderPanel());
-        aocal.note = "跑完了。";
+        aocal.note = T("ui.startRow.16");
       } catch (e) {
-        aocal.note = "出错了：" + e;
+        aocal.note = T("ui.startRow.17", {e});
       } finally {
         aocal.busy = "";
         meterDone(null);
@@ -3717,7 +3694,7 @@ function startRow(p, cmdFor, only) {
         setTimeout(() => {
           aocalRunning = false;
           delete verdicts.aout;
-          judgeWhy.aout = "刚跑完多点走查 —— 要结论就把「读数来自」改回「不读表」再跑一遍";
+          judgeWhy.aout = T("ui.startRow.18");
           renderTree(); renderPanel();
         }, 2500);
         renderPanel();
@@ -3725,7 +3702,7 @@ function startRow(p, cmdFor, only) {
       return;
     }
     if (p.channels > 1 && chanSet(p).size === 0) {
-      showMessage("「" + portLabel(p.name) + "」一个通道都没勾，先勾上要测的那几路。", true);
+      showMessage(T("ui.startRow.19", {name: portLabel(p.name)}), true);
       return;
     }
     // 对端要人插适配器的端口，没绑就别跑 —— 跑出来的一定是「丢失一直涨」，
@@ -3735,8 +3712,7 @@ function startRow(p, cmdFor, only) {
     // 触点是消耗品，而这个代价不可逆 —— 一句读过就忘的警告挡不住一次误点。
     // 「一轮老化吃掉将近一半寿命」的算法在 DECISIONS 46。
     if (session && (runMode[p.name] || "once") === "loop" && p.name === "relay") {
-      showMessage("继电器不做持续测试。" + relayWearSays()
-                + "通不通「单次」就能证明 —— 选「单次」跑。", true);
+      showMessage(T("ui.startRow.20", {relay_wear_says: relayWearSays()}), true);
       return;
     }
     // 持续：发起来之后交给服务端计时，到点它发停止。
@@ -3744,7 +3720,7 @@ function startRow(p, cmdFor, only) {
       await startContinuous([p.name], [cmdFor()]);
       return;
     }
-    testing[p.name] = "启动…";
+    testing[p.name] = T("ui.startRow.21");
     delete cancelled[p.name];
     renderPanel();
     try {
@@ -3772,7 +3748,7 @@ function startRow(p, cmdFor, only) {
   // *** 端口在跑，而看门狗的续期已经停了，那是最难解释的一种状态。
   if (!busy && p.running) {
     const running = !!(state.run);
-    const stop = el("button",null, running ? "停止（整轮）" : "停止");
+    const stop = el("button",null, running ? T("ui.startRow.22") : T("ui.startRow.23"));
     stop.dataset.stop = p.name;
     stop.onclick = async () => {
       if (running) { await stopContinuous(); return; }
@@ -3786,10 +3762,10 @@ function startRow(p, cmdFor, only) {
   // out of a long run is the reset key, which also loses every other verdict
   // on the page.
   if (busy) {
-    const x = el("button",null,"中止");
+    const x = el("button",null,T("ui.startRow.24"));
     x.onclick = () => {
       cancelled[p.name] = true;
-      testing[p.name] = "中止中…";
+      testing[p.name] = T("ui.startRow.25");
       run("pt.stop " + p.name);
       renderPanel();
     };
@@ -3797,7 +3773,7 @@ function startRow(p, cmdFor, only) {
   }
   // 改回方案那组参数，判据就又能用了。一个按钮，不用人记住原来是多少。
   if (off.length && !busy) {
-    const back = el("button",null,"恢复方案参数");
+    const back = el("button",null,T("ui.startRow.26"));
     back.onclick = () => {
       delete edited[p.name];
       delete picked[p.name];
@@ -3824,8 +3800,8 @@ function startRow(p, cmdFor, only) {
     busy || (off.length ? offPlanWhy(off) : "") ||
     (only === "session" ? "" :
      judgeWhy[p.name] ||
-     (verdicts[p.name] === true ? "通过" :
-      verdicts[p.name] === false ? "失败 —— 看日志" : "还没测过"))));
+     (verdicts[p.name] === true ? T("ui.startRow.27") :
+      verdicts[p.name] === false ? T("ui.startRow.28") : T("ui.startRow.29")))));
   return row;
 }
 
@@ -3840,7 +3816,8 @@ async function runOne(p, target) {
   let state;
   if (!lines.length) {
     verdicts[p.name] = false;
-    judgeWhy[p.name] = target + " 没等到应答" + (j && j.error ? "：" + j.error : " —— 看日志");
+    judgeWhy[p.name] = T("ui.runOne.noreply", {target,
+      why: j && j.error ? T("ui.runOne.2", {error: j.error}) : T("ui.runOne.3")});
     state = false;
   } else {
     // 跟着参数一起发：同一个目标在方案里可能有两步（轮数不同），
@@ -3850,9 +3827,9 @@ async function runOne(p, target) {
   // 按用例记一份。judgeWhy 只按端口存一个槽，而一个端口有好几个用例 —— 共用
   // 一个槽的话，后跑的那个会把先跑的结果抹掉，卡片上就只剩最后一次。
   const note = judgeWhy[p.name] ||
-               (state === true ? "过" : state === false ? "看日志" : "没有判据");
-  caseNote[p.name + "|" + target] = (state === true ? "✅ 过　" :
-                                     state === false ? "❌ 不过　" : "") + note;
+               (state === true ? T("ui.runOne.4") : state === false ? T("ui.runOne.5") : T("ui.runOne.6"));
+  caseNote[p.name + "|" + target] = (state === true ? T("ui.runOne.7") :
+                                     state === false ? T("ui.runOne.8") : "") + note;
   renderTree(); renderPanel();
   return {state: state, note: note};
 }
@@ -3886,13 +3863,13 @@ async function runPortTest(p, say, cmdFor) {
     const notes = [];
     let worst = true;                 // true -> null -> false
     for (const t of p.runs) {
-      say("跑 " + t + " …");
+      say(T("ui.runPortTest.1", {t}));
       const r = await runOne(p, t);
-      notes.push(t + "：" + r.note);
+      notes.push(T("ui.runPortTest.2", {t, note: r.note}));
       if (r.state === false) { worst = false; break; }
       if (r.state === null && worst === true) { worst = null; }
     }
-    pre = {state: worst, note: notes.join("；")};
+    pre = {state: worst, note: notes.join(T("ui.runPortTest.3"))};
 
     // Nothing else to run for a port that is only one-shots.
     if (p.kind !== "session") {
@@ -3917,7 +3894,7 @@ async function runPortTest(p, say, cmdFor) {
   else { merged = true; }
 
   if (merged === null) { delete verdicts[p.name]; } else { verdicts[p.name] = merged; }
-  judgeWhy[p.name] = pre.note + "；会话：" + note;
+  judgeWhy[p.name] = T("ui.runPortTest.4", {note: pre.note, note2: note});
   return judgeWhy[p.name];
 }
 
@@ -3977,13 +3954,13 @@ async function autoPeer(p, say) {
 
       if (f.ip && f.ip !== "dhcp" && f.ip !== "0.0.0.0") { ip = f.ip; break; }
 
-      say("等板子拿到 IP…");
+      say(T("ui.autoPeer.1"));
 
       await new Promise(r => setTimeout(r, 250));
 
     }
 
-    if (!ip) { addLog("panel", "[对端] " + p.name + "：板子没报出 IP，接不上"); return; }
+    if (!ip) { addLog("panel", () => T("ui.autoPeer.2", {name: p.name})); return; }
 
     body = {port: p.name, tcp: ip + ":" + port};
 
@@ -3991,7 +3968,7 @@ async function autoPeer(p, say) {
 
     // 板子的 CDC。会话起来才枚举，所以要等它出现。
 
-    say("等板子的 CDC 口出现…");
+    say(T("ui.autoPeer.3"));
 
     let com = "";
 
@@ -4009,7 +3986,7 @@ async function autoPeer(p, say) {
 
     if (!com) {
 
-      addLog("panel", "[对端] " + p.name + "：板子的 CDC 口还没枚举出来");
+      addLog("panel", () => T("ui.autoPeer.4", {name: p.name}));
 
       return;
 
@@ -4021,13 +3998,13 @@ async function autoPeer(p, say) {
 
 
 
-  say("连对端…");
+  say(T("ui.autoPeer.5"));
 
   const r = await api("/api/link", body);
 
-  if (r && r.error) { addLog("panel", "[对端] " + p.name + "：" + r.error); return; }
+  if (r && r.error) { addLog("panel", () => T("ui.autoPeer.6", {name: p.name, error: r.error})); return; }
 
-  addLog("panel", "[对端] " + p.name + "：接上了 " + (body.tcp || body.com));
+  addLog("panel", () => T("ui.autoPeer.7", {name: p.name, com: (body.tcp || body.com)}));
 
   applyState(r);
 
@@ -4045,11 +4022,11 @@ async function runSessionTest(p, say, cmdFor) {
   const frames = (pp && pp.frames) || 3;
   const cmd = cmdFor ? cmdFor() : ("pt.start " + p.name);
 
-  say("启动…");
+  say(T("ui.runSessionTest.1"));
   const started = await run(cmd);
   if (started && (started.error || started.refused)) {
     verdicts[p.name] = false;
-    judgeWhy[p.name] = "启动被拒：" + (started.refused || started.error);
+    judgeWhy[p.name] = T("ui.runSessionTest.2", {error: (started.refused || started.error)});
     return judgeWhy[p.name];
   }
 
@@ -4076,17 +4053,17 @@ async function runSessionTest(p, say, cmdFor) {
 
   if (cancelled[p.name]) {
     delete verdicts[p.name];
-    judgeWhy[p.name] = "中止了 —— 没跑完就没有结论";
+    judgeWhy[p.name] = T("ui.runSessionTest.3");
     return judgeWhy[p.name];
   }
   if (!seen) {
     verdicts[p.name] = false;
-    judgeWhy[p.name] = "没收到采样帧 —— 看日志，可能是启动被拒了";
+    judgeWhy[p.name] = T("ui.runSessionTest.4");
     return judgeWhy[p.name];
   }
   return judgeWhy[p.name] ||
-         (verdicts[p.name] === true ? "通过" :
-          verdicts[p.name] === false ? "看日志" : "没有判据");
+         (verdicts[p.name] === true ? T("ui.runSessionTest.5") :
+          verdicts[p.name] === false ? T("ui.runSessionTest.6") : T("ui.runSessionTest.7"));
 }
 
 // Resolves once the port has pushed n frames, or on timeout. Counts distinct
@@ -4118,11 +4095,10 @@ function waitForDone(port, ms, say) {
       if (f.done === "1") { clearInterval(iv); resolve(true); return; }
       if (Date.now() - start > ms) { clearInterval(iv); resolve(!!r); return; }
       if (f.left_s !== undefined) {
-        say("跑着 —— 还剩 " + fmtLeft(f.left_s) +
-            "，faults=" + (f.faults ?? "?") +
-            (f.tmax !== undefined ? "，最高 " + (Number(f.tmax) / 10).toFixed(1) + " ℃" : ""));
+        say(T("ui.waitForDone.left", {left: fmtLeft(f.left_s), faults: f.faults ?? "?"}) +
+            (f.tmax !== undefined ? T("ui.waitForDone.tmax", {t: (Number(f.tmax) / 10).toFixed(1)}) : ""));
       } else {
-        say("跑着 —— 等第一帧…");
+        say(T("ui.waitForDone.4"));
       }
     }, 500);
   });
@@ -4130,10 +4106,10 @@ function waitForDone(port, ms, say) {
 
 function fmtLeft(s) {
   const n = Number(s) || 0;
-  if (n < 60) { return n + " 秒"; }
+  if (n < 60) { return T("ui.fmtLeft.1", {n}); }
   const m = Math.floor(n / 60);
-  if (m < 60) { return m + " 分 " + (n % 60) + " 秒"; }
-  return Math.floor(m / 60) + " 小时 " + (m % 60) + " 分";
+  if (m < 60) { return T("ui.fmtLeft.2", {m, n: (n % 60)}); }
+  return T("ui.fmtLeft.3", {m: Math.floor(m / 60), m2: (m % 60)});
 }
 
 /* ---------------- send ---------------- */
@@ -4141,7 +4117,7 @@ async function run(cmd) {
   addLog("tx", "> " + cmd);
   const j = await api("/api/command", {cmd});
   if (j.error) showMessage(j.error, true);
-  else if (j.refused) showMessage("板子拒绝了这条命令：" + j.refused, true);
+  else if (j.refused) showMessage(T("ui.run.1", {refused: j.refused}), true);
   else showMessage("", false);
   if (j.state) applyState(j);
   // Returned so a caller can read the board's own reply - the one-button test
@@ -4159,7 +4135,7 @@ $("#send").onclick = () => {
     filters.add("caps");
     const box = document.querySelector('.filt[value="caps"]');
     if (box) { box.checked = true; }
-    addLog("log", "（你敲了 pt.caps，「板子自述」这一类已经打开）");
+    addLog("log", () => T("ui.top.13"));
     redrawLog();
   }
   run(v);
@@ -4185,6 +4161,7 @@ refreshState()
 let planTab = "manual";
 let plan = null;         // 当前方案，编辑就地改这个对象
 let planName = "";
+let planSaved = "";      // JSON of the plan as opened or last saved
 let planSel = 0;         // 选中第几步
 let planVerdicts = {};   // 上次运行的逐步结果
 
@@ -4197,7 +4174,7 @@ function switchTab(which) {
   $("#planlist").hidden = manual;
   $("#panelbody").hidden = !manual;
   $("#planbody").hidden = manual;
-  $("#panelhead").textContent = manual ? "面板" : "方案";
+  $("#panelhead").textContent = manual ? T("ui.switchTab.1") : T("ui.switchTab.2");
   if (!manual) { loadPlanList(); }
 }
 
@@ -4211,8 +4188,7 @@ async function loadPlanList() {
   // know this tab is not for them.
   const what = el("div", "hint");
   what.id = "planwhat";
-  what.innerHTML = "<b>方案 = 产线用。</b>一个文件写好跑哪些步骤、每步什么算过，" +
-    "点一下整套跑完出报告。单个端口调试用左边的「端口」页，不用碰这里。";
+  what.innerHTML = T("ui.loadPlanList.1");
   host.appendChild(what);
 
   if (r.error) { host.appendChild(el("div", "msg bad", r.error)); return; }
@@ -4225,7 +4201,7 @@ async function loadPlanList() {
     host.appendChild(b);
   }
   if (!(r.plans || []).length) {
-    host.appendChild(el("div", "hint", "这个目录里还没有方案文件。"));
+    host.appendChild(el("div", "hint", T("ui.loadPlanList.2")));
   }
 }
 
@@ -4233,6 +4209,7 @@ async function openPlan(name) {
   const r = await api("/api/plan?name=" + encodeURIComponent(name));
   if (r.error) { $("#planbody").textContent = ""; $("#planbody").appendChild(el("div", "msg bad", r.error)); return; }
   plan = r.plan; planName = r.name; planSel = 0; planVerdicts = {};
+  planSaved = JSON.stringify(plan);
   loadPlanList();
   renderPlan();
   checkPlan();
@@ -4256,7 +4233,7 @@ function renderPlan() {
   const host = $("#planbody");
   host.textContent = "";
   if (!plan) {
-    host.appendChild(el("div", "hint", "左边选一个方案文件。"));
+    host.appendChild(el("div", "hint", T("ui.renderPlan.1")));
     return;
   }
 
@@ -4264,13 +4241,13 @@ function renderPlan() {
   const t = el("div", "hd");
   t.appendChild(el("div", "nm", plan.name));
   t.appendChild(el("span", "sp"));
-  const run = el("button", "primary", "运行");
+  const run = el("button", "primary", T("ui.renderPlan.2"));
   run.onclick = runPlan;
-  const save = el("button", null, "保存");
+  const save = el("button", null, T("ui.renderPlan.3"));
   save.onclick = savePlan;
   t.appendChild(run); t.appendChild(save);
   hd.appendChild(t);
-  hd.appendChild(el("div", "sub", "限值版本 " + plan.limit_version + "　·　" + planName));
+  hd.appendChild(el("div", "sub", T("ui.renderPlan.4", {limit_version: plan.limit_version, plan_name: planName})));
   hd.appendChild(el("div", "findings-host"));
   hd.lastChild.id = "planfindings";
   host.appendChild(hd);
@@ -4287,7 +4264,7 @@ function renderPlan() {
     row.appendChild(cb);
     row.appendChild(el("span", null, st.id));
     const ty = el("span", "ty", stepTypeCN(st.type));
-    ty.title = "文件里的写法：" + st.type;
+    ty.title = T("ui.renderPlan.5", {type: st.type});
     row.appendChild(ty);
     const v = planVerdicts[st.id];
     if (v) { row.appendChild(el("span", "vd " + v, v)); }
@@ -4303,10 +4280,10 @@ function renderPlan() {
 function renderStepProps() {
   const card = el("div", "card");
   const st = (plan.steps || [])[planSel];
-  if (!st) { card.appendChild(el("div", "hint", "选一步。")); return card; }
+  if (!st) { card.appendChild(el("div", "hint", T("ui.renderStepProps.1"))); return card; }
 
   const nm = el("div", "nm", st.id + " · " + stepTypeCN(st.type));
-  nm.title = "文件里的写法：" + st.type;
+  nm.title = T("ui.renderStepProps.2", {type: st.type});
   card.appendChild(el("div", "hd")).appendChild(nm);
   const g = el("div", "pgrid");
 
@@ -4353,7 +4330,7 @@ function renderStepProps() {
      可编辑的限值 —— 换限值的唯一办法是换一份具名方案文件
      （DECISIONS.md 第 30 条，第 34 条又重申了一遍）。 */
   if ((st.checks || []).length) {
-    g.appendChild(el("div", "pgroup", "判据（只读）"));
+    g.appendChild(el("div", "pgroup", T("ui.renderStepProps.3")));
     // 这几行和上面能改的格子一样印中文，原词都在 title 上。差别只在这几行
     // 根本不能改 —— 理由见下面那条说明。
     st.checks.forEach(c => {
@@ -4373,17 +4350,17 @@ function renderStepProps() {
     });
     g.appendChild(el("div", "k", ""));
     g.appendChild(el("div", "sub",
-      "限值不能在这里改。要用别的限值，换一份具名方案文件 —— 报告里那条 limit_version 追溯链靠这个成立。"));
+      T("ui.renderStepProps.4")));
   }
 
   /* 六个通用字段。它们是框架和一堆脚本的分界线 —— 每个步骤都有，
      与步骤类型无关（DECISIONS.md 第 24 条）。 */
-  g.appendChild(el("div", "pgroup", "杂项（每个步骤都有）"));
+  g.appendChild(el("div", "pgroup", T("ui.renderStepProps.5")));
   const cond = el("select");
   ["PASS", "FAIL", "ALWAYS"].forEach(o => {
     const opt = el("option", null, EXECCOND_CN[o] || o);
     opt.value = o;             // 写回文件的仍然是 PASS / FAIL / ALWAYS
-    opt.title = "文件里的写法：" + o;
+    opt.title = T("ui.renderStepProps.6", {o});
     if ((st.execute_condition || "PASS") === o) opt.selected = true;
     cond.appendChild(opt);
   });
@@ -4402,7 +4379,8 @@ function renderStepProps() {
 
 async function savePlan() {
   const r = await api("/api/plan", { name: planName, plan });
-  if (r.error) { alert("保存失败：" + r.error); return; }
+  if (r.error) { alert(T("ui.savePlan.1", {error: r.error})); return; }
+  planSaved = JSON.stringify(plan);
   loadPlanList();
 }
 

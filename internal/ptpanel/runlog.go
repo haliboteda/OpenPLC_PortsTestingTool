@@ -66,7 +66,7 @@ type runLog struct {
 func (s *Server) startRunLog(b *ptboard.Board, ports []string, hours int) *runLog {
 	dir := runLogDir()
 	if err := os.MkdirAll(dir, 0o755); err != nil {
-		s.emit("[持续] 建不了日志目录 " + dir + "：" + err.Error() + "。这一轮不会落盘。")
+		s.say(m("go.runlog.no_dir", "dir", dir, "detail", err))
 		return nil
 	}
 
@@ -74,16 +74,17 @@ func (s *Server) startRunLog(b *ptboard.Board, ports []string, hours int) *runLo
 	path := filepath.Join(dir, name)
 	f, err := os.Create(path)
 	if err != nil {
-		s.emit("[持续] 写不了日志文件 " + path + "：" + err.Error() + "。这一轮不会落盘。")
+		s.say(m("go.runlog.no_file", "path", path, "detail", err))
 		return nil
 	}
 
 	rl := &runLog{f: f, w: bufio.NewWriterSize(f, 32*1024), path: path,
 		done: make(chan struct{})}
 
-	span := "一直跑"
+	// The file is English whatever the page shows (decision 11).
+	span := "until stopped"
 	if hours > 0 {
-		span = fmt.Sprintf("%d 小时", hours)
+		span = fmt.Sprintf("%d h", hours)
 	}
 	rl.write("# port tool run log")
 	rl.write("# started  " + time.Now().Format("2006-01-02 15:04:05"))
@@ -120,7 +121,7 @@ func (s *Server) startRunLog(b *ptboard.Board, ports []string, hours int) *runLo
 		}
 	}()
 
-	s.emit("[持续] 边跑边写：" + path)
+	s.say(m("go.runlog.writing", "path", path))
 	return rl
 }
 
@@ -145,7 +146,7 @@ func (rl *runLog) write(line string) {
 }
 
 // close stops copying, flushes, and says where the file is and how big it got.
-func (rl *runLog) close(s *Server, why string) {
+func (rl *runLog) close(s *Server, why msg) {
 	if rl == nil {
 		return
 	}
@@ -155,14 +156,14 @@ func (rl *runLog) close(s *Server, why string) {
 	<-rl.done
 
 	rl.mu.Lock()
-	rl.write0("# stopped  " + time.Now().Format("2006-01-02 15:04:05") + "  (" + why + ")")
+	rl.write0("# stopped  " + time.Now().Format("2006-01-02 15:04:05") + "  (" + why.English() + ")")
 	_ = rl.w.Flush()
 	_ = rl.f.Close()
 	n := rl.lines
 	rl.w = nil
 	rl.mu.Unlock()
 
-	s.emit(fmt.Sprintf("[持续] 日志写完：%s，共 %d 行。", rl.path, n))
+	s.say(m("go.runlog.done", "path", rl.path, "lines", n))
 }
 
 // write0 is write() for a caller that already holds the lock.

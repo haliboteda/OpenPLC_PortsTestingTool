@@ -245,8 +245,7 @@ func TestPanelPassesARefusalThroughVerbatim(t *testing.T) {
 func TestPanelRejectsCommandsWithNoBoard(t *testing.T) {
 	srv, _ := newPanel(t)
 	res := postJSON(t, srv, "/api/command", map[string]any{"cmd": "pt.caps"})
-	msg, _ := res["error"].(string)
-	if msg == "" {
+	if res["error"] == nil {
 		t.Error("a command with nothing connected should say so")
 	}
 }
@@ -380,14 +379,14 @@ func TestPanelRepeatsOnTheLinkUnderTest(t *testing.T) {
 	// in wiring that does not exist.
 	res := postJSON(t, srv, "/api/link",
 		map[string]any{"port": "din", "com": "COM_LINK"})
-	if msg, _ := res["error"].(string); msg == "" {
+	if res["error"] == nil {
 		t.Error("binding a link adapter to a loop=ctrl port should be refused")
 	}
 
 	// Nor may the control port double as the far end.
 	res = postJSON(t, srv, "/api/link",
 		map[string]any{"port": "rs485", "com": "COM_CTRL"})
-	if msg, _ := res["error"].(string); msg == "" {
+	if res["error"] == nil {
 		t.Error("using the control port as its own far end should be refused")
 	}
 

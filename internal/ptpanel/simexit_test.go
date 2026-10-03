@@ -43,11 +43,9 @@ func TestSimulatorThatExitsIsNamedWithItsCode(t *testing.T) {
 	if err := json.Unmarshal(rec.Body.Bytes(), &state); err != nil {
 		t.Fatalf("connect answered %d %q", rec.Code, rec.Body.String())
 	}
-	msg, _ := state["capsError"].(string)
-	if !strings.Contains(msg, "模拟板退出了") || !strings.Contains(msg, "退出码 3") {
-		t.Fatalf("capsError = %q, want it to say the simulator exited with code 3", msg)
-	}
-	if strings.Contains(msg, "PORTTOOL_ENABLE") {
-		t.Fatalf("capsError = %q still gives board advice", msg)
+	e, _ := state["capsError"].(map[string]any)
+	args, _ := e["args"].(map[string]any)
+	if e["$t"] != "go.caps.sim_exited" || args["code"] != float64(3) {
+		t.Fatalf("capsError = %v, want it to say the simulator exited with code 3", state["capsError"])
 	}
 }

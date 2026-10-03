@@ -60,18 +60,18 @@ func (s *Server) handleHold(w http.ResponseWriter, r *http.Request) {
 		Stop  bool     `json:"stop"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		writeErr(w, 400, "没看懂要跑哪些端口、跑多久。")
+		writeErr(w, 400, m("go.hold.bad_request"))
 		return
 	}
 
 	if body.Stop {
-		s.stopTimedRun("你点了停止")
+		s.stopTimedRun(m("go.reason.you_stopped"))
 		writeJSON(w, 200, s.stateJSON())
 		return
 	}
 
 	if body.Hours < 0 || body.Hours > 4 {
-		writeErr(w, 400, "时长只能选 1、2、3、4 小时，或者一直跑。")
+		writeErr(w, 400, m("go.hold.bad_hours"))
 		return
 	}
 
@@ -84,11 +84,11 @@ func (s *Server) handleHold(w http.ResponseWriter, r *http.Request) {
 		// 200 rather than 4xx: losing the board is an ordinary bench event, and
 		// the page already says so in words. A 4xx would only add a red line to
 		// the browser console, which case T4-02 reads as a failure.
-		writeJSON(w, 200, map[string]any{"error": "板子没连上，先连上再开始。"})
+		writeJSON(w, 200, map[string]any{"error": m("go.hold.no_board")})
 		return
 	}
 	if already {
-		writeJSON(w, 200, map[string]any{"error": "已经有一轮持续测试在跑了，先停掉它。"})
+		writeJSON(w, 200, map[string]any{"error": m("go.hold.already")})
 		return
 	}
 
@@ -126,10 +126,9 @@ func (s *Server) startTimedRun(b *ptboard.Board, ports []string, hours int) {
 	go s.watchRun(b, run)
 
 	if run.deadline.IsZero() {
-		s.emit("[持续] 开始，不限时长。板子每 6 秒要听到一次上位机还在；听不到就自己关输出。")
+		s.say(m("go.hold.started_forever"))
 	} else {
-		s.emit(fmt.Sprintf("[持续] 开始，跑 %d 小时，到 %s 停。板子每 6 秒要听到一次上位机还在；听不到就自己关输出。",
-			hours, run.deadline.Format("15:04:05")))
+		s.say(m("go.hold.started", "hours", hours, "until", run.deadline.Format("15:04:05")))
 	}
 
 	go func() {
@@ -144,15 +143,15 @@ func (s *Server) startTimedRun(b *ptboard.Board, ports []string, hours int) {
 			case <-t.C:
 				if !run.deadline.IsZero() && !time.Now().Before(run.deadline) {
 					// The PC owns the clock, so the PC is what ends the run.
-					s.finishTimedRun(run, "时间到了")
+					s.finishTimedRun(run, m("go.reason.time_up"))
 					return
 				}
 				if !s.holdRenew(b) {
 					// The board stopped answering. Nothing to do but say so:
 					// its own deadman is what releases the outputs now, and it
 					// will do that within holdSpan whatever happens here.
-					s.emit("[持续] 板子没有应答续期。它会在 6 秒内自己关掉输出。")
-					s.finishTimedRun(run, "板子没有应答")
+					s.say(m("go.hold.no_renew"))
+					s.finishTimedRun(run, m("go.reason.no_reply"))
 					return
 				}
 			}
@@ -170,7 +169,7 @@ func (s *Server) holdRenew(b *ptboard.Board) bool {
 }
 
 // finishTimedRun ends a run from inside its own goroutine.
-func (s *Server) finishTimedRun(run *timedRun, why string) {
+func (s *Server) finishTimedRun(run *timedRun, why msg) {
 	s.mu.Lock()
 	if s.run != run {
 		s.mu.Unlock()
@@ -181,7 +180,7 @@ func (s *Server) finishTimedRun(run *timedRun, why string) {
 	s.mu.Unlock()
 
 	s.releaseBoard(b)
-	s.emit("[持续] 结束：" + why + "。所有端口已停，输出已放开。")
+	s.say(m("go.hold.finished", "why", why))
 	// Closed after the board is released, so the file records the stop too.
 	run.log.close(s, why)
 }
@@ -189,7 +188,7 @@ func (s *Server) finishTimedRun(run *timedRun, why string) {
 // stopTimedRun ends the current run from outside it, and waits for the renewal
 // goroutine to be gone before returning - otherwise a stop followed straight
 // away by a start could have two goroutines renewing the same deadman.
-func (s *Server) stopTimedRun(why string) {
+func (s *Server) stopTimedRun(why msg) {
 	s.mu.Lock()
 	run := s.run
 	s.run = nil
@@ -203,7 +202,7 @@ func (s *Server) stopTimedRun(why string) {
 	<-run.done
 
 	s.releaseBoard(b)
-	s.emit("[持续] 结束：" + why + "。所有端口已停，输出已放开。")
+	s.say(m("go.hold.finished", "why", why))
 	run.log.close(s, why)
 }
 
@@ -230,7 +229,7 @@ func (s *Server) handleFault(w http.ResponseWriter, r *http.Request) {
 		Why string `json:"why"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		writeErr(w, 400, "没看懂是要点灯还是灭灯。")
+		writeErr(w, 400, m("go.fault.bad_request"))
 		return
 	}
 
@@ -238,22 +237,23 @@ func (s *Server) handleFault(w http.ResponseWriter, r *http.Request) {
 	b := s.board
 	s.mu.Unlock()
 	if b == nil {
-		writeJSON(w, 200, map[string]any{"error": "板子没连上。"})
+		writeJSON(w, 200, map[string]any{"error": m("go.fault.no_board")})
 		return
 	}
 
 	var err error
 	if body.On {
-		why := body.Why
-		if why == "" {
-			why = "上位机判出故障"
+		// The page words this in English already: it goes into the run log.
+		why := m("go.reason.text", "text", body.Why)
+		if body.Why == "" {
+			why = m("go.reason.panel_fault")
 		}
 		err = s.raiseFault(b, why)
 	} else {
 		_, err = b.Send("pt.led fault=0", ptboard.ExpectOne, holdTimeout)
 	}
 	if err != nil {
-		writeJSON(w, 200, map[string]any{"error": "点灯这条命令板子没应答：" + err.Error()})
+		writeJSON(w, 200, map[string]any{"error": m("go.fault.led_failed", "detail", err)})
 		return
 	}
 	writeJSON(w, 200, s.stateJSON())
@@ -262,9 +262,9 @@ func (s *Server) handleFault(w http.ResponseWriter, r *http.Request) {
 // raiseFault is decision 37 item 3: stop every port, say why, light the lamp.
 // Every fault - a failed verdict from the page, a reset seen by watchRun -
 // goes through here, so they all look the same on the bench.
-func (s *Server) raiseFault(b *ptboard.Board, why string) error {
+func (s *Server) raiseFault(b *ptboard.Board, why msg) error {
 	s.stopTimedRun(why)
-	s.emit("[故障] " + why + "。状态灯已点亮。")
+	s.say(m("go.alert.fault", "why", why))
 	_, err := b.Send("pt.led fault=1", ptboard.ExpectOne, holdTimeout)
 	return err
 }
@@ -314,7 +314,7 @@ func (s *Server) watchRun(b *ptboard.Board, run *timedRun) {
 				continue
 			}
 			if _, restarted := w.ticks.Unwrap(ev.Frame.Tick); restarted {
-				_ = s.raiseFault(b, "板子复位了（"+ev.Frame.Port+" 的毫秒计数往回跳）")
+				_ = s.raiseFault(b, m("go.reason.reset", "port", ev.Frame.Port))
 				return
 			}
 			now := ev.At
@@ -329,9 +329,8 @@ func (s *Server) watchRun(b *ptboard.Board, run *timedRun) {
 					continue // no period learnt yet
 				}
 				if gap := now.Sub(w.last); gap > 3*w.interval+silenceFloor {
-					_ = s.raiseFault(b, fmt.Sprintf(
-						"%s 已经 %d 秒没有数据（平时每 %.1f 秒一帧）：板子可能复位或死机了",
-						port, int(gap.Seconds()), w.interval.Seconds()))
+					_ = s.raiseFault(b, m("go.reason.silent", "port", port,
+						"secs", int(gap.Seconds()), "period", fmt.Sprintf("%.1f", w.interval.Seconds())))
 					return
 				}
 			}

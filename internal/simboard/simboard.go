@@ -29,9 +29,27 @@ import (
 // plan or a panel asking for it cannot be ambiguous.
 const PortName = "sim"
 
-// Label is what the panel shows for it, said plainly enough that nobody files
-// a simulated run as a bench result.
-const Label = "sim - 模拟板（不是真板子，读数全是假的）"
+// LabelKey names, in the panel's dictionary, what the panel shows for it: said
+// plainly enough that nobody files a simulated run as a bench result.
+const LabelKey = "go.sim.label"
+
+// ErrNotBuilt is Find's answer when there is no simulator to run. The panel
+// words it in its own language; this text is for the command line.
+var ErrNotBuilt = errors.New("the simulated board is not built: " +
+	"cd TestCase/host/porttool_caps && python build.py --sim, " +
+	"or point PORTTOOL_SIM at one that is")
+
+// StartError is a simulator that was found but would not start.
+type StartError struct {
+	Path string
+	Err  error
+}
+
+func (e *StartError) Error() string {
+	return fmt.Sprintf("cannot start the simulated board %s: %v", e.Path, e.Err)
+}
+
+func (e *StartError) Unwrap() error { return e.Err }
 
 // IsSim reports whether a port name asks for the simulated board.
 func IsSim(name string) bool {
@@ -117,10 +135,7 @@ func Find() (string, error) {
 		}
 	}
 
-	return "", errors.New(
-		"没找到模拟板程序。先编一个：\n" +
-			"    cd TestCase/host/porttool_caps && python build.py --sim\n" +
-			"或者把 PORTTOOL_SIM 指向已经编好的那个。")
+	return "", ErrNotBuilt
 }
 
 // conn is the child process presented as one stream.
@@ -192,7 +207,7 @@ func Open() (io.ReadWriteCloser, error) {
 		return nil, err
 	}
 	if err := cmd.Start(); err != nil {
-		return nil, fmt.Errorf("起不来模拟板 %s：%w", path, err)
+		return nil, &StartError{Path: path, Err: err}
 	}
 
 	c := &conn{cmd: cmd, in: in, out: out, done: make(chan struct{})}

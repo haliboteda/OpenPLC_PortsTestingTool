@@ -34,6 +34,7 @@ CATALOG = [
     ("ENV", "this machine's paths resolve (config/machine.py)"),
     ("GO-TEST", "Go unit tests: parser, judging, plan executor, panel API (T4-04 included)"),
     ("GO-VET", "go vet over the whole module"),
+    ("STRINGS", "panel dictionary: zh/en/de complete, translations current, no stray Chinese"),
     ("T4-01", "port tool protocol contract (real porttool.c, then the Go parser)"),
     ("T4-02", "the panel clicked through in a real browser, against the simulated board"),
 ]
@@ -82,6 +83,7 @@ def main():
     env()
     run("GO-TEST", ["go", "test", "./..."], REPO, needs="go")
     run("GO-VET", ["go", "vet", "./..."], REPO, needs="go")
+    run("STRINGS", [sys.executable, HERE / "check_strings.py"], REPO)
     run("T4-01", [sys.executable, TESTCASE / "host" / "porttool_caps" / "build.py"], REPO,
         needs=getattr(cfg, "HOST_CC", "") or "gcc")
     if args.quick:

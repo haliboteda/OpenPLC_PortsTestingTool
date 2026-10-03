@@ -302,7 +302,7 @@ func (s *Server) handlePlanRun(w http.ResponseWriter, r *http.Request) {
 	// firmware cannot run as written is a verdict on the plan, not the board.
 	if findings := body.Plan.CheckAgainstCaps(caps); len(findings) > 0 {
 		writeJSON(w, http.StatusOK, map[string]any{
-			"error":    "这份方案和板子上的固件对不上，不跑：\n- " + strings.Join(findings, "\n- "),
+			"error":    m("go.plan.mismatch", "findings", strings.Join(findings, "\n- ")),
 			"findings": findings,
 		})
 		return

@@ -44,10 +44,10 @@ type Server struct {
 	board   *ptboard.Board
 	portNam string
 	caps    ptproto.Caps
-	capsErr string
+	capsErr msg
 	// Why the control port stopped working while still connected: an
 	// unplugged adapter, a board that lost power. Shown until disconnect.
-	linkErr string
+	linkErr msg
 
 	// Answering the board's echo frames is on by default, because a counter
 	// nobody answers only ever reports misses. It can be switched off, which
@@ -97,7 +97,14 @@ func (s *Server) routes() *http.ServeMux {
 	if err != nil {
 		panic(err) // the files are embedded at build time; this cannot fail at run time
 	}
-	mux.Handle("/", http.FileServer(http.FS(sub)))
+	files := http.FileServer(http.FS(sub))
+	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/" || r.URL.Path == "/index.html" {
+			s.handleIndex(w, r)
+			return
+		}
+		files.ServeHTTP(w, r)
+	})
 	// Browsers ask for this unprompted, and a 404 for it lands in the
 	// console next to errors that matter.
 	mux.HandleFunc("/favicon.ico", func(w http.ResponseWriter, r *http.Request) {
@@ -121,6 +128,7 @@ func (s *Server) routes() *http.ServeMux {
 	mux.HandleFunc("/api/fit", s.handleFit)
 	mux.HandleFunc("/api/net", s.handleNet)
 	mux.HandleFunc("/api/ping", s.handlePing)
+	mux.HandleFunc("/api/settings", s.handleSettings)
 	s.planRoutes(mux)
 	return mux
 }
@@ -133,14 +141,14 @@ func writeJSON(w http.ResponseWriter, code int, v any) {
 
 // Every message the panel shows a person is written here, in plain language,
 // saying what to do next rather than what failed internally.
-func writeErr(w http.ResponseWriter, code int, msg string) {
-	writeJSON(w, code, map[string]any{"error": msg})
+func writeErr(w http.ResponseWriter, code int, x msg) {
+	writeJSON(w, code, map[string]any{"error": x})
 }
 
 func (s *Server) handlePorts(w http.ResponseWriter, r *http.Request) {
 	ports, err := serialx.List()
 	if err != nil {
-		writeErr(w, 500, "读不到这台电脑的串口列表："+err.Error())
+		writeErr(w, 500, m("go.ports.list_failed", "detail", err))
 		return
 	}
 	out := make([]map[string]any, 0, len(ports)+1)
@@ -162,16 +170,16 @@ func (s *Server) handlePorts(w http.ResponseWriter, r *http.Request) {
 	if path, err := simboard.Find(); err == nil {
 		out = append(out, map[string]any{
 			"name":  simboard.PortName,
-			"label": simboard.Label,
+			"label": m(simboard.LabelKey),
 			"usb":   false,
 			"path":  path,
 		})
 	} else {
 		out = append(out, map[string]any{
 			"name":        simboard.PortName,
-			"label":       simboard.Label,
+			"label":       m(simboard.LabelKey),
 			"usb":         false,
-			"unavailable": err.Error(),
+			"unavailable": msgOf(err),
 		})
 	}
 
@@ -275,7 +283,7 @@ func (s *Server) handleLink(w http.ResponseWriter, r *http.Request) {
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil ||
 		body.Port == "" || (body.COM == "" && body.TCP == "") {
-		writeErr(w, 400, "要说清楚哪个端口配哪个对端。")
+		writeErr(w, 400, m("go.link.bad_request"))
 		return
 	}
 
@@ -283,18 +291,18 @@ func (s *Server) handleLink(w http.ResponseWriter, r *http.Request) {
 	p, found := s.caps.Port(body.Port)
 	s.mu.Unlock()
 	if !found {
-		writeErr(w, 400, "板子没报过叫 "+body.Port+" 的端口。先连上板子。")
+		writeErr(w, 400, m("go.link.no_such_port", "port", body.Port))
 		return
 	}
 	if p.Loop != ptproto.LoopLink {
 		// Binding an adapter for a port that answers on the control port would
 		// do nothing at all, and leave somebody looking for a fault in the
 		// wiring instead.
-		writeErr(w, 400, body.Port+" 的回环不走被测链路，用不着第二个串口。")
+		writeErr(w, 400, m("go.link.no_link_loop", "port", body.Port))
 		return
 	}
 	if body.TCP == "" && body.COM == s.portNam {
-		writeErr(w, 400, "这个串口已经是控制口了，不能同时当被测链路的对端。")
+		writeErr(w, 400, m("go.link.is_control"))
 		return
 	}
 	// The board only listens while the session is running, so connecting to a
@@ -302,9 +310,7 @@ func (s *Server) handleLink(w http.ResponseWriter, r *http.Request) {
 	// refused" reads like a network fault, which sends somebody to check
 	// cables and subnets that were fine all along. Said plainly instead.
 	if body.TCP != "" && !p.Running {
-		writeJSON(w, 200, map[string]any{"error": body.Port +
-			" 还没在跑 —— 板子是会话起来才开始监听的。先点「开始」，" +
-			"而且要选「持续」：「单次」跑完就停了，那时候再连就没人听了。"})
+		writeJSON(w, 200, map[string]any{"error": m("go.link.not_running", "port", body.Port)})
 		return
 	}
 
@@ -323,14 +329,11 @@ func (s *Server) handleLink(w http.ResponseWriter, r *http.Request) {
 		// says so in words - answering 4xx only adds a red line to the
 		// browser console for a case that is handled. The checks above stay
 		// 4xx: those are requests the panel itself cannot produce.
-		what := body.COM
-		why := "看看是不是别的程序占着它，或者适配器没插好。"
+		what, why := body.COM, m("go.link.hint_busy")
 		if body.TCP != "" {
-			what = body.TCP
-			why = "板子的 IP 和端口对不对？先 ping 一下 —— ping 不通就不是这一步的事。"
+			what, why = body.TCP, m("go.link.hint_ip")
 		}
-		writeJSON(w, 200, map[string]any{"error": fmt.Sprintf(
-			"连不上 %s：%v。%s", what, err, why)})
+		writeJSON(w, 200, map[string]any{"error": m("go.link.connect_failed", "what", what, "detail", err, "why", why)})
 		return
 	}
 
@@ -341,12 +344,10 @@ func (s *Server) handleLink(w http.ResponseWriter, r *http.Request) {
 	s.links[body.Port] = l
 	s.mu.Unlock()
 	if body.TCP != "" {
-		s.emit(fmt.Sprintf("[link %s@%s] 连上了。板子发什么就原样送回去。",
-			body.Port, body.TCP))
+		s.say(m("go.link.tcp_up", "port", body.Port, "addr", body.TCP))
 	} else {
 		portmap.SetPeer(body.Port, body.COM, l.Baud)
-		s.emit(fmt.Sprintf("[link %s@%s] 绑好了，%d 8N1。板子发什么就原样送回去。",
-			body.Port, body.COM, l.Baud))
+		s.say(m("go.link.serial_up", "port", body.Port, "com", body.COM, "baud", l.Baud))
 	}
 
 	writeJSON(w, 200, s.stateJSON())
@@ -357,7 +358,7 @@ func (s *Server) handleUnlink(w http.ResponseWriter, r *http.Request) {
 		Port string `json:"port"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.Port == "" {
-		writeErr(w, 400, "没说要解开哪个端口。")
+		writeErr(w, 400, m("go.link.no_unbind"))
 		return
 	}
 	s.unbindLink(body.Port)
@@ -375,7 +376,7 @@ func (s *Server) unbindLink(boardPort string) {
 	s.mu.Unlock()
 	if l != nil {
 		l.stop()
-		s.emit(fmt.Sprintf("[link %s@%s] 解开了", l.Board, l.COM))
+		s.say(m("go.link.down", "port", l.Board, "com", l.COM))
 	}
 }
 
@@ -401,7 +402,7 @@ func (s *Server) handleConnect(w http.ResponseWriter, r *http.Request) {
 		Baud int    `json:"baud"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.Port == "" {
-		writeErr(w, 400, "没说要连哪个串口。")
+		writeErr(w, 400, m("go.connect.no_port"))
 		return
 	}
 	if body.Baud == 0 {
@@ -412,15 +413,13 @@ func (s *Server) handleConnect(w http.ResponseWriter, r *http.Request) {
 
 	port, err := s.Open(body.Port, body.Baud)
 	if err != nil {
-		writeErr(w, 400, fmt.Sprintf(
-			"打不开 %s：%v。看看是不是别的程序占着它（串口监视器、Arduino IDE），或者适配器没插好。",
-			body.Port, err))
+		writeErr(w, 400, m("go.connect.open_failed", "port", body.Port, "detail", err))
 		return
 	}
 
 	b := ptboard.New(port, 0)
 	caps, capsErr := b.Caps()
-	advice := ""
+	advice := msg{}
 	if capsErr != nil {
 		advice = noCapsAdvice(port, capsErr) // may wait briefly; kept outside the lock
 	}
@@ -430,8 +429,8 @@ func (s *Server) handleConnect(w http.ResponseWriter, r *http.Request) {
 	s.portNam = body.Port
 	portmap.SetControl(body.Port)
 	s.caps = caps
-	s.capsErr = ""
-	s.linkErr = ""
+	s.capsErr = msg{}
+	s.linkErr = msg{}
 	if capsErr != nil {
 		// Connected but not answering is worth staying connected for: the log
 		// pane is now showing whatever the board *is* saying, and that is the
@@ -466,16 +465,14 @@ func simExit(port io.ReadWriteCloser) (code int, exited bool) {
 // noCapsAdvice says why a freshly opened port gave no pt.caps. The simulated
 // board gets its own wording: firmware flags, baud and terminals mean nothing
 // for a program on this PC, and its exit code is the one fact that does.
-func noCapsAdvice(port io.ReadWriteCloser, capsErr error) string {
+func noCapsAdvice(port io.ReadWriteCloser, capsErr error) msg {
 	if path := simboard.Path(port); path != "" {
 		if code, exited := simExit(port); exited {
-			return fmt.Sprintf("模拟板退出了（退出码 %d），没有回答 pt.caps。在命令行里直接运行它，看它打出了什么：%s", code, path)
+			return m("go.caps.sim_exited", "code", code, "path", path)
 		}
-		return fmt.Sprintf("模拟板在运行，但没有回答 pt.caps：%v。多半是模拟板太旧，重编一个：cd TestCase/host/porttool_caps && python build.py --sim", capsErr)
+		return m("go.caps.sim_old", "detail", capsErr)
 	}
-	return fmt.Sprintf(
-		"串口开了，但板子没有回答 pt.caps：%v。检查固件是不是用 PORTTOOL_ENABLE=1 编的，波特率是不是 115200，接线是 C05/C06/C02。",
-		capsErr)
+	return m("go.caps.no_answer", "detail", capsErr)
 }
 
 // watchLost says so when the control port dies under a connected panel.
@@ -484,16 +481,16 @@ func noCapsAdvice(port io.ReadWriteCloser, capsErr error) string {
 // close the panel asked for is not reported as a loss.
 func (s *Server) watchLost(b *ptboard.Board, port io.ReadWriteCloser) {
 	<-b.Lost()
-	why := "读不到数据"
+	why := m("go.lost.no_data")
 	if err := b.Err(); err != nil {
-		why = err.Error()
+		why = msgOf(err)
 	}
-	msg := "控制口断了（" + why + "）。板子可能掉电了，或者适配器被拔了、线松了。点「断开」再重新连。"
+	lost := m("go.lost.control", "why", why)
 	if path := simboard.Path(port); path != "" {
 		if code, exited := simExit(port); exited {
-			msg = fmt.Sprintf("模拟板退出了（退出码 %d）。在命令行里直接运行它，看它打出了什么：%s", code, path)
+			lost = m("go.lost.sim_exited", "code", code, "path", path)
 		} else {
-			msg = "模拟板的连接断了（" + why + "）。点「断开」再重新连。"
+			lost = m("go.lost.sim", "why", why)
 		}
 	}
 	s.mu.Lock()
@@ -501,10 +498,10 @@ func (s *Server) watchLost(b *ptboard.Board, port io.ReadWriteCloser) {
 		s.mu.Unlock()
 		return
 	}
-	s.linkErr = msg
+	s.linkErr = lost
 	s.mu.Unlock()
-	s.emit("[连接] " + msg)
-	s.stopTimedRun("控制口断了")
+	s.say(m("go.alert.lost", "msg", lost))
+	s.stopTimedRun(m("go.reason.control_lost"))
 }
 
 // echoTimeout is short on purpose. An automatic echo holds the command lock
@@ -563,7 +560,7 @@ func (s *Server) disconnect() {
 	// closed port. Stopping it here also releases the outputs while the port is
 	// still open - the board's own deadman would do it a few seconds later
 	// anyway, but there is no reason to leave 24 V on for those seconds.
-	s.stopTimedRun("断开了板子")
+	s.stopTimedRun(m("go.reason.disconnected"))
 
 	// The far ends belong to this board connection; a repeater left running
 	// against a board that is gone would answer nothing and look bound.
@@ -576,8 +573,8 @@ func (s *Server) disconnect() {
 	s.echoStop = nil
 	s.portNam = ""
 	s.caps = ptproto.Caps{}
-	s.capsErr = ""
-	s.linkErr = ""
+	s.capsErr = msg{}
+	s.linkErr = msg{}
 	s.echoNote = ""
 	s.echoCount = 0
 	s.mu.Unlock()
@@ -602,7 +599,7 @@ func (s *Server) handleCommand(w http.ResponseWriter, r *http.Request) {
 		Cmd string `json:"cmd"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.Cmd == "" {
-		writeErr(w, 400, "命令是空的。")
+		writeErr(w, 400, m("go.cmd.empty"))
 		return
 	}
 
@@ -610,7 +607,7 @@ func (s *Server) handleCommand(w http.ResponseWriter, r *http.Request) {
 	b := s.board
 	s.mu.Unlock()
 	if b == nil {
-		writeErr(w, 409, "还没有连上板子。")
+		writeErr(w, 409, m("go.cmd.no_board"))
 		return
 	}
 
@@ -658,7 +655,7 @@ func (s *Server) handleAutoEcho(w http.ResponseWriter, r *http.Request) {
 		On bool `json:"on"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		writeErr(w, 400, "没说要开还是要关。")
+		writeErr(w, 400, m("go.echo.bad_request"))
 		return
 	}
 	s.mu.Lock()
@@ -679,7 +676,7 @@ func (s *Server) handleAutoEcho(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleEvents(w http.ResponseWriter, r *http.Request) {
 	flusher, ok := w.(http.Flusher)
 	if !ok {
-		writeErr(w, 500, "这个浏览器不支持持续推送。")
+		writeErr(w, 500, m("go.events.no_stream"))
 		return
 	}
 
@@ -687,7 +684,7 @@ func (s *Server) handleEvents(w http.ResponseWriter, r *http.Request) {
 	b := s.board
 	s.mu.Unlock()
 	if b == nil {
-		writeErr(w, 409, "还没有连上板子。")
+		writeErr(w, 409, m("go.cmd.no_board"))
 		return
 	}
 
@@ -781,11 +778,15 @@ func sendEvent(w http.ResponseWriter, flusher http.Flusher, ev ptboard.Event) bo
 // sendPanelEvent writes one line the panel produced. Marked kind "panel" so
 // the log pane can colour and filter it apart from anything the board said.
 func sendPanelEvent(w http.ResponseWriter, flusher http.Flusher, ev panelEvent) bool {
-	b, err := json.Marshal(map[string]any{
+	payload := map[string]any{
 		"kind": "panel",
 		"line": ev.Line,
 		"at":   ev.At.Format("15:04:05.000"),
-	})
+	}
+	if ev.Msg != nil {
+		payload["msg"], payload["alert"] = *ev.Msg, ev.Msg.alert()
+	}
+	b, err := json.Marshal(payload)
 	if err != nil {
 		return true
 	}

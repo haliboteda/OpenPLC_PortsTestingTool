@@ -351,8 +351,11 @@ func TestPlanRunRefusesAPlanThatDoesNotFitTheFirmware(t *testing.T) {
 	p := samplePlan("p")
 	p["steps"].([]any)[1].(map[string]any)["port"] = "nosuch"
 	r := postJSON(t, srv, "/api/plan/run", map[string]any{"plan": p})
-	msg, _ := r["error"].(string)
-	if !strings.Contains(msg, "nosuch") {
+	// The refusal is a dictionary key; the findings themselves stay as the plan checker words them.
+	e, _ := r["error"].(map[string]any)
+	args, _ := e["args"].(map[string]any)
+	msg, _ := args["findings"].(string)
+	if e["$t"] != "go.plan.mismatch" || !strings.Contains(msg, "nosuch") {
 		t.Fatalf("an unknown port was not refused by name: %v", r)
 	}
 	if r["report"] != nil || started {

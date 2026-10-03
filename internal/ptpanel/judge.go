@@ -2,7 +2,6 @@ package ptpanel
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net/http"
 	"sync"
@@ -184,7 +183,7 @@ func stepArgsMatch(st ptplan.Step, args map[string]string) bool {
 func (s *Server) handlePortPlan(w http.ResponseWriter, r *http.Request) {
 	port := r.URL.Query().Get("port")
 	if port == "" {
-		writeErr(w, 400, "没说要哪个端口。")
+		writeErr(w, 400, m("go.judge.no_port"))
 		return
 	}
 
@@ -284,7 +283,7 @@ func (s *Server) handleJudge(w http.ResponseWriter, r *http.Request) {
 		Args map[string]string `json:"args"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.Port == "" {
-		writeErr(w, 400, "没说要判哪个端口。")
+		writeErr(w, 400, m("go.judge.no_port"))
 		return
 	}
 
@@ -295,9 +294,7 @@ func (s *Server) handleJudge(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, 200, map[string]any{
 			"port":  body.Port,
 			"known": false,
-			"why": "方案 " + criteriaPlanName() + " 里没有 " +
-				what(body.Port, body.Target) + " 的判据 —— " +
-				"所以只能给你原始读数，过没过要你自己看",
+			"why":   m("go.judge.no_criteria", "plan", criteriaPlanName(), "what", what(body.Port, body.Target)),
 		})
 		return
 	}
@@ -309,7 +306,7 @@ func (s *Server) handleJudge(w http.ResponseWriter, r *http.Request) {
 		kind, frameBody := ptproto.Classify(body.Line)
 		f, ok := ptproto.ParseFrame(frameBody)
 		if kind != ptproto.LineFrame || !ok {
-			writeErr(w, 400, "要判的不是一帧采样数据。")
+			writeErr(w, 400, m("go.judge.not_frame"))
 			return
 		}
 		look = ptseq.FrameLookup(f)
@@ -356,11 +353,11 @@ func (s *Server) handleCriteria(w http.ResponseWriter, r *http.Request) {
 			Plan string `json:"plan"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-			writeErr(w, 400, "读不懂这个请求。")
+			writeErr(w, 400, m("go.judge.bad_request"))
 			return
 		}
 		if err := setCriteriaPlan(body.Plan); err != nil {
-			writeErr(w, 400, "换不了判据方案："+err.Error())
+			writeErr(w, 400, m("go.judge.plan_switch_failed", "detail", err))
 			return
 		}
 	}
@@ -391,7 +388,7 @@ func (s *Server) handleFit(w http.ResponseWriter, r *http.Request) {
 		Unit      string  `json:"unit"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		writeErr(w, 400, "没读懂要拟合的那些点。")
+		writeErr(w, 400, m("go.fit.bad_request"))
 		return
 	}
 
@@ -425,7 +422,7 @@ func (s *Server) handleFit(w http.ResponseWriter, r *http.Request) {
 		judge, stored, err := s.storeFit(body.Channel, body.Unit, pts, fit)
 		resp["judge"] = judge
 		if err != nil {
-			resp["store_error"] = err.Error()
+			resp["store_error"] = msgOf(err)
 		} else {
 			resp["stored"] = stored
 		}
@@ -441,7 +438,7 @@ type fitJudge struct {
 	MaxPctFS      float64 `json:"max_residual_pct_fs,omitempty"`
 	ResidualPctFS float64 `json:"residual_pct_fs,omitempty"`
 	Pass          *bool   `json:"pass,omitempty"`
-	Why           string  `json:"why,omitempty"`
+	Why           *msg    `json:"why,omitempty"`
 }
 
 // storeFit judges one channel's fit and archives it by the connected board's UID.
@@ -455,19 +452,19 @@ func (s *Server) storeFit(channel, unit string, pts []ptcal.Point, fit ptcal.Fit
 				pct, pass := ptcheck.ResidualWithin(fit.MaxResidual, lim.FullScale, lim.MaxResidualPctFS)
 				judge.Limited, judge.FullScale, judge.MaxPctFS, judge.ResidualPctFS, judge.Pass = true, lim.FullScale, lim.MaxResidualPctFS, pct, &pass
 			} else {
-				judge.Why = "方案里没有这一路的精度指标，只存档不判"
+				judge.Why = ref(m("go.fit.no_limit"))
 			}
 		} else {
-			judge.Why = "方案读不进来：" + err.Error()
+			judge.Why = ref(m("go.fit.plan_unreadable", "detail", err))
 		}
 	} else {
-		judge.Why = "方案读不进来：" + err.Error()
+		judge.Why = ref(m("go.fit.plan_unreadable", "detail", err))
 	}
 	// Two points always lie on their own line; a zero residual from them proves
 	// nothing, so it is never a pass.
 	if fit.Exact && judge.Pass != nil && *judge.Pass {
 		no := false
-		judge.Pass, judge.Why = &no, "只有两个点，残差必然是 0，判不了精度"
+		judge.Pass, judge.Why = &no, ref(m("go.fit.two_points"))
 	}
 
 	uid, err := s.boardUID()
@@ -498,20 +495,20 @@ func (s *Server) boardUID() (string, error) {
 	b, name := s.board, s.portNam
 	s.mu.Unlock()
 	if b == nil {
-		return "", errors.New("没连板子，拿不到 UID，没存档")
+		return "", msgError{m("go.uid.no_board")}
 	}
 	if simboard.IsSim(name) {
 		// Its readings are invented; filed under a UID they would pass for a board's.
-		return "", errors.New("连的是模拟板，读数是假的，不存档")
+		return "", msgError{m("go.uid.sim")}
 	}
 	lines, err := b.Send("pt.id", ptboard.ExpectFor("pt.id"), ptboard.TimeoutFor("pt.id"))
 	if err != nil {
-		return "", fmt.Errorf("问 UID（pt.id）没得到回答：%v", err)
+		return "", msgError{m("go.uid.no_answer", "detail", err)}
 	}
 	for _, l := range lines {
 		if uid, ok := ptproto.Get(ptproto.Fields(l), "uid"); ok {
 			return uid, nil
 		}
 	}
-	return "", errors.New("pt.id 的回答里没有 uid")
+	return "", msgError{m("go.uid.missing")}
 }

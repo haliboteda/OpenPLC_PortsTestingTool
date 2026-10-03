@@ -158,7 +158,7 @@ func TestTimedRunWritesTheRunToAFile(t *testing.T) {
 	for _, want := range []string{
 		"# port tool run log",
 		"din, temp",
-		"2 \u5c0f\u65f6",
+		"# duration 2 h", // the file is English whatever the page shows (decision 11)
 		"OK hold=6000",
 		"# stopped",
 	} {
@@ -192,8 +192,9 @@ func TestSecondTimedRunIsRefusedRatherThanStacked(t *testing.T) {
 	// Two renewal goroutines on one deadman is not a state anybody could reason
 	// about afterwards - and the second one's stop would leave the first
 	// running with nothing renewing it.
-	if msg, _ := st["error"].(string); msg == "" {
-		t.Fatal("a second run was accepted on top of the first")
+	// Messages reach the page as a dictionary key plus arguments (decision 82).
+	if e, _ := st["error"].(map[string]any); e["$t"] != "go.hold.already" {
+		t.Fatalf("a second run was accepted on top of the first: %v", st["error"])
 	}
 	postJSON(t, srv, "/api/hold", map[string]any{"stop": true})
 }
@@ -333,10 +334,10 @@ func TestLosingTheControlPortIsShown(t *testing.T) {
 	var st map[string]any
 	waitFor(t, "the lost port to show in the state", 3*time.Second, func() bool {
 		st = getJSON(t, srv, "/api/state")
-		msg, _ := st["linkError"].(string)
-		return msg != ""
+		e, _ := st["linkError"].(map[string]any)
+		return e != nil
 	})
-	if !strings.Contains(st["linkError"].(string), "控制口断了") {
+	if e := st["linkError"].(map[string]any); e["$t"] != "go.lost.control" {
 		t.Errorf("the message does not say the control port is gone: %v", st["linkError"])
 	}
 }

@@ -132,7 +132,7 @@ func replyTimes(text string) []float64 {
 func (s *Server) handlePing(w http.ResponseWriter, r *http.Request) {
 	ip := strings.TrimSpace(r.URL.Query().Get("ip"))
 	if net.ParseIP(ip) == nil {
-		writeErr(w, 400, "要 ping 的地址不是一个 IP。")
+		writeErr(w, 400, m("go.ping.bad_ip"))
 		return
 	}
 	count := 4

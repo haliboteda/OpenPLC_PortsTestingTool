@@ -32,6 +32,7 @@ type linkPort struct {
 
 	peer *ptecho.Peer
 	log  func(string)
+	say  func(msg) // the panel's own sentences about this link; nil in tests
 
 	mu sync.Mutex
 	// Mode is what the board's session is doing, so this end can do the
@@ -89,7 +90,9 @@ func (s *Server) bindLink(boardPort, com string, baud int) (*linkPort, error) {
 	if err != nil {
 		return nil, err
 	}
-	return newLinkPort(boardPort, com, baud, "serial", port, func(what string) { s.linkLog(boardPort, com, what) }), nil
+	l := newLinkPort(boardPort, com, baud, "serial", port, func(what string) { s.linkLog(boardPort, com, what) })
+	l.say = func(x msg) { s.say(m("go.link.line", "board", boardPort, "com", com, "what", x)) }
+	return l, nil
 }
 
 // setMode tells this end which half of the session it is running.
@@ -154,8 +157,8 @@ func (l *linkPort) startSink() {
 			}
 			if err != nil {
 				lg.Flush()
-				if l.log != nil {
-					l.log("灌不进去：" + err.Error())
+				if l.say != nil {
+					l.say(m("go.link.write_failed", "detail", err))
 				}
 				return
 			}
@@ -229,10 +232,16 @@ func (s *Server) linkLog(board, com, what string) {
 // Kept separate from the board's own events: these are the panel's words, not
 // the board's, and the log pane labels them so nobody reads a line the panel
 // wrote as evidence from the hardware.
-func (s *Server) emit(line string) {
+func (s *Server) emit(line string) { s.emitEvent(panelEvent{Line: line}) }
+
+// say is emit for the panel's own sentences: the page words them in its
+// language, and the event also carries the English.
+func (s *Server) say(x msg) { s.emitEvent(panelEvent{Line: x.English(), Msg: &x}) }
+
+func (s *Server) emitEvent(ev panelEvent) {
 	s.mu.Lock()
 	s.emitSeq++
-	ev := panelEvent{Seq: s.emitSeq, Line: line, At: time.Now()}
+	ev.Seq, ev.At = s.emitSeq, time.Now()
 	if len(s.emitRing) >= emitRingCap {
 		s.emitRing = s.emitRing[len(s.emitRing)-emitRingCap+1:]
 	}
@@ -251,6 +260,7 @@ const emitRingCap = 4000
 type panelEvent struct {
 	Seq  uint64
 	Line string
+	Msg  *msg // set for the panel's own sentences
 	At   time.Time
 }
 
@@ -285,5 +295,7 @@ func (s *Server) bindTCP(boardPort, addr string) (*linkPort, error) {
 	if err != nil {
 		return nil, err
 	}
-	return newLinkPort(boardPort, addr, 0, "tcp", conn, func(what string) { s.linkLog(boardPort, addr, what) }), nil
+	l := newLinkPort(boardPort, addr, 0, "tcp", conn, func(what string) { s.linkLog(boardPort, addr, what) })
+	l.say = func(x msg) { s.say(m("go.link.line", "board", boardPort, "com", addr, "what", x)) }
+	return l, nil
 }
