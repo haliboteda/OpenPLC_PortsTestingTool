@@ -1392,7 +1392,7 @@ def run_checks(page, com):
         # there but exFAT. Either is a fail; the reason names which.
         "din":   ("fail", "位图"),      # nothing is driving the inputs
         # AI hardware is being reworked; not judged until it is back.
-        # See $PROD/waiting/WAITING-ON.md.
+        # See $PROD/work/TODO.md.
         "ain":   ("either", None),
         # *** eth used to be expected to fail here. *** It needed a TCP peer and
         # nothing opened one, so conn stayed 0. The panel became that peer on
