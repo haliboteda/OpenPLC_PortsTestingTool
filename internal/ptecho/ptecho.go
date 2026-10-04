@@ -13,7 +13,6 @@
 package ptecho
 
 import (
-	"fmt"
 	"io"
 	"strings"
 	"sync"
@@ -51,21 +50,36 @@ type Stats struct {
 	Err     string
 }
 
+// Say reports one line by message key and name/value arguments, so the
+// caller words it in its own language (keys echo.* in the panel dictionary).
+type Say func(key string, kv ...any)
+
+// Dir is which way a block crossed the link.
+type Dir int
+
+const (
+	In      Dir = iota // from the board
+	Out                // echoed back to it
+	ToBoard            // pushed to it by a sink session
+)
+
+var dirKey = [...]string{In: "echo.in", Out: "echo.out", ToBoard: "echo.to_board"}
+
 // New starts echoing on rw and returns at once; it runs until rw closes or
-// Stop is called. log may be nil; given, it shows the bytes crossing - short
+// Stop is called. say may be nil; given, it shows the bytes crossing - short
 // printable text as it arrives, a stream summed once a second.
-func New(name string, rw io.ReadWriteCloser, log func(string)) *Peer {
+func New(name string, rw io.ReadWriteCloser, say Say) *Peer {
 	p := &Peer{Name: name, rw: rw, done: make(chan struct{})}
 	p.lastErr.Store("")
 	go func() {
 		defer close(p.done)
-		p.pump(log)
+		p.pump(say)
 	}()
 	return p
 }
 
-func (p *Peer) pump(log func(string)) {
-	lg := &Logger{Log: log, last: time.Now()}
+func (p *Peer) pump(say Say) {
+	lg := &Logger{Say: say, last: time.Now()}
 	defer lg.Flush()
 	buf := make([]byte, 4096)
 	for {
@@ -73,21 +87,21 @@ func (p *Peer) pump(log func(string)) {
 		if n > 0 {
 			p.reads.Add(1)
 			p.rxBytes.Add(uint64(n))
-			lg.Saw("收到", buf[:n])
+			lg.Saw(In, buf[:n])
 			if _, werr := p.Write(buf[:n]); werr != nil {
 				lg.Flush()
-				lg.say("回不出去：" + werr.Error())
+				lg.say("echo.write_failed", "detail", werr.Error())
 				return
 			}
 			p.echoes.Add(1)
-			lg.Saw("送回", buf[:n])
+			lg.Saw(Out, buf[:n])
 		}
 		if err != nil {
 			// Close() from Stop lands here, which is the ordinary way this ends.
 			if err != io.EOF {
 				p.lastErr.Store(err.Error())
 				lg.Flush()
-				lg.say("读不下去了：" + err.Error())
+				lg.say("echo.read_failed", "detail", err.Error())
 			}
 			return
 		}
@@ -141,28 +155,28 @@ func (p *Peer) Stop() {
 // how a person tells a live link from a dead one; a stream is summed once a
 // second, or one line per block would bury the board's own frames.
 type Logger struct {
-	Log  func(string)
+	Say  Say
 	last time.Time
 	rx   uint64
 	tx   uint64
 }
 
-func (g *Logger) say(s string) {
-	if g.Log != nil {
-		g.Log(s)
+func (g *Logger) say(key string, kv ...any) {
+	if g.Say != nil {
+		g.Say(key, kv...)
 	}
 }
 
-// Saw records one block going in direction what ("收到" is inbound).
-func (g *Logger) Saw(what string, b []byte) {
-	if g.Log == nil {
+// Saw records one block crossing in direction d.
+func (g *Logger) Saw(d Dir, b []byte) {
+	if g.Say == nil {
 		return
 	}
 	if s, ok := readableLine(b); ok {
-		g.Log(what + " " + s)
+		g.Say(dirKey[d], "text", s)
 		return
 	}
-	if what == "收到" {
+	if d == In {
 		g.rx += uint64(len(b))
 	} else {
 		g.tx += uint64(len(b))
@@ -174,10 +188,10 @@ func (g *Logger) Saw(what string, b []byte) {
 
 // Flush reports what was summed since the last report.
 func (g *Logger) Flush() {
-	if g.Log == nil || (g.rx == 0 && g.tx == 0) {
+	if g.Say == nil || (g.rx == 0 && g.tx == 0) {
 		return
 	}
-	g.Log(fmt.Sprintf("这一秒：收到 %d 字节，发出 %d 字节", g.rx, g.tx))
+	g.Say("echo.second", "rx", g.rx, "tx", g.tx)
 	g.rx, g.tx = 0, 0
 	g.last = time.Now()
 }

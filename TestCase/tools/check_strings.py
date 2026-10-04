@@ -25,7 +25,7 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
 WEB = REPO / "internal" / "ptpanel" / "web"
-GO_DIRS = [REPO / "internal" / "ptpanel", REPO / "internal" / "simboard"]
+GO_DIRS = [REPO / "internal" / "ptpanel", REPO / "internal" / "simboard", REPO / "internal" / "ptecho"]
 
 CJK = re.compile(r"[一-鿿　-〿＀-￯]")
 PH = re.compile(r"\{([a-z0-9_]+)\}")

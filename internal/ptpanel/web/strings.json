@@ -80,11 +80,6 @@
  },
  "not_translated": [
   {
-   "file": "internal/ptpanel/link.go",
-   "text": "灌给板子",
-   "why": "direction label passed to ptecho's logger, whose own labels are Chinese; ptecho is outside the panel-language map"
-  },
-  {
    "file": "internal/ptpanel/web/index.html",
    "text": "中文",
    "why": "the language menu names each language in that language"
@@ -6110,6 +6105,48 @@
    "en_of": "ac700fc5",
    "de": "Mit einem USB-Kabel an diesen PC anschließen — der eigene Port der Platine, nicht der des ST-Link",
    "de_of": "ac700fc5"
+  },
+  "echo.in": {
+   "zh": "收到 {text}",
+   "en": "Received {text}",
+   "en_of": "671ed7e7",
+   "de": "Empfangen {text}",
+   "de_of": "671ed7e7"
+  },
+  "echo.out": {
+   "zh": "送回 {text}",
+   "en": "Sent back {text}",
+   "en_of": "06f1218d",
+   "de": "Zurückgesendet {text}",
+   "de_of": "06f1218d"
+  },
+  "echo.to_board": {
+   "zh": "灌给板子 {text}",
+   "en": "Pushed to the board {text}",
+   "en_of": "53112936",
+   "de": "An die Platine gesendet {text}",
+   "de_of": "53112936"
+  },
+  "echo.second": {
+   "zh": "这一秒：收到 {rx} 字节，发出 {tx} 字节",
+   "en": "This second: {rx} bytes received, {tx} bytes sent",
+   "en_of": "969799fa",
+   "de": "In dieser Sekunde: {rx} Bytes empfangen, {tx} Bytes gesendet",
+   "de_of": "969799fa"
+  },
+  "echo.write_failed": {
+   "zh": "回不出去：{detail}",
+   "en": "Cannot send back: {detail}",
+   "en_of": "ec075018",
+   "de": "Zurücksenden nicht möglich: {detail}",
+   "de_of": "ec075018"
+  },
+  "echo.read_failed": {
+   "zh": "读不下去了：{detail}",
+   "en": "Cannot read any more: {detail}",
+   "en_of": "e0b0d884",
+   "de": "Lesen nicht mehr möglich: {detail}",
+   "de_of": "e0b0d884"
   }
  }
 }

@@ -2,6 +2,7 @@ package ptecho
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"strings"
 	"sync"
@@ -121,19 +122,19 @@ func TestPeerEchoesVerbatim(t *testing.T) {
 // counted, or one log line per block would bury the board's own frames.
 func TestLogPrintsLinesAndCountsStreams(t *testing.T) {
 	var got []string
-	lg := &Logger{Log: func(s string) { got = append(got, s) }, last: time.Now()}
+	lg := &Logger{Say: func(key string, kv ...any) { got = append(got, fmt.Sprint(key, kv)) }, last: time.Now()}
 
-	lg.Saw("收到", []byte("42\r\n"))
-	if len(got) != 1 || !strings.Contains(got[0], "42") {
+	lg.Saw(In, []byte("42\r\n"))
+	if len(got) != 1 || !strings.HasPrefix(got[0], "echo.in") || !strings.Contains(got[0], "42") {
 		t.Fatalf("a short line was not printed as itself: %v", got)
 	}
 
-	lg.Saw("收到", bytes.Repeat([]byte("x"), 4096))
+	lg.Saw(In, bytes.Repeat([]byte("x"), 4096))
 	if len(got) != 1 {
 		t.Fatalf("a stream block was printed instead of counted: %v", got)
 	}
 	lg.Flush()
-	if len(got) != 2 || !strings.Contains(got[1], "4096") {
+	if len(got) != 2 || !strings.HasPrefix(got[1], "echo.second") || !strings.Contains(got[1], "4096") {
 		t.Fatalf("the flush did not report the bytes it counted: %v", got)
 	}
 }

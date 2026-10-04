@@ -1,7 +1,6 @@
 package ptpanel
 
 import (
-	"fmt"
 	"io"
 	"net"
 	"strings"
@@ -31,7 +30,6 @@ type linkPort struct {
 	Kind string
 
 	peer *ptecho.Peer
-	log  func(string)
 	say  func(msg) // the panel's own sentences about this link; nil in tests
 
 	mu sync.Mutex
@@ -42,10 +40,17 @@ type linkPort struct {
 	sinkStop func()
 }
 
-func newLinkPort(boardPort, com string, baud int, kind string, rw io.ReadWriteCloser, log func(string)) *linkPort {
-	l := &linkPort{Board: boardPort, COM: com, Baud: baud, Kind: kind, log: log}
-	l.peer = ptecho.New(boardPort+"@"+com, rw, log)
+func newLinkPort(boardPort, com string, baud int, kind string, rw io.ReadWriteCloser, say func(msg)) *linkPort {
+	l := &linkPort{Board: boardPort, COM: com, Baud: baud, Kind: kind, say: say}
+	l.peer = ptecho.New(boardPort+"@"+com, rw, l.echoSay)
 	return l
+}
+
+// echoSay words ptecho's lines through the panel dictionary.
+func (l *linkPort) echoSay(key string, kv ...any) {
+	if l.say != nil {
+		l.say(m(key, kv...))
+	}
 }
 
 func (l *linkPort) stop() {
@@ -90,8 +95,7 @@ func (s *Server) bindLink(boardPort, com string, baud int) (*linkPort, error) {
 	if err != nil {
 		return nil, err
 	}
-	l := newLinkPort(boardPort, com, baud, "serial", port, func(what string) { s.linkLog(boardPort, com, what) })
-	l.say = func(x msg) { s.say(m("go.link.line", "board", boardPort, "com", com, "what", x)) }
+	l := newLinkPort(boardPort, com, baud, "serial", port, func(x msg) { s.say(m("go.link.line", "board", boardPort, "com", com, "what", x)) })
 	return l, nil
 }
 
@@ -143,7 +147,7 @@ func (l *linkPort) startSink() {
 	l.mu.Unlock()
 
 	go func() {
-		lg := &ptecho.Logger{Log: l.log}
+		lg := &ptecho.Logger{Say: l.echoSay}
 		defer lg.Flush()
 		for {
 			select {
@@ -153,7 +157,7 @@ func (l *linkPort) startSink() {
 			}
 			n, err := l.peer.Write(block)
 			if n > 0 {
-				lg.Saw("灌给板子", block[:n])
+				lg.Saw(ptecho.ToBoard, block[:n])
 			}
 			if err != nil {
 				lg.Flush()
@@ -219,12 +223,6 @@ func (s *Server) applyLinkMode(cmd string) {
 	for _, l := range targets {
 		l.setMode(mode)
 	}
-}
-
-// linkLog puts one line about a link port into the panel's log, so the bytes
-// actually crossing the terminal are visible next to the board's own frames.
-func (s *Server) linkLog(board, com, what string) {
-	s.emit(fmt.Sprintf("[link %s@%s] %s", board, com, what))
 }
 
 // emit pushes a line the panel itself produced to every open event stream.
@@ -295,7 +293,6 @@ func (s *Server) bindTCP(boardPort, addr string) (*linkPort, error) {
 	if err != nil {
 		return nil, err
 	}
-	l := newLinkPort(boardPort, addr, 0, "tcp", conn, func(what string) { s.linkLog(boardPort, addr, what) })
-	l.say = func(x msg) { s.say(m("go.link.line", "board", boardPort, "com", addr, "what", x)) }
+	l := newLinkPort(boardPort, addr, 0, "tcp", conn, func(x msg) { s.say(m("go.link.line", "board", boardPort, "com", addr, "what", x)) })
 	return l, nil
 }
