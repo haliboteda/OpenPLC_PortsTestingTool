@@ -1,12 +1,12 @@
-"""Shared by the scripts of this repo. Import it first:
+"""Used only by the temporary AO diagnostic aodiag.py (STG-41); goes with it.
 
     from common import cfg, Section, Ok, Warn, Fail, EXE, ...
 
-Machine-local paths come from config/machine.py, which tools/init_machine.py
-generates; nothing else in this repo spells out a path on this machine.
+Machine-local paths come from tools/local.json, which `tools/build.sh find-tools`
+writes; nothing else in this repo spells out a path on this machine.
 """
 
-import glob
+import json
 import os
 import sys
 from pathlib import Path
@@ -21,27 +21,30 @@ else:
 
 IS_WIN = PLATFORM == "windows"
 EXE = ".exe" if IS_WIN else ""
-# CubeIDE's externaltools plugin suffix for this platform.
-CUBE_PLUG = {"windows": "win32", "linux": "linux64", "macos": "macos64"}[PLATFORM]
 
 
 # ---------------------------------------------------------------- config
-def _load_machine():
-    """Import config/machine.py, the one file that differs between machines."""
-    path = Path(__file__).resolve().parent.parent / "config" / "machine.py"
+class _Local:
+    """tools/local.json as attributes; a key it lacks reads as ""."""
+
+    def __init__(self, values):
+        self.__dict__.update(values)
+
+    def __getattr__(self, name):
+        return ""
+
+
+def _load_local():
+    path = Path(__file__).resolve().parents[2] / "tools" / "local.json"
     if not path.exists():
-        print("config/machine.py is missing. Generate it -- this machine's paths "
+        print("tools/local.json is missing. Generate it -- this machine's paths "
               "are detected, not typed:", file=sys.stderr)
-        print("    python tools/init_machine.py", file=sys.stderr)
+        print("    tools/build.sh find-tools", file=sys.stderr)
         sys.exit(1)
-    import importlib.util
-    spec = importlib.util.spec_from_file_location("machine", path)
-    mod = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(mod)
-    return mod
+    return _Local(json.loads(path.read_text(encoding="utf-8")))
 
 
-cfg = _load_machine()
+cfg = _load_local()
 
 
 # ---------------------------------------------------------------- output
@@ -95,32 +98,7 @@ def read_text(path):
     return text[1:] if text.startswith("﻿") else text
 
 
-# ---------------------------------------------------------------- toolchain
-def _newest(pattern):
-    hits = sorted(glob.glob(str(pattern)))
-    return Path(hits[-1]) if hits else None
-
-
-def get_programmer_cli():
-    """STM32_Programmer_CLI inside CubeIDE's versioned plugin; newest wins.
-
-    The non-Windows plugin suffixes are ST's documented naming, not verified here.
-    """
-    pattern = (Path(cfg.CUBEIDE) / "STM32CubeIDE" / "plugins"
-               / ("com.st.stm32cube.ide.mcu.externaltools.cubeprogrammer.%s_*" % CUBE_PLUG)
-               / "tools" / "bin" / ("STM32_Programmer_CLI" + EXE))
-    hit = _newest(pattern)
-    if not hit:
-        Fail("STM32_Programmer_CLI not found. Looked for: %s" % pattern)
-        sys.exit(1)
-    return hit
-
-
-def get_cube_ide_exe():
-    """CubeIDE's headless launcher, whose name differs per platform."""
-    name = "stm32cubeidec.exe" if IS_WIN else "stm32cubeide"
-    exe = Path(cfg.CUBEIDE) / "STM32CubeIDE" / name
-    if not exe.exists():
-        Fail("%s not found at %s" % (name, exe))
-        sys.exit(1)
-    return exe
+# ---------------------------------------------------------------- repos
+def core_repo():
+    """The board package repo: $CORE_REPO, else CORE_REPO in local.json."""
+    return Path(os.environ.get("CORE_REPO") or cfg.CORE_REPO)

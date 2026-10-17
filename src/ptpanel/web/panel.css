@@ -1,0 +1,417 @@
+:root{
+  --bg:#f3f4f7; --card:#fff; --line:#dbdfe6; --line2:#eef0f4;
+  --ink:#151c26; --ink2:#4a5464; --ink3:#79838f;
+  --accent:#c0561b; --accent-bg:#fbede3;
+  --ok:#16794c; --ok-bg:#e4f2ea;
+  --warn:#a8720b; --warn-bg:#faf0dc;
+  --err:#b3392f; --err-bg:#fbe9e7;
+  --off:#828c99; --off-bg:#eceef2;
+  --sans:"Microsoft YaHei","PingFang SC",system-ui,sans-serif;
+  --mono:"Cascadia Mono","Consolas","DejaVu Sans Mono",monospace;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);
+  font:14px/1.6 "Microsoft YaHei","PingFang SC",system-ui,sans-serif}
+button{font:inherit;cursor:pointer;border:1px solid var(--line);background:#fff;
+  color:var(--ink);border-radius:4px;padding:4px 12px}
+button:hover:not(:disabled){border-color:var(--accent);color:var(--accent)}
+button:disabled{opacity:.45;cursor:not-allowed}
+button.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+button.primary:hover:not(:disabled){opacity:.88;color:#fff}
+/* Buttons by role (decision 151): start = primary, stop = red, a per-row action = blue; .on = in effect */
+button.stop{background:var(--err);border-color:var(--err);color:#fff}
+button.stop:hover:not(:disabled){opacity:.88;color:#fff;border-color:var(--err)}
+button.act{border-color:#1f5fbf;color:#1f5fbf}
+button.act:hover:not(:disabled){background:#e8eff9;border-color:#1f5fbf;color:#1f5fbf}
+button.act.on{background:#1f5fbf;color:#fff}
+button.act.on:hover:not(:disabled){opacity:.88;background:#1f5fbf;color:#fff}
+input,select{font:inherit;border:1px solid var(--line);border-radius:4px;padding:3px 7px;
+  background:#fff;color:var(--ink)}
+input[type=number]{width:88px}
+code,.mono{font-family:var(--mono)}
+h1{font-size:17px;margin:0}
+h2{font-size:14px;margin:0 0 10px;color:var(--ink3);font-weight:600;
+  letter-spacing:.05em}
+
+header{background:#fff;border-bottom:1px solid var(--line);padding:10px 18px;
+  display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+header .sp{flex:1}
+#status{font-size:13px;color:var(--ink2)}
+#status b{color:var(--ok)}
+#status.bad b{color:var(--err)}
+
+/* Layout (decision 128, PORTTOOL-FLOW.md C.3.6): connections and test types
+   on the left (drag its edge, decision 112). R&D: ports | cards | log. Full
+   test: sub-tests over ports | cards in the middle, run status on the right. */
+main.shell{display:grid;gap:1px;background:var(--line);height:calc(100vh - 53px);grid-template-rows:auto 1fr}
+main.shell.rd{grid-template-columns:var(--leftw,320px) 6px 230px minmax(480px,1fr) minmax(320px,26%);
+  grid-template-areas:"conn grip mid head log" "conn grip mid right log"}
+main.shell.full{grid-template-columns:var(--leftw,320px) 6px 210px minmax(420px,1fr) 360px;
+  grid-template-areas:"conn grip head head stat" "conn grip mid right stat"}
+main.shell>section,#afterconn>section,#afterconn>nav{background:var(--bg);overflow-y:auto;padding:12px 14px;min-height:0}
+#connzone{grid-area:conn}
+#leftgrip{grid-area:grip;cursor:col-resize;background:var(--line);touch-action:none}
+#leftgrip:hover,#leftgrip.drag{background:#9aa3b5}
+#mid{grid-area:mid;background:#fbfbfd}
+#rhead{grid-area:head;max-height:60vh}
+main.shell.rd #rhead{padding-bottom:0}
+#right{grid-area:right}
+main.shell.rd #right{padding-top:0}
+#logcol{grid-area:log}
+#statcol{grid-area:stat;display:flex;flex-direction:column;overflow:hidden}
+main.shell.rd #statcol{display:none}
+main.shell.full #logcol{display:none}
+#afterconn{display:contents}
+#afterconn:not(.live)>*{opacity:.35;pointer-events:none}
+#menus{margin-top:14px;padding-top:10px;border-top:2px solid var(--line)}
+@media(max-width:1100px){main.shell.rd,main.shell.full{grid-template-columns:1fr;grid-template-areas:"conn" "head" "mid" "right" "stat" "log";height:auto}
+  #leftgrip{display:none}}
+
+/* Step one: the control port as a dropdown, the simulated board last. */
+#connbox .connrow{display:flex;gap:6px;align-items:center}
+#ctlport{flex:1;min-width:0}
+
+/* Full test, right column: a fixed-height status box (user 2026-10-14), then results and log. */
+#runstat{height:318px;flex:none;overflow:hidden;background:#fff;border:1px solid var(--line);border-radius:6px;padding:10px 12px;margin-bottom:8px}
+#runstat .idle{color:var(--ink3);font-size:13px}
+.timednow{background:var(--line2);border-radius:4px;padding:4px 8px;margin-bottom:6px;font-size:12.5px}
+#runstat .big{font-size:12px;color:var(--ink3)}
+#runstat .now{font-size:15px;font-weight:700;margin:1px 0 6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#runstat .kv{display:grid;grid-template-columns:78px minmax(0,1fr);gap:2px 8px;font-size:12.5px}
+#runstat .kv .k{color:var(--ink3);white-space:nowrap}
+#runstat .kv .v{font-family:var(--mono);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#runstat .prog{height:7px;background:var(--line2);border-radius:4px;overflow:hidden;margin:8px 0 2px}
+#runstat .prog i{display:block;height:100%;background:#1f5fbf}
+#runstat .tally{display:flex;gap:12px;font-size:12.5px;margin-top:6px}
+#runstat .tally .ok{color:var(--ok)} #runstat .tally .bad{color:var(--err)}
+.rtabs{display:flex;gap:4px;margin:2px 0 6px;flex:none}
+.rtabs button{padding:3px 12px;font-size:12.5px}
+.rtabs button.on{background:var(--ink);border-color:var(--ink);color:#fff}
+#paneres,#panelog{display:flex;flex-direction:column;min-height:0;flex:1}
+#paneres[hidden],#panelog[hidden]{display:none}
+.rflt{display:flex;flex-wrap:wrap;gap:4px 10px;font-size:12px;color:var(--ink2);margin-bottom:6px;align-items:center;flex:none}
+.rflt .hint{margin:0}
+.rflt .chip{border:1px solid var(--accent);color:var(--accent);background:var(--accent-bg);border-radius:10px;padding:0 8px;cursor:pointer}
+#runres,#runlog{flex:1;min-height:160px;overflow:auto;background:#fff;border:1px solid var(--line);border-radius:6px}
+#runres .rr{display:grid;grid-template-columns:38px minmax(0,1fr) auto;gap:0 6px;padding:5px 8px;border-bottom:1px solid var(--line2);cursor:pointer;font-size:12.5px}
+#runres .rr:hover{background:#f7f8fa}
+#runres .rr .no{color:var(--ink3);font-family:var(--mono);font-size:11.5px}
+#runres .rr .wh{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#runres .rr .vr{text-align:right;font-weight:600;white-space:nowrap}
+#runres .rr .vl{grid-column:2/4;color:var(--ink2);font-family:var(--mono);font-size:11.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#runres .rr.ok .vr{color:var(--ok)} #runres .rr.bad{background:var(--err-bg)} #runres .rr.bad .vr{color:var(--err)}
+#runres .rr.run .vr{color:#1f5fbf} #runres .rr.to{background:var(--warn-bg)} #runres .rr.to .vr{color:var(--warn)}
+#runres .empty,#runlog .empty{padding:8px;color:var(--ink3);font-size:12px}
+#runlog{font-family:var(--mono);font-size:11.5px;color:var(--ink2);padding:4px 6px}
+#runlog .ln{display:grid;grid-template-columns:92px minmax(0,1fr);gap:0 6px;padding:1px 0;border-bottom:1px dotted var(--line2)}
+#runlog .ln .tm{color:var(--ink3)}
+#runlog .ln .loc{color:var(--accent);cursor:pointer;text-decoration:underline dotted;margin-right:4px}
+#runlog .ln .lv{display:inline-block;min-width:34px;text-align:center;border-radius:3px;padding:0 4px;margin-right:4px;font-size:11px}
+#runlog .lv.info{background:var(--off-bg);color:var(--ink2)}
+#runlog .lv.pass{background:var(--ok-bg);color:var(--ok)}
+#runlog .lv.fail{background:var(--err-bg);color:var(--err)}
+#runlog .lv.timeout{background:var(--warn-bg);color:var(--warn)}
+#runlog .lv.ask{background:#e6eefb;color:#1f5fbf}
+#runlog .ln.raw{color:var(--ink3)}
+#runlog .ln.raw .msg{padding-left:18px;font-size:11px;white-space:pre-wrap;word-break:break-all}
+#runlog .ln.sep{color:var(--ink);font-weight:700;border-bottom:1px solid var(--line)}
+/* Full test port list: ticked / total and the run light. */
+.lport .rdot{width:8px;height:8px;border-radius:50%;flex:none;background:transparent}
+.lport .rdot.run{background:#1f5fbf} .lport .rdot.ok{background:var(--ok)} .lport .rdot.bad{background:var(--err)}
+/* Layer 3 while a run goes: shown, not editable. */
+#itemcards.locked input,#itemcards.locked select,#itemcards.locked button,#itemcards.locked textarea{pointer-events:none;opacity:.6}
+#itemcards .hl{border-color:var(--err)!important;box-shadow:0 0 0 2px var(--err-bg)}
+
+/* Left menus: they only choose what is shown (decision 97). */
+.mi{display:flex;gap:8px;align-items:flex-start;padding:6px 8px;border-radius:6px;cursor:pointer;
+  border:1px solid transparent;margin-bottom:2px}
+.mi:hover{background:var(--line2)}
+.mi.cur{background:var(--accent-bg);border-color:var(--accent)}
+.mi .n{font-weight:600;font-size:13px}
+.mi .d{font-size:11.5px;color:var(--ink3);line-height:1.45}
+
+/* Middle: the catalogue's ports, one picked at a time. */
+.lport{display:flex;align-items:center;gap:7px;padding:5px 8px;border-radius:5px;cursor:pointer}
+.lport:hover{background:var(--line2)}
+.lport.cur{background:var(--ink);color:#fff}
+.lport.cur .cnt{color:#cfd6df}
+.lport .nm{flex:1;font-size:12.5px}
+.lport .cnt{font:11px var(--mono);color:var(--ink3)}
+.lport.dim{opacity:.4;cursor:default}
+
+/* Right: title, duration and the one Start. */
+#rtop{display:flex;gap:12px;align-items:center;flex-wrap:wrap;background:#fff;border:1px solid var(--line);
+  border-radius:6px;padding:8px 12px;margin-bottom:10px}
+#rtop:empty{display:none}
+#rtop h2{margin:0;color:var(--ink);font-size:15px;letter-spacing:0}
+#rtop .sp{flex:1}
+#rtop .why{flex:1 0 100%;font-size:12px;color:var(--ink3)}
+/* R&D port page header: name and terminals | stats, last test, log; the right half wraps below when narrow */
+#rtop .phl{flex:0 1 auto;max-width:40%;align-self:flex-start}
+#rtop .phl .sub{margin-left:8px}
+#rtop .phr{flex:1 1 240px;min-width:0;border-left:1px solid var(--line);padding-left:16px;align-self:stretch}
+#rtop .phr .why{margin-bottom:6px;color:var(--ink2)}
+@media (max-width:760px){#rtop .phr{border-left:0;padding-left:0;border-top:1px solid var(--line);padding-top:8px}}
+
+/* Test item cards. */
+.item{background:#fff;border:1px solid var(--line);border-radius:7px;margin-bottom:10px}
+.item.off{opacity:.55}
+.item .ih{display:flex;gap:9px;align-items:center;padding:8px 12px;border-bottom:1px solid var(--line2)}
+.item .ih b{font-size:14px}
+.item .ih .sp{flex:1}
+.item .ib{display:grid;grid-template-columns:minmax(220px,1fr) minmax(200px,1fr)}
+.item .ib>div{padding:8px 12px}
+.item .ib>div+div{border-left:1px solid var(--line2)}
+.item h3{font-size:12px;margin:6px 0 4px;color:var(--ink3);font-weight:600}
+.item h3:first-child{margin-top:0}
+table.crit{border-collapse:collapse;font-size:12.5px;width:100%;margin:2px 0 6px}
+table.crit th{text-align:left;font-weight:600;color:var(--ink3);border-bottom:1px solid var(--line);padding:2px 8px 2px 0}
+table.crit td{padding:2px 8px 2px 0;border-bottom:1px solid var(--line2);vertical-align:top}
+table.crit tr.bad td{color:var(--err)}
+.pill{display:inline-block;font-size:11px;padding:0 7px;border-radius:9px;white-space:nowrap;
+  background:var(--off-bg);color:var(--off)}
+.todo{font-size:11px;color:var(--warn);border:1px dashed var(--warn);border-radius:3px;padding:0 4px}
+
+.msg{border-left:3px solid var(--accent);background:#fff;border:1px solid var(--line);
+  border-left-width:3px;padding:10px 14px;border-radius:0 4px 4px 0;margin-bottom:12px}
+.msg.bad{border-left-color:var(--err)}
+
+/* Calibration regression: measured points and the fitted line. */
+.calkb{font:600 16px var(--mono);color:var(--ink);margin:6px 0 4px}
+.calplot{display:block;width:100%;max-width:360px;height:auto;margin:4px 0}
+.calplot .ax{stroke:var(--ink3);stroke-width:1}
+.calplot .tk,.calplot .lb{fill:var(--ink2);font:10.5px var(--sans)}
+.calplot .fit{stroke:var(--accent);stroke-width:2}
+.calplot .pt{fill:var(--card);stroke:var(--ink);stroke-width:1.6}
+
+/* Port groups. */
+.grp{margin-bottom:4px}
+.grp .nm{flex:1;font-weight:600;font-size:13px}
+.tag{font:11px var(--mono);padding:1px 6px;border-radius:3px}
+
+/* Cards: rows, labels, hints. */
+.sub{font-size:11.5px;color:var(--ink3);font-family:var(--mono)}
+.row{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center;margin:8px 0}
+.row label{font-size:12.5px;color:var(--ink2);display:flex;align-items:center;gap:5px}
+.hint{font-size:11.5px;color:var(--ink3);line-height:1.5;margin-left:2px;margin-top:7px}
+
+/* The manual reading box floats on top: it stays put through a whole point walk. */
+#meterask{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:50;
+  background:var(--card);border:2px solid #2f6fd0;border-radius:6px;
+  padding:12px 16px;min-width:460px;box-shadow:0 6px 24px rgba(0,0,0,.18)}
+#meterwhat{font:600 14px/1.5 var(--mono);color:var(--ink)}
+
+/* DO -> DI cross-check. One row per output, one cell per input, so a crossed
+   pair reads as an off-diagonal mark rather than as a number to compare. */
+.rowgrid{margin-top:8px;overflow-x:auto}
+.gridrow{display:flex;gap:2px;align-items:stretch}
+.gridrow .c{flex:1 0 44px;text-align:center;padding:4px 2px;font-family:var(--mono);
+            font-size:11.5px;border-top:1px solid var(--line2);color:var(--ink2)}
+.gridrow .c:first-child{flex:0 0 52px;font-weight:600;color:var(--ink)}
+.gridrow .c:last-child{flex:1 0 108px;font-family:var(--sans)}
+.gridrow.hd2 .c{border-top:none;color:var(--ink3);font-weight:600}
+.gridrow .c.hit{color:var(--ok);background:var(--ok-bg);border-radius:3px}
+.gridrow .c.wrong{color:var(--err);background:var(--err-bg);border-radius:3px}
+
+/* Log column. */
+#logwrap{display:flex;flex-direction:column;height:100%}
+#logbar{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin-bottom:8px}
+#logbar .sp{flex:1}
+#paused{font-size:12px;color:var(--warn);font-weight:600}
+#log{flex:1;overflow-y:auto;background:#fff;border:1px solid var(--line);
+  border-radius:5px;padding:8px 10px;font:12px/1.55 var(--mono);
+  white-space:pre-wrap;word-break:break-all;min-height:300px}
+.l{display:block;border-left:3px solid transparent;padding-left:7px;margin:1px 0}
+.l .ts{color:var(--ink3)}
+.l.ok{border-left-color:var(--ok)}
+.l.err{border-left-color:var(--err);background:var(--err-bg);color:var(--err)}
+.l.frame{border-left-color:#4c6ea8;color:var(--ink2)}
+.l.log{color:var(--ink3)}
+.l.tx{border-left-color:var(--accent);color:var(--accent)}
+.l.echo{border-left-color:var(--off);color:var(--ink3)}
+.l.panel{border-left-color:#2f7a68;color:#2f7a68}
+
+/* Left column: pick the control port, then everything else. */
+#connbox{padding:0 0 10px;margin-bottom:10px;border-bottom:1px solid var(--line)}
+.step{font:600 12px var(--sans);color:var(--ink2);margin:0 0 7px;letter-spacing:.3px}
+.connrow{display:flex;gap:6px;margin-top:7px}
+/* Connection block rows (js/connzone.js). */
+#boardclock{margin-top:4px}
+#boardclock.bad{color:var(--err)}
+#connrows{display:flex;flex-direction:column;gap:3px}
+.crow{display:flex;flex-wrap:wrap;align-items:center;gap:4px 6px;font-size:12px}
+.crow .cl{width:64px;color:var(--ink2)}
+.crow .cv{flex:1;display:flex;flex-wrap:wrap;align-items:center;gap:4px;min-width:0}
+.crow .cv select{max-width:120px;font-size:11.5px}
+.crow .cv button{padding:1px 8px;font-size:11.5px}
+.crow .dot{width:8px;height:8px;border-radius:50%;background:var(--line)}
+.crow .dot.ok{background:var(--ok)}
+.crow .dot.bad{background:var(--err)}
+.crow .cerr{flex-basis:100%;color:var(--err);font-size:11.5px}
+.crow .ccount{flex-basis:100%;color:var(--ink2);font-size:11.5px}
+.crow.reserved{opacity:.6}
+/* One rule instead of disabled on every control, so a new control cannot miss the gate. */
+.gated{opacity:.35;pointer-events:none}
+.tgtres{font-size:11.5px;color:var(--ink3);margin-left:8px}
+input.bad{border-color:var(--err);background:#fff5f5}
+.tgtres.bad{color:var(--err);font-weight:600}
+.gated.live{opacity:1;pointer-events:auto}
+
+/* Board heading in the port list (shell.js). */
+.boardhd{font:600 11.5px var(--sans);color:var(--ink3);margin:10px 0 3px;
+  letter-spacing:.3px;border-bottom:1px solid var(--line2);padding-bottom:3px}
+
+details{margin-top:10px;border-top:1px solid var(--line2);padding-top:7px}
+details summary{cursor:pointer;font-size:12px;color:var(--ink3);outline:none}
+details summary:hover{color:var(--ink2)}
+
+/* Item runner results (library.js). */
+.pill.pass,.pv.pass{background:var(--ok-bg);color:var(--ok)}
+.pill.fail,.pv.fail{background:var(--err-bg);color:var(--err)}
+.pill.run{background:var(--accent-bg);color:var(--accent)}
+.pv{font-size:11px;padding:0 6px;border-radius:9px;margin-left:4px;white-space:nowrap;
+  background:var(--off-bg);color:var(--off)}
+.chk{font-size:12.5px;line-height:1.6}
+.chk.bad{color:var(--err)}
+dl.kv{display:grid;grid-template-columns:auto 1fr;gap:2px 10px;font-size:12px;margin:6px 0}
+dl.kv dt{color:var(--ink3)} dl.kv dd{margin:0}
+.params{display:grid;grid-template-columns:auto 1fr;gap:4px 8px;align-items:center;font-size:12.5px}
+.ptwarn{color:#8a5300;font-size:12.5px;margin-top:2px}
+#libask{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:50;
+  background:var(--card);border:2px solid var(--accent);border-radius:6px;
+  padding:12px 16px;min-width:420px;box-shadow:0 6px 24px rgba(0,0,0,.18)}
+#libask .row{display:flex;gap:8px;align-items:center;margin-top:8px}
+/* A watched session's event lines: scroll inside the card, never widen it. */
+pre.events{max-height:16em;overflow:auto;white-space:pre;font-size:12px;margin:4px 0}
+table.quad{border-collapse:collapse;margin:4px 0;font-size:13px}
+table.quad th,table.quad td{border:1px solid var(--line);padding:2px 6px;text-align:left;vertical-align:top}
+table.quad td.bad{color:var(--err)}
+.lamp{display:inline-block;min-width:3.2em;padding:3px 6px;border:1px solid var(--line);border-radius:4px;text-align:center;background:var(--off-bg);color:var(--off);font-size:12px}
+.lamp.on{background:var(--ok);border-color:var(--ok);color:#fff}
+/* The CAN and KNX analyser windows (anawin.js; decisions 111, 138 #8) */
+#canwin,#knxwin{position:fixed;inset:4vh 4vw;z-index:40;background:var(--card);border:1px solid var(--line);border-radius:8px;
+  box-shadow:0 8px 30px rgba(0,0,0,.25);padding:12px 14px;overflow:auto;display:flex;flex-direction:column;gap:8px}
+#canwin[hidden],#knxwin[hidden]{display:none}
+#canwin .cwhead,#knxwin .cwhead{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+#canwin .cwhead b,#knxwin .cwhead b{font-size:16px;margin-right:auto}
+#canwin .cwstatus .bad,#knxwin .cwstatus .bad{color:#b42318}
+#canwin .cwforms,#knxwin .cwforms{display:flex;gap:12px;flex-wrap:wrap}
+#canwin .cwform,#knxwin .cwform{border:1px solid var(--line2);border-radius:6px;padding:8px;display:flex;flex-wrap:wrap;gap:6px;align-items:center;flex:1 1 420px}
+#canwin .cwform>b,#knxwin .cwform>b{width:100%}
+#canwin .cwbar,#knxwin .cwbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+#canwin .cwsum,#knxwin .cwsum{margin-right:auto}
+#canwin .cwtable,#knxwin .cwtable{min-height:0;overflow:auto}
+#canwin td.ok,#knxwin td.ok{color:#067647}
+#canwin td.bad,#knxwin td.bad{color:#b42318}
+/* AI / AO group cards: one row per channel (decision 114) */
+.item.grp .gb{padding:8px 12px}
+table.gtab{width:100%;border-collapse:collapse;margin-top:6px}
+table.gtab th{text-align:left;font-weight:600;font-size:12px;color:var(--sub,#666);border-bottom:1px solid var(--line,#ddd);padding:4px 6px}
+table.gtab td{vertical-align:top;border-bottom:1px solid var(--line,#ddd);padding:6px}
+table.gtab td.ih{white-space:nowrap}
+table.gtab td.ih b{margin:0 6px}
+.glive{margin-top:8px;border-top:1px dashed var(--line,#ddd);padding-top:6px}
+.glive .ih{display:flex;align-items:center;gap:6px}
+/* Two groups, each with its own Start (decision 115) */
+.kgroup{margin-bottom:14px}
+.kgroup .khead{display:flex;align-items:center;gap:10px;padding:6px 2px;border-bottom:2px solid var(--line,#ddd);margin-bottom:8px}
+/* R&D AI / AO card (decision 117, anacard.js) */
+.anacard .anablk{padding:10px 12px;border-top:1px solid var(--line)}
+.anacard .anablk .khead{display:flex;align-items:center;gap:10px;margin-bottom:6px}
+.anachans{display:grid;grid-template-columns:repeat(auto-fit,minmax(360px,1fr));gap:12px}
+.anachan{border:1px solid var(--line);border-radius:6px;padding:8px}
+.anacard input.pt{width:90px;text-align:center}
+.anacard table.gtab th,.anacard table.gtab td{text-align:center;vertical-align:middle}
+.anafit{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:8px 0 4px}
+.anares{margin-top:8px}
+/* R&D port page: the last round kept on leaving (decision 137, rdvisit.js) */
+.lasttest{font-size:12px}
+.lasttest details{border-top:1px solid var(--line);padding-top:6px;margin-top:6px}
+.lasttest .chpills{margin-top:4px}
+/* SD file transfer block (decision 120, sdfile.js) */
+.sdfcard .hint.bad{color:var(--err)}
+.sdfcard .row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:6px 0}
+.sdfcard table.gtab td button{margin:0 2px}
+/* A typed cell the panel will not keep (memo.js, C.3.6 「填数超量程」) */
+input.badcell{border-color:#b91c1c;background:#fef2f2;color:#b91c1c}
+.memocell{display:inline-block;vertical-align:middle}
+.cellhint{color:#b91c1c;font-size:12px;max-width:260px;white-space:normal;text-align:left}
+#status .verbad{color:var(--err)}
+/* Relay card (decision 123, relay.js) */
+.relaycard .rlbody{padding:10px 12px}
+.rlopts{display:grid;grid-template-columns:auto 1fr;gap:8px 12px;align-items:center;margin-bottom:8px}
+.rlopts .lb{color:var(--ink3);font-size:12.5px}
+.relaycard .seg{display:inline-flex;border:1px solid var(--line);border-radius:5px;overflow:hidden;margin-right:8px}
+.relaycard .seg label{padding:2px 12px;cursor:pointer;font-size:12.5px;border-right:1px solid var(--line)}
+.relaycard .seg label:last-child{border-right:0}
+.relaycard .seg input{display:none}
+.relaycard .seg label.cur{background:var(--accent-bg);color:var(--accent);font-weight:600}
+.rlwave svg text{font-size:11px;fill:var(--ink3)}
+table.rltab td{vertical-align:middle;white-space:nowrap}
+table.rltab tr.off td:not(:first-child){opacity:.4}
+table.rltab input[type=number]{width:78px}
+table.rltab .unit{color:var(--ink3);font-size:12px;margin-left:3px}
+.rlwarn{margin-left:6px;color:var(--err);font-size:12px;font-weight:600}
+.rlerr{color:var(--err);font-size:12px;font-weight:600;white-space:normal;max-width:260px}
+.rllamp{display:inline-block;width:11px;height:11px;border-radius:50%;background:var(--off-bg);border:1px solid var(--off);vertical-align:-1px;margin-right:5px}
+.rllamp.on{background:var(--ok);border-color:var(--ok)}
+.rlcnt{font-weight:600}
+.rlbar{height:6px;background:var(--line2);border-radius:3px;overflow:hidden;width:120px;display:inline-block;vertical-align:middle;margin:0 6px}
+.rlbar i{display:block;height:100%;background:var(--accent)}
+.rlfoot{display:flex;align-items:center;gap:12px;margin-top:10px;flex-wrap:wrap}
+.rlfoot .sp{flex:1}
+
+/* 工装完整测试, layer 2: the four sub-tests (PORTTOOL-FLOW.md C.3.6). */
+#subtiles:empty{display:none}
+.subtiles{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-bottom:10px}
+.subtile{background:#fff;border:1px solid var(--line);border-radius:6px;padding:8px 10px;cursor:pointer;
+  display:flex;flex-direction:column;gap:5px;min-width:0}
+.subtile.cur{border-color:var(--accent);background:var(--accent-bg)}
+.subtile .row{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.subtile .nm{font-weight:600}
+.subtile.cur .nm{color:var(--accent)}
+.subtile .stbar{height:6px;background:var(--line2);border-radius:3px;overflow:hidden;flex:1;min-width:40px}
+.subtile .stbar i{display:block;height:100%;background:var(--accent)}
+.sechd{font-weight:600;color:var(--ink2);margin:4px 0 8px;padding-left:8px;border-left:3px solid var(--accent)}
+@media(max-width:1300px){.subtiles{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+/* Calibration table: the per-point reference mark (STG-12). */
+.anapts td.ok{color:var(--ok)}
+.anapts td.bad{color:var(--err);font-weight:600}
+/* A recorded point (decision 151): the row green, its value bold. */
+.anapts tr.done td{background:var(--ok-bg)}
+.anapts tr.done .gotval{color:var(--ok);font-size:15px}
+
+/* Configuration cards: each item's description, criteria and how it runs (C.3.6 layer 3). */
+.hint.warn{color:#8a5300}
+.cfginfos{padding:4px 12px 10px;border-top:1px solid var(--line2)}
+.cfginfo{padding:8px 0;border-bottom:1px dashed var(--line2)}
+.cfginfo:last-child{border-bottom:0}
+.cfginfo h3{font-size:12px;margin:6px 0 4px;color:var(--ink3);font-weight:600}
+.relaycard>.cfginfo{padding:8px 12px;border-top:1px solid var(--line2)}
+/* The reference board's settings page (decision 135): over the middle and right columns. */
+#refpage{position:fixed;top:48px;right:0;bottom:0;left:var(--leftw,300px);overflow:auto;background:var(--bg);padding:12px 16px;z-index:50;border-left:1px solid var(--line)}
+#refpage .rphead{display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap}
+#refpage .rphead .tag{font-size:11.5px;color:var(--ink3);border:1px solid var(--line);border-radius:10px;padding:0 8px}
+#refpage .sp{flex:1}
+#refpage .rpcard{background:var(--card,#fff);border:1px solid var(--line);border-radius:6px;padding:10px 14px;margin-bottom:12px}
+#refpage .rpcard h3{font-size:12.5px;margin:0 0 8px;color:var(--ink3)}
+#refpage .rpparams{gap:18px;margin-top:8px;flex-wrap:wrap}
+#refpage .rpsave{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:var(--card,#fff);border:1px solid var(--accent);border-radius:6px;padding:10px 14px;margin-bottom:16px}
+#refpage .rpsave .chk{flex-basis:100%}
+/* range block (decision 136, rangeinfo.js) */
+.rngblk{border:1px solid var(--line2);border-radius:5px;padding:6px 8px;margin:4px 0}
+.rngblk>.row{gap:8px;align-items:center;margin-bottom:4px}
+.rngtab th{width:96px;white-space:nowrap;color:var(--ink3);font-weight:600;font-size:12px}
+.rngf{font-size:12px;line-height:1.7}
+.rngf .mono{background:var(--line2);border-radius:3px;padding:0 6px;margin:1px 0}
+.rngjp{display:inline-block;border:1px solid var(--line);border-radius:10px;padding:0 8px;margin:1px 4px 1px 0;font-size:12px}
+.rngjp.on{background:var(--ok-bg);color:var(--ok)}
+.rngjp.off{background:var(--off-bg);color:var(--off)}
+.pill.rngwarn{background:var(--warn-bg);color:var(--warn);white-space:normal}
+.rngsum>summary{cursor:pointer;font-size:12px}
+.rngblk button.rngtgl{padding:0 8px;font-size:12px}
+.rngmarks{display:inline-flex;gap:4px}
+.rngmarks[hidden],.rngtab[hidden]{display:none}
+#refpage tr.rpopen{cursor:pointer}
+#refpage tr.rpopen.on>td{background:var(--accent-bg)}

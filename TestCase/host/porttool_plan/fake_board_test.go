@@ -1,10 +1,8 @@
 package testcase
 
-// A board under script. Unlike the fake in porttool_caps, which replays one
-// recorded transcript, this one lets a test decide per command what to answer
-// and which frames to push - which is what an executor has to be exercised
-// against: the same command answering differently on a retry, frames arriving
-// after the reply, and a port that stops sending halfway.
+// A board under script: a test decides per command what to answer and which
+// frames to push (a retry answering differently, frames after the reply, a port
+// going quiet), unlike porttool_caps' fake, which replays one transcript.
 
 import (
 	"fmt"
@@ -108,6 +106,8 @@ func standardReplies(cmd string) ([]string, bool) {
 		return capsReply(), true
 	case strings.HasPrefix(cmd, "pt.stop "):
 		return []string{"OK " + strings.TrimPrefix(cmd, "pt.stop ") + " stopped"}, true
+	case strings.HasPrefix(cmd, "pt.led "): // the PC blinks the lamp while asking (C.3.6 「指示灯」)
+		return []string{"OK led"}, true
 	}
 	return nil, false
 }

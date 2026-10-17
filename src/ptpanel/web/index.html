@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PortTool</title>
+<link rel="stylesheet" href="panel.css">
+</head>
+<body>
+
+<header>
+  <h1 data-t="html.title"></h1>
+  <!-- This panel's own version, beside the firmware's in #status (decision 112). -->
+  <span id="toolver" class="sub"></span>
+  <span id="status" data-t="ui.applyState.6"></span>
+  <label id="echobox" hidden style="font-size:12.5px;display:flex;align-items:center;gap:5px">
+    <input type="checkbox" id="autoecho" checked> <span data-t="html.autoecho"></span>
+    <span id="echostat" class="sub"></span>
+  </label>
+  <span class="sp"></span>
+  <!-- Which limits produced the verdicts on screen; in the header because it qualifies every one. -->
+  <label id="critbox" hidden style="font-size:12.5px;display:flex;align-items:center;gap:5px">
+    <span class="sub" data-t="html.criteria"></span>
+    <select id="critplan"></select>
+    <span id="critver" class="sub"></span>
+  </label>
+  <!-- Language of this page only; logs and files stay English (decision 82). -->
+  <select id="lang" title=""></select>
+</header>
+
+<!-- Layout (decision 128, PORTTOOL-FLOW.md C.3.6): connections and test
+     types on the left; R&D is ports | cards | log, the full test is the
+     sub-tests and ports | cards in the middle with 「正在进行」, results and
+     log on the right. The menus and the port list only choose what is shown. -->
+<main class="shell rd" id="shell">
+  <section id="connzone">
+    <!-- Step one: every reading on this page arrives over this cable. -->
+    <div id="connbox">
+      <div class="step" data-t="html.step1"></div>
+      <div class="connrow">
+        <select id="ctlport"><option value="" data-t="html.searching"></option></select>
+        <button id="connect" class="primary" disabled data-t="html.connect"></button>
+        <button id="disconnect" hidden data-t="html.disconnect"></button>
+        <button id="refresh" data-t="html.refresh"></button>
+      </div>
+      <div id="ctlnote" class="hint"></div>
+      <div id="connhint" class="hint" data-t="ui.applyState.2"></div>
+      <div id="boardclock" class="sub mono"></div>
+    </div>
+    <!-- The other connections (STG-10): link far ends, reference board,
+         ST-Link, reserved instrument. js/connzone.js -->
+    <div class="step" data-t="conn.title"></div>
+    <div id="connrows"></div>
+    <!-- Test types, menu only; gated like the rest until connected. -->
+    <div id="menus" class="gated">
+      <div class="step" data-t="shell.types"></div>
+      <div id="typemenu"></div>
+    </div>
+  </section>
+  <!-- Drag to widen the connection column; the width is remembered (core.js). -->
+  <div id="leftgrip"></div>
+
+  <!-- One gate for everything that needs the board. display:contents, so its
+       children are the grid's own cells. -->
+  <div id="afterconn" class="gated">
+    <nav id="mid">
+      <div class="step" id="midtitle" data-t="shell.ports"></div>
+      <div id="lports"></div>
+    </nav>
+    <section id="rhead">
+      <div id="msgbox"></div>
+      <div id="rtop"></div>
+      <!-- 工装完整测试's second layer: the four sub-tests (flows.js). -->
+      <div id="subtiles"></div>
+      <div id="fullview" hidden>
+        <div class="hint" id="flowwhat"></div>
+        <div id="fullbody"></div>
+      </div>
+    </section>
+    <section id="right">
+      <div id="itemcards"></div>
+      <div id="viewnote" class="hint"></div>
+    </section>
+    <!-- 工装完整测试's right column (runview.js): a fixed-height 「正在进行」,
+         then the results and the run log. -->
+    <section id="statcol">
+      <div class="step" data-t="run.now.title"></div>
+      <div id="runstat"></div>
+      <div class="rtabs">
+        <button id="tabres" class="on" data-t="run.tab.results"></button>
+        <button id="tablog" data-t="run.tab.log"></button>
+      </div>
+      <div id="paneres">
+        <div class="rflt">
+          <label><input type="checkbox" id="resbad"> <span data-t="run.res.only_bad"></span></label>
+          <span class="hint" data-t="run.res.click"></span>
+        </div>
+        <div id="runres"></div>
+      </div>
+      <div id="panelog" hidden>
+        <div class="rflt">
+          <label><input type="checkbox" id="logbad"> <span data-t="run.log.only_bad"></span></label>
+          <label><input type="checkbox" id="lograw"> <span data-t="run.log.raw"></span></label>
+          <span id="logchip"></span>
+        </div>
+        <div id="runlog"></div>
+      </div>
+    </section>
+  </div>
+  <section id="logcol">
+    <div id="logwrap">
+      <div id="logbar">
+        <h2 style="margin:0" data-t="html.log"></h2>
+        <span class="sp"></span>
+        <span id="paused" hidden></span>
+        <button id="pause" data-t="ui.top.2"></button>
+        <button id="clear" data-t="html.clear"></button>
+        <button id="save" data-t="html.save"></button>
+      </div>
+      <div class="row" style="margin:0 0 7px">
+        <label><input type="checkbox" class="filt" value="ok" checked> <span data-t="html.filter.ok"></span></label>
+        <label><input type="checkbox" class="filt" value="err" checked> <span data-t="html.filter.err"></span></label>
+        <label><input type="checkbox" class="filt" value="frame" checked> <span data-t="html.filter.frame"></span></label>
+        <label><input type="checkbox" class="filt" value="log" checked> <span data-t="html.filter.log"></span></label>
+        <label><input type="checkbox" class="filt" value="echo" checked> <span data-t="html.filter.echo"></span></label>
+        <label><input type="checkbox" class="filt" value="panel" checked> <span data-t="html.filter.panel"></span></label>
+        <label><input type="checkbox" class="filt" value="caps"> <span data-t="html.filter.caps"></span></label>
+        <label><input type="checkbox" class="filt" value="timed"> <span data-t="html.filter.timed"></span></label>
+      </div>
+      <div id="log"></div>
+      <div class="row" style="margin-top:8px">
+        <input id="raw" data-t-placeholder="html.raw" style="flex:1"
+               autocomplete="off">
+        <button id="send" data-t="html.send"></button>
+      </div>
+      <div class="hint" data-t="html.raw_hint"></div>
+    </div>
+  </section>
+</main>
+
+<!-- The meter box sits outside <main>: the cards are redrawn on every poll and
+     would wipe a half-typed reading. -->
+<div id="meterask" hidden>
+  <div id="meterwhat"></div>
+  <div class="row" style="margin-top:8px">
+    <input id="meterval" type="number" step="any" data-t-placeholder="html.meterval" style="flex:1">
+    <span id="meterunit" class="hint"></span>
+    <button id="meterok" class="primary" data-t="html.meterok"></button>
+    <button id="meterskip" data-t="html.meterskip"></button>
+    <button id="meterstop" data-t="ui.startRow.24"></button>
+  </div>
+  <div class="hint" id="meterhint"></div>
+</div>
+
+<script>
+"use strict";
+
+// Panel text in three languages (decision 82). The server fills in STRINGS and
+// LANG; T() looks a key up in LANG, falls back to Chinese, and fills {name}
+// from args. $PROD/maps/porttool-panel-languages/map.md
+const STRINGS = /*STRINGS*/{};
+const DE_REVIEWED = /*DE_REVIEWED*/false;
+let LANG = /*LANG*/"zh";
+</script>
+<script src="js/core.js"></script>
+<script src="js/conn.js"></script>
+<script src="js/words.js"></script>
+<script src="js/meter.js"></script>
+<script src="js/analog.js"></script>
+<script src="js/rangeinfo.js"></script>
+<script src="js/full.js"></script>
+<script src="js/runview.js"></script>
+<script src="js/flows.js"></script>
+<script src="js/stagecfg.js"></script>
+<script src="js/library.js"></script>
+<script src="js/live.js"></script>
+<script src="js/anawin.js"></script>
+<script src="js/canwin.js"></script>
+<script src="js/knxwin.js"></script>
+<script src="js/group.js"></script>
+<script src="js/anacard.js"></script>
+<script src="js/dio.js"></script>
+<script src="js/rdvisit.js"></script>
+<script src="js/relay.js"></script>
+<script src="js/sdfile.js"></script>
+<script src="js/cfgcard.js"></script>
+<script src="js/shell.js"></script>
+<script src="js/refboard.js"></script>
+<script src="js/connzone.js"></script>
+<script src="js/memo.js"></script>
+<script src="js/boot.js"></script>
+</body>
+</html>

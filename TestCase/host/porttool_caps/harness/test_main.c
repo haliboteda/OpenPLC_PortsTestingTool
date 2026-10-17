@@ -1,14 +1,9 @@
 /*
  * Drives the real port tool command dispatcher on the host and prints exactly
- * what it would write to the RS232 line. build.py checks the result; this file
- * only produces the transcript.
+ * what it would write to the RS232 line; firmware_test.go checks the transcript.
  *
- * porttool.c is #included rather than linked because dispatch() and
- * reply_caps() are static. Reaching them that way keeps the production source
- * free of a test-only entry point - the alternative would be widening the
- * firmware's interface for nobody but this file.
- *
- * Consequence: porttool.c must NOT also be handed to the compiler separately.
+ * porttool.c is #included so its static functions are reachable without a
+ * test-only entry point; it must NOT also be handed to the compiler.
  */
 
 #include "porttool.c"
@@ -78,16 +73,18 @@ extern void     test_uart_raise(uint32_t isr_bits);
 extern uint32_t test_uart_isr(void);
 extern void     test_uart_feed(uint8_t b);
 void            UART4_IRQHandler(void);
+extern uint32_t test_uart4_baud;
 
+/* One received line, then what the superloop does after poll_command(). */
 static void run(const char *line)
 {
     printf(">>> %s\n", line);
+    line_heard(HAL_GetTick());
     dispatch(line);
+    line_apply(HAL_GetTick());
 }
 
-/* How much of the board is being driven right now. Two numbers rather than
- * six, because what the checks care about is "anything still driven", not
- * which particular channel. */
+/* How much of the board is still driven. */
 static int relays_energised(void)
 {
     int n = 0;
@@ -107,9 +104,7 @@ static int dout_duty_any(void)
     return 0;
 }
 
-/* Moves the fake clock forward and lets every running session decide whether
- * its period elapsed - the board's superloop, one pass, on demand. Without
- * this the frame path could only be exercised on real hardware. */
+/* Moves the fake clock forward and runs one superloop pass. */
 static uint32_t fake_now = 1000u;
 
 static void advance(uint32_t ms)
@@ -118,33 +113,114 @@ static void advance(uint32_t ms)
     test_set_tick(fake_now);
     printf(">>> (host) %lu ms later\n", (unsigned long)ms);
     hold_check(fake_now);
+    line_check(fake_now);
     tick_sessions(fake_now);
 }
 
 int main(void)
 {
 #ifdef _WIN32
-    /* The firmware writes "\r\n" itself. A text-mode stdout would expand the
-     * "\n" again and emit "\r\r\n", so the transcript would not be the bytes
-     * the board actually puts on the wire. */
+    /* The firmware writes "\r\n" itself; text mode would make it "\r\r\n". */
     _setmode(_fileno(stdout), _O_BINARY);
 #endif
 
     /* The panel is built from this, so it is the first thing to lock down. */
     run("pt.caps");
     run("pt.id");
+
+    /* pt.cal, written then erased. The coefficients are exact in float, so the
+     * Go side compares them for equality. */
+    {
+        static const float coef[8] = {
+            1.0625f, -12.5f,    /* AI1 */
+            0.96875f, 0.125f,   /* AI2 */
+            1.03125f, -0.25f,   /* AO1 */
+            0.9375f,  0.5f,     /* AO2 */
+        };
+        test_calib_write(test_uid_words, coef);
+        run("pt.cal");
+        test_calib_erase();
+        run("pt.cal");
+    }
+
+    /* pt.calw: rewrites sector 15 with the record and keeps the rest of the
+     * sector; refuses a bad record or a swapped bank before touching flash;
+     * PortTool_S15Program refuses any word outside the sector. */
+    {
+        static const float coef[8] = { 1.0625f, -12.5f, 0.96875f, 0.125f,
+                                       1.03125f, -0.25f, 0.9375f, 0.5f };
+        static const uint32_t other_uid[3] = { 1u, 2u, 3u };
+        uint8_t rec[sizeof(calib_area_t)], other[sizeof(calib_area_t)];
+        char good[160], bad_crc[160], wrong_uid[160], not_hex[160], word[32];
+        uintptr_t base = (uintptr_t)test_calib_area;
+        unsigned erases;
+
+        test_calib_write(other_uid, coef);
+        memcpy(other, test_calib_area, sizeof(other));
+        test_calib_write(test_uid_words, coef);
+        memcpy(rec, test_calib_area, sizeof(rec));
+
+        strcpy(good, "pt.calw ");
+        strcpy(wrong_uid, "pt.calw ");
+        for (unsigned i = 0; i < sizeof(rec); i++) {
+            sprintf(good + strlen(good), "%02X", rec[i]);
+            sprintf(wrong_uid + strlen(wrong_uid), "%02X", other[i]);
+        }
+        strcpy(bad_crc, good);
+        bad_crc[strlen(bad_crc) - 1] = (bad_crc[strlen(bad_crc) - 1] == '0') ? '1' : '0';
+
+        /* An older calibration and a root record the burn must keep. */
+        test_calib_erase();
+        memset(test_calib_area, 0x11, 64);
+        memset(&test_calib_area[0x2000], 0x4F, 160);
+        test_flash_erases = test_flash_programs = test_flash_stray = 0;
+
+        erases = test_flash_erases;
+        run(bad_crc);
+        run(wrong_uid);
+        run("pt.calw 4F43");
+        run("pt.calw");
+        strcpy(not_hex, good);
+        not_hex[10] = 'G';
+        run(not_hex);
+        test_flash_regs.OPTCR = FLASH_OPTCR_SWAP_BANK;
+        run(good);
+        test_flash_regs.OPTCR = 0u;
+        printf("TEST calw_refused_erases=%u\n", test_flash_erases - erases);
+
+        run(good);
+        printf("TEST calw_erases=%u programs=%u stray=%u record=%d tail_blank=%d root_kept=%d after_root_blank=%d\n",
+               test_flash_erases, test_flash_programs, test_flash_stray,
+               memcmp(test_calib_area, rec, sizeof(rec)) == 0,
+               test_calib_area[sizeof(rec)] == 0xFFu && test_calib_area[CALIB_AREA_SIZE - 1u] == 0xFFu,
+               test_calib_area[0x2000] == 0x4Fu && test_calib_area[0x2000 + 159] == 0x4Fu,
+               test_calib_area[0x2000 + 160] == 0xFFu);
+
+        test_flash_fail_erase = 1;
+        run(good);
+        test_flash_fail_erase = 0;
+
+        test_calib_erase();
+        memset(word, 0xA5, sizeof(word));
+        test_flash_stray = 0;
+        printf("TEST calw_guard below=%d above=%d misaligned=%d inside=%d stray=%u\n",
+               PortTool_S15Program(base - 32u, (const uint8_t *)word),
+               PortTool_S15Program(base + FLASH_SECTOR_SIZE, (const uint8_t *)word),
+               PortTool_S15Program(base + 16u, (const uint8_t *)word),
+               PortTool_S15Program(base + FLASH_SECTOR_SIZE - 32u, (const uint8_t *)word),
+               test_flash_stray);
+        test_calib_erase();
+    }
+
     run("pt.list");
 
     /* Two sessions running side by side, which is the whole point of a
      * session. */
     run("pt.start din ch=1,3,5 period=200");
-    run("pt.start relay ch=1,2 mode=square period=2000");
+    run("pt.start relay ch=1,2 mode=cycle close=2000 open=2000 count=10");
 
-    /* Too fast for mechanical contacts, and refused with the reason rather
-     * than quietly clamped: a station that asked for 100 ms and got 1000 would
-     * report a cycle count that never happened. HF41F is rated 3e4
-     * operations - user's instruction, 2026-09-08. */
-    run("pt.start relay period=100");
+    /* Below the 1000 ms floor: refused, not clamped (PORTTOOL-FLOW.md B.2). */
+    run("pt.start relay close=100");
     run("pt.list");
     run("pt.caps");
 
@@ -156,15 +232,8 @@ int main(void)
     run("pt.start din period=abc");
     run("pt.start dinn");
 
-    /* A kind=run port appears in pt.caps but is not a session, so the session
-     * commands do not know it. The panel must not offer start/stop for one.
-     *
-     * *** Pick a port that cannot graduate into a session. *** This line has
-     * now been rewritten twice for that reason - knx became a session on
-     * 2026-09-08 and sdram on 2026-09-13 - and each time the check silently
-     * started testing the "not running" path instead, which is a different
-     * rule covered elsewhere. rtc is kind=run: one-shot targets and no
-     * session to grow into. */
+    /* A kind=run port is not a session, so the session commands do not know
+     * it. rtc: a port with no session to grow into. */
     run("pt.set rtc ch=1");
 
     run("pt.foo");
@@ -192,9 +261,7 @@ int main(void)
      * array, which must be pulled back inside rather than wrapping. */
     run("pt.run sdram.crc");
     run("pt.run sdram.crc offset=1024 bytes=4096");
-    /* Decimal: PortCmd_GetU32 takes digits only, and a hex offset here would
-     * be rejected and silently leave the offset at 0 - the case would look
-     * like it passed while testing nothing. */
+    /* Decimal: PortCmd_GetU32 takes digits only. */
     run("pt.run sdram.crc offset=2130706432 bytes=999999999");
 
     /* Why the board came up. The value is latched by main() before anything can
@@ -218,11 +285,7 @@ int main(void)
     run("pt.run rtc.read");
     test_rtc_calendar_initialised = 1;
 
-    /* clk= has to come out of RCC_BDCR and not out of this file's opinion.
-     * It was the literal "lsi" until 2026-09-10, and on the day the project
-     * moved to LSE the reply went on saying lsi against a board with a
-     * crystal. Moving the register is the only way to tell a field that reads
-     * the hardware from one that describes it. */
+    /* clk= has to follow RCC_BDCR. */
     test_rcc.BDCR = (2ul << RCC_BDCR_RTCSEL_Pos);   /* LSI */
     run("pt.run rtc.read");
     test_rcc.BDCR = (0ul << RCC_BDCR_RTCSEL_Pos);   /* no clock at all */
@@ -299,6 +362,35 @@ int main(void)
            (unsigned long)test_can_sent, (unsigned long)test_can_last_id,
            (unsigned)test_can_last_len, (unsigned)test_can_last_data[3]);
     run("pt.stop can");
+
+    /* mode=bus, the CAN analyser window's (DECISIONS.md 111): nothing of its
+     * own goes out, tx= sends exactly the frame asked for, and every frame
+     * that arrives is reported - up to eight a pass, the rest counted. */
+    test_can_sent = 0;
+    run("pt.start can mode=bus period=100");
+    advance(100);
+    printf("TEST can_bus_idle_sent=%lu\n", (unsigned long)test_can_sent);
+    run("pt.set can tx=123:1122AA");
+    printf("TEST can_bus_sent=%lu id=%lx len=%u last=%u\n",
+           (unsigned long)test_can_sent, (unsigned long)test_can_last_id,
+           (unsigned)test_can_last_len, (unsigned)test_can_last_data[2]);
+    run("pt.set can tx=7FF");
+    run("pt.set can tx=800:11");       /* refused: not a standard ID */
+    run("pt.set can tx=123:112");      /* refused: half a byte */
+    run("pt.set can tx=123:112233445566778899"); /* refused: nine bytes */
+    run("pt.set can tx=123:11 period=abc");      /* refused whole: nothing sent */
+    printf("TEST can_bus_after_refusals=%lu\n", (unsigned long)test_can_sent);
+    {
+        static const uint8_t frame[2] = { 0xBEu, 0xEFu };
+        for (int i = 0; i < 10; i++) {
+            test_can_inject(0x456u, frame, 2u);
+        }
+    }
+    advance(100);
+    run("pt.stop can");
+    run("pt.start can mode=normal");
+    run("pt.set can tx=123:11");       /* refused: tx= is mode=bus only */
+    run("pt.stop can");
     test_can_loopback = 1;
     run("pt.stop all");
 
@@ -371,10 +463,62 @@ int main(void)
            test_eth_dhcp_running, test_eth_lwip_inits);
     advance(1000);
 
+    /* mirror sends back every byte unchanged, across more than one send
+     * buffer's worth, and moves no counter (PORTTOOL-FLOW.md B.9). */
+    run("pt.stop eth");
+    {
+        char blob[301];
+        for (int i = 0; i < 300; i++) {
+            blob[i] = (char)('A' + (i % 26));
+        }
+        blob[300] = '\0';
+        test_eth_sent_len = 0; test_eth_sent[0] = '\0';
+        run("pt.start eth mode=mirror port=5000 period=100");
+        printf("TEST eth_mirror_connect=%d\n", test_eth_connect());
+        test_eth_feed(blob);
+        advance(100);
+        advance(100);
+        printf("TEST eth_mirror_same=%d len=%lu\n",
+               (test_eth_sent_len == 300u) && (memcmp(test_eth_sent, blob, 300) == 0),
+               (unsigned long)test_eth_sent_len);
+    }
+
     run("pt.start eth mode=sideways");
     run("pt.start eth port=0");
     run("pt.start eth port=70000");
     run("pt.start eth ip=192.168.1");
+    run("pt.stop all");
+
+    /* ---- SD file transfer over eth mode=file ----------------------------
+     *
+     * PORTTOOL-FLOW.md B.11: the bytes ride the eth link, the card is the
+     * in-memory folder in entries_stub.c. Written, acknowledged, read back,
+     * listed, removed; a stalled transfer times out; a bad name is refused. */
+    run("pt.start eth mode=file port=5000 period=100");
+    printf("TEST sdf_connect=%d\n", test_eth_connect());
+    test_eth_sent_len = 0; test_eth_sent[0] = '\0';
+    run("pt.run sd.put name=hello.txt size=10");
+    test_eth_feed("0123456789");
+    advance(10);
+    advance(10);   /* the fake send window opens every other pass */
+    printf("TEST sdf_ack=%s", test_eth_sent);
+    run("pt.run sd.ls");
+    test_eth_sent_len = 0; test_eth_sent[0] = '\0';
+    run("pt.run sd.get name=hello.txt");
+    advance(10);
+    advance(10);
+    printf("TEST sdf_get_same=%d len=%lu\n",
+           (test_eth_sent_len == 10u) && (memcmp(test_eth_sent, "0123456789", 10) == 0),
+           (unsigned long)test_eth_sent_len);
+    run("pt.run sd.put name=a/b size=1");
+    run("pt.run sd.put name=slow.bin size=5");
+    test_eth_feed("ab");
+    advance(10);
+    advance(11000);
+    run("pt.run sd.rm name=hello.txt");
+    run("pt.run sd.rm name=slow.bin");
+    run("pt.run sd.ls");
+    run("pt.run sd.eject");
     run("pt.stop all");
 
     /* ---- usb session -----------------------------------------------------
@@ -445,6 +589,30 @@ int main(void)
     printf("TEST usb_info_sent=%lu inits=%d\n",
            (unsigned long)test_usb_sent_len, test_usb_inits);
 
+    /* mirror sends back every byte unchanged; a burst bigger than its ring is
+     * counted in drop= rather than silently lost (PORTTOOL-FLOW.md B.9). */
+    run("pt.stop usb");
+    {
+        static char blob[3001];
+        for (int i = 0; i < 3000; i++) {
+            blob[i] = (char)('a' + (i % 26));
+        }
+        blob[200] = '\0';
+        test_usb_sent_len = 0; test_usb_sent[0] = '\0';
+        run("pt.start usb mode=mirror period=100");
+        test_usb_feed(blob);
+        advance(100);
+        printf("TEST usb_mirror_same=%d len=%lu\n",
+               (test_usb_sent_len == 200u) && (memcmp(test_usb_sent, blob, 200) == 0),
+               (unsigned long)test_usb_sent_len);
+        blob[200] = 'a' + (200 % 26);
+        blob[3000] = '\0';
+        test_usb_busy = 1;
+        test_usb_feed(blob);
+        advance(100);
+        test_usb_busy = 0;
+    }
+
     run("pt.start usb mode=sideways");
     run("pt.start usb period=abc");
     run("pt.stop all");
@@ -464,8 +632,8 @@ int main(void)
     run("pt.hold abc");
     run("pt.hold 999999999");
 
-    run("pt.start dout ch=1,2 duty=1:100,2:100 period=100");
-    run("pt.start relay ch=1 mode=hold on=1:1 period=1000");
+    run("pt.start dout ch=1,2 duty=1:255,2:255 period=100");
+    run("pt.start relay ch=1 mode=hold on=1:1");
     run("pt.hold 500");
     run("pt.hold");
     advance(100);
@@ -488,7 +656,7 @@ int main(void)
 
     /* Disarming leaves a session alone - it is the PC's clock that stopped
      * mattering, not the run. */
-    run("pt.start dout ch=1 duty=1:100 period=100");
+    run("pt.start dout ch=1 duty=1:255 period=100");
     run("pt.hold 500");
     run("pt.hold 0");
     advance(900);
@@ -516,6 +684,16 @@ int main(void)
     run("pt.run led.blink");
     printf("TEST led_configured=%d led_writes=%d led_high=%d\n",
            test_led_configured, test_led_writes, test_led_high);
+
+    /* KNX diagnostics share the session's timers: idle they measure, with the
+     * session running they answer busy=1 (PORTTOOL-FLOW.md A.3). */
+    run("pt.stop all");
+    run("pt.run knx.edges shots=2");
+    run("pt.run knx.hist");
+    run("pt.run knx.pullup");
+    run("pt.start knx mode=listen period=1000");
+    run("pt.run knx.hist");
+    run("pt.stop knx");
 
     run("pt.stop all");
     run("pt.caps");
@@ -670,7 +848,7 @@ int main(void)
      * Eight independent duties is the reason this is software PWM rather than
      * the timer channels, so "the duty landed on the channel that was named"
      * is the property worth pinning down. */
-    run("pt.start dout ch=1,5 mode=hold duty=1:20,5:75 freq=1000");
+    run("pt.start dout ch=1,5 mode=hold duty=1:51,5:191 freq=1000");
     run("pt.caps");
     advance(1000);
     printf(">>> (host) dout duties now\n");
@@ -682,7 +860,7 @@ int main(void)
 
     /* Blink is what makes a DI session on the other end of an eight-way cable
      * visibly follow, so the dark half really has to drive zero. */
-    run("pt.start dout ch=1,2 mode=blink duty=100 period=200");
+    run("pt.start dout ch=1,2 mode=blink duty=255 period=200");
     advance(200);
     run("pt.caps");
     advance(200);
@@ -690,24 +868,14 @@ int main(void)
 
     /* ---- a frequency per channel ----------------------------------------
      *
-     * Added 2026-09-10. Eight independent frequencies is what the timer
-     * channels behind these pins physically cannot give: they pair up on four
-     * compare units, and each pair is complementary. The software PWM can,
-     * because every channel carries its own phase accumulator.
-     *
-     * The frame reports duty@frequency per channel, and the frequency in it is
-     * the one the channel really landed on - both the interrupt rate and the
-     * increment are quantised, and echoing the request back would hide that. */
+     * Eight independent frequencies (port_dout.h). pt.caps reports the
+     * frequency each channel really landed on, not the request. */
     run("pt.stop all");
-    run("pt.start dout ch=1,2,3 mode=hold duty=50 freq=1:2000,2:1000,3:250");
+    run("pt.start dout ch=1,2,3 mode=hold res=7 duty=64 freq=1:2000,2:1000,3:250");
     run("pt.caps");
     advance(1000);
 
-    /* The widest spread the parameter allows, which is where the rounding is
-     * worst: the slow channel's increment is the smallest number the maths
-     * produces. Truncating instead of rounding reported this pair as 1999 and
-     * 0 Hz on the board on 2026-09-10 - and a channel that says 0 Hz while it
-     * is switching reads as a dead output. */
+    /* The widest spread, where the rounding is worst: must not report 0 Hz. */
     run("pt.set dout freq=1:2000,2:1");
     run("pt.caps");
 
@@ -717,12 +885,64 @@ int main(void)
     run("pt.caps");
     advance(1000);
 
-    run("pt.start dout duty=1:150");     /* over 100 percent */
+    /* ---- duty resolution in bits (DECISIONS.md 101) ---------------------
+     *
+     * The interrupt rate is capped, so the frequency limit moves with res, and
+     * duty is a raw count that is not rescaled: values kept from before must
+     * fit the new res, or the command is refused whole. */
+    run("pt.set dout res=10");               /* keeps 500 Hz, over 250 Hz */
+    run("pt.set dout res=10 freq=250");      /* keeps duty 64: fits, accepted */
+    run("pt.set dout res=10 duty=1023");     /* full scale at 10 bits */
+    run("pt.caps");
+    advance(1000);
+    run("pt.set dout res=4");                /* keeps duty 1023, over 15 */
+    run("pt.set dout res=4 duty=15 freq=16000");  /* lower res, then higher freq */
+    run("pt.caps");
+    advance(1000);
+    printf(">>> (host) dout after res=4\n");
+    printf("TEST dout_res4_duty=");
+    for (int i = 0; i < PORT_DOUT_COUNT; i++) {
+        printf("%s%lu", i ? "," : "", (unsigned long)test_dout_duty[i]);
+    }
+    printf("\n");
+    run("pt.set dout res=0");
+    run("pt.set dout res=17");
+    run("pt.set dout res=8 freq=1000 duty=255");
+    run("pt.set dout freq=1001");            /* over 1000 Hz at 8 bits */
+
+    run("pt.start dout duty=1:256");     /* over full scale at 8 bits */
     run("pt.start dout duty=9:50");      /* output 9 does not exist */
     run("pt.start dout freq=99999");     /* past what the timer will take */
     run("pt.start dout freq=1:99999");   /* same, in the per-channel form */
     run("pt.start dout freq=9:500");     /* output 9 does not exist */
     run("pt.start dout mode=sideways");
+
+    /* ---- quadrature bursts (decision 107) --------------------------------
+     *
+     * The reference board feeds the board under test's DI encoders: four
+     * pairs in step, B a quarter period ahead, exactly cycles*4 edges and
+     * then all eight low. A pass that is late by many edges still moves one
+     * edge only, so a slow loop stretches the burst instead of skipping
+     * edges the far end would be blamed for. */
+    run("pt.start dout mode=quad cycles=2 period=1000");
+    {
+        char seen[64] = "";
+        for (int i = 0; i < 12; i++) {
+            advance(i == 0 ? 100 : 3);
+            int same = 1;
+            for (int p = 1; p < 4; p++) {
+                same &= (test_dout_duty[2 * p] != 0u) == (test_dout_duty[0] != 0u) &&
+                        (test_dout_duty[2 * p + 1] != 0u) == (test_dout_duty[1] != 0u);
+            }
+            size_t n = strlen(seen);
+            snprintf(seen + n, sizeof(seen) - n, "%s%d%d%s", i ? "," : "",
+                     test_dout_duty[0] != 0u, test_dout_duty[1] != 0u, same ? "" : "!");
+        }
+        printf("TEST quad_ab=%s\n", seen);
+    }
+    run("pt.start dout mode=quad cycles=0");
+    run("pt.start dout mode=quad cycles=10001");
+    run("pt.stop dout");
 
     run("pt.stop all");
     printf(">>> (host) dout after pt.stop all\n");
@@ -748,7 +968,7 @@ int main(void)
 
     run("pt.start ain period=500");
     run("pt.start temp period=1000");
-    run("pt.start aout ch=1,2 mv=1:500,2:1500");
+    run("pt.start aout ch=1,2 mv=1:500,2:1234");
     run("pt.caps");
     advance(1000);
     printf(">>> (host) DAC outputs now\n");
@@ -824,6 +1044,34 @@ int main(void)
     run("pt.run rs485.pins");
     test_gpio_stuck_low[3] &= (uint16_t)~GPIO_PIN_4;
 
+    /* ---- Relay mode=cycle: per-relay holds and counts (PORTTOOL-FLOW.md B.2) --
+     *
+     * Relay 1: 1 s open, 1 s closed, 2 cycles. Relay 2: 1 s open, 2 s closed,
+     * 1 cycle. One frame at start and one per edge; done=1 once both reach
+     * their count, and nothing moves after that. */
+    run("pt.start relay ch=1,2 mode=cycle close=1:1000,2:2000 open=1000 count=1:2,2:1");
+    advance(1);                          /* the session-start frame */
+    advance(999);                        /* both close */
+    advance(1000);                       /* 1 releases: n1=1 */
+    advance(1000);                       /* 1 closes, 2 releases: n2=1, 2 done */
+    advance(1000);                       /* 1 releases: n1=2, all done */
+    advance(1000);                       /* nothing left to move: no frame */
+    printf("TEST relay_cycle_energised=%d\n", relays_energised());
+    run("pt.caps");
+    run("pt.start relay mode=cycle close=999");
+    run("pt.start relay mode=cycle open=1:500");
+    run("pt.start relay mode=cycle count=0");
+    run("pt.start relay mode=cycle count=1000001");
+    run("pt.start relay mode=square");
+    /* Six different values: over 192 bytes, within the 256 a PC line may take
+     * (decision 123); caps then leaves close / open / count out. */
+    run("pt.start relay ch=1,2,3,4,5,6 mode=cycle "
+        "close=1:1000001,2:1000002,3:1000003,4:1000004,5:1000005,6:1000006 "
+        "open=1:2000001,2:2000002,3:2000003,4:2000004,5:2000005,6:2000006 "
+        "count=1:1000000,2:999999,3:999998,4:999997,5:999996,6:999995");
+    run("pt.caps");
+    run("pt.stop all");
+
     /* ---- RS232: loop=self, the one port whose counter IS the verdict ---- */
     run("pt.start rs232 period=200");
     advance(200);
@@ -831,6 +1079,21 @@ int main(void)
     advance(200);
     run("pt.caps");
     run("pt.stop all");
+
+    /* ---- RS232 at another rate: the whole control line switches (decision 104) */
+    run("pt.start rs232 baud=19200 period=200");
+    printf("TEST line_after_start uart4_baud=%lu\n", (unsigned long)test_uart4_baud);
+    advance(200);                        /* nothing heard at 19200 yet: no frame */
+    printf(">>> (host) a byte at the new rate\n");
+    line_heard(fake_now);
+    advance(200);
+    run("pt.stop rs232");
+    printf("TEST line_after_stop uart4_baud=%lu\n", (unsigned long)test_uart4_baud);
+    run("pt.start rs232 baud=57600 period=200");
+    advance(PORTTOOL_LINE_SILENCE_MS);   /* the PC went away */
+    printf("TEST line_after_silence uart4_baud=%lu\n", (unsigned long)test_uart4_baud);
+    run("pt.stop all");
+    run("pt.start rs232 baud=4800");
 
     /* Stopping is responsible for putting the actuators back - the board has
      * no contact read-back, so this is the only place it can be checked. */
@@ -845,15 +1108,8 @@ int main(void)
 
     /* ---- A latched receive error must not deafen the command port -------
      *
-     * The one place in this file that calls poll_command() rather than
-     * dispatch(). It exists because of a real failure on the board
-     * (2026-09-08): the HAL never clears a receive error for a zero-timeout
-     * HAL_UART_Receive, so the flag stayed set, every later poll failed, and
-     * the board stopped hearing commands while its sessions kept pushing
-     * frames - alive to look at, deaf in fact.
-     *
-     * ISR is set by hand because the stub UART never actually receives. What
-     * is checked is that the firmware clears what it found and counts it. */
+     * Calls poll_command() rather than dispatch(). ISR is set by hand; what is
+     * checked is that the firmware clears what it found and counts it. */
     printf(">>> (host) a latched receive error on the command port\n");
     test_uart_raise(USART_ISR_ORE);
     printf("TEST rx_before=%lu isr_raised=0x%lX\n",
@@ -870,10 +1126,7 @@ int main(void)
     /* ---- and the receive path end to end ------------------------------
      *
      * Feeds "pt.id\r" one byte at a time through the real ISR and then drains
-     * the ring, which is the whole path a command takes on the board. Before
-     * 2026-09-08 this path was a polled HAL_UART_Receive that missed bytes
-     * while printf was blocking; the reply below is the evidence it no longer
-     * has to be looked at to be caught. */
+     * the ring: the whole path a command takes on the board. */
     printf(">>> (host) a command delivered one byte at a time through the ISR\n");
     {
         const char *cmd = "pt.id\r";

@@ -1,12 +1,9 @@
 package testcase
 
-// Part of H1: the plan file, the limit operators, the executor and the report.
-//
-// What these cover is the behaviour a production line depends on and that no
-// amount of reading the code settles: a limit that cannot be met silently, a
-// plan that judges a counter which does not travel over the port it names, a
-// timeout told apart from a failed limit, a retry that keeps the failure it
-// replaced, and the gate that stops a sequence after something fails.
+// Part of H1: the plan file, the limit operators, the executor and the report:
+// limits that cannot be met, counters that do not travel over the named port,
+// timeouts kept apart from failed limits, retries keeping the failure they
+// replaced, and the gate that stops a sequence after a failure.
 
 import (
 	"encoding/json"
@@ -15,27 +12,24 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
-	"PortTool/internal/ptboard"
-	"PortTool/internal/ptcheck"
-	"PortTool/internal/ptplan"
-	"PortTool/internal/ptproto"
-	"PortTool/internal/ptreport"
-	"PortTool/internal/ptseq"
+	"PortTool/src/ptboard"
+	"PortTool/src/ptcheck"
+	"PortTool/src/ptplan"
+	"PortTool/src/ptproto"
+	"PortTool/src/ptreport"
+	"PortTool/src/ptseq"
 )
 
 func f64(v float64) *float64 { return &v }
 
-// refusePeer is what a plan's peer= gets in these tests.
-//
-// ⚠️ The fake board is a Go type answering the protocol in memory - it has no
-// TCP listener, no CDC pipe and nothing on an RS485 pair. Letting the runner
-// use the real opener made it grab whatever COM16 happened to be on the
-// machine running the test, so the result depended on what was plugged into
-// somebody's bench. The frames the fake board sends already describe a healthy
-// link, which is what these steps are meant to be judged on.
+// refusePeer is what a plan's peer= gets in these tests: the fake board has no
+// TCP, CDC or RS485 end, and the real opener would grab whatever serial port the
+// test machine has. The fake's frames already describe a healthy link.
 func refusePeer(kind, addr string, baud int) (io.ReadWriteCloser, error) {
 	return nil, fmt.Errorf("no %s peer on this bench (%s)", kind, addr)
 }
@@ -81,11 +75,20 @@ func TestCheckOperators(t *testing.T) {
 		// A field the firmware stopped reporting must fail, not be skipped:
 		// a silently skipped limit is how an untested board ships.
 		{"absent field fails", ptcheck.Check{Field: "nosuch", Op: ptcheck.OpEq, Value: "1"}, false},
+		// if_present (STG-07): absent passes, present is still judged.
+		{"if_present absent passes", ptcheck.Check{Field: "overrun", Op: ptcheck.OpCountZero, IfPresent: true}, true},
+		{"if_present nonzero fails", ptcheck.Check{Field: "miss", Op: ptcheck.OpCountZero, IfPresent: true}, false},
 	}
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			got := tc.c.Eval(look)
+			if got.Missing && tc.c.IfPresent {
+				t.Fatalf("%s: an if_present check marked missing", tc.c.Describe())
+			}
+			if _, there := look(tc.c.Field); got.Absent != (tc.c.IfPresent && !there) {
+				t.Fatalf("%s: absent=%v", tc.c.Describe(), got.Absent)
+			}
 			if got.Pass != tc.pass {
 				t.Fatalf("%s: pass=%v want %v (got %q, why %q)",
 					tc.c.Describe(), got.Pass, tc.pass, got.Got, got.Why)
@@ -94,6 +97,40 @@ func TestCheckOperators(t *testing.T) {
 				t.Fatalf("%s failed without saying why", tc.c.Describe())
 			}
 		})
+	}
+}
+
+// TestShippedRS485OverrunJudgedOnlyWhenReported: both shipped plans fail the
+// fixture firmware's frame on overrun>0 and pass FixtureDemo's frame, which
+// has no overrun (STG-07).
+func TestShippedRS485OverrunJudgedOnlyWhenReported(t *testing.T) {
+	for _, name := range []string{"station6-poweron.json", "station6-poweron-relaxed.json"} {
+		p, err := ptplan.Load(filepath.Join("..", "..", "..", "src", "plans", name))
+		if err != nil {
+			t.Fatal(err)
+		}
+		var checks []ptcheck.Check
+		for _, s := range p.Steps {
+			if s.ID == "rs485" {
+				checks = s.Checks
+			}
+		}
+		if len(checks) == 0 {
+			t.Fatalf("%s: no rs485 step with checks", name)
+		}
+		for _, tc := range []struct {
+			frame map[string]string
+			pass  bool
+		}{
+			{map[string]string{"miss": "0", "junk": "0", "overrun": "0"}, true},
+			{map[string]string{"miss": "0", "junk": "0", "overrun": "2"}, false},
+			{map[string]string{"miss": "0", "junk": "0"}, true},
+		} {
+			_, pass := ptcheck.EvalAll(checks, func(f string) (string, bool) { v, ok := tc.frame[f]; return v, ok })
+			if pass != tc.pass {
+				t.Errorf("%s: frame %v: pass=%v want %v", name, tc.frame, pass, tc.pass)
+			}
+		}
 	}
 }
 
@@ -176,10 +213,8 @@ func TestNumericParamsAreAcceptedAsWritten(t *testing.T) {
 }
 
 func TestPlanValuesCheckedAgainstTheFirmwaresOwnLimits(t *testing.T) {
-	// The firmware states what each parameter accepts, so a value it would
-	// refuse is caught here rather than on the line with a board in front of
-	// somebody. The numbers come from the board, not from a table in this
-	// program - that is the whole point of the limits= line.
+	// The firmware states what each parameter accepts (limits=), so a value it would
+	// refuse is caught here rather than on the line.
 	caps, err := ptproto.ParseCaps(capsReply())
 	if err != nil {
 		t.Fatalf("parsing the caps fixture: %v", err)
@@ -724,13 +759,21 @@ func attemptErr(s ptreport.StepResult) string {
 
 // ---------- the plan that actually ships ----------
 
+// What the board printed on 2026-09-08 for pt.run eth.link with a cable plugged in.
+var ethLinkCabled = []string{
+	"ETH_TEST: MDIO bring-up - PC1 = MDC, PA2 = MDIO, AF11",
+	"ETH_TEST: PHY at address 0, id 0x0007C131, link UP, 100 Mbit/s full duplex",
+	"OK eth.link found=1 addr=0 id=0x0007C131 link=1 autoneg=1 speed=100 fd=1 " +
+		"bsr=0x782D scsr=0x1058 mdio_errors=0",
+}
+
 // TestBenchSmokePlanRuns drives the real plan file, so a mistake in it is
 // found here rather than with a board on the bench and an engineer waiting.
 //
 // It also covers the echo answering: rs232 is loop=self, and its miss counter
 // only stays at zero if the runner sends back the number the board gave it.
 func TestBenchSmokePlanRuns(t *testing.T) {
-	plan, err := ptplan.Load(filepath.Join("..", "..", "plans", "bench-smoke.json"))
+	plan, err := ptplan.Load(filepath.Join("..", "..", "..", "src", "plans", "bench-smoke.json"))
 	if err != nil {
 		t.Fatalf("the plan we ship does not load: %v", err)
 	}
@@ -738,7 +781,7 @@ func TestBenchSmokePlanRuns(t *testing.T) {
 	// One caps reply carrying every port the plan names, with the loop types
 	// the firmware really reports.
 	caps := []string{
-		"OK porttool=0.10.0 ports=2 lines=5",
+		"OK porttool=0.12.0 ports=2 lines=5",
 		"OK port=temp board=lower kind=session blk=- term=- channels=2 loop=ctrl params=ch,period running=0",
 		"OK vals=temp ch=1,2 period=1000",
 		"OK terms=temp SC-protect,HS-switch",
@@ -752,20 +795,14 @@ func TestBenchSmokePlanRuns(t *testing.T) {
 		case cmd == "pt.caps":
 			return caps, nil
 		case cmd == "pt.id":
-			return []string{"OK uid=003400413135511439303538 porttool=0.10.0"}, nil
+			return []string{"OK uid=003400413135511439303538 porttool=0.12.0"}, nil
 		case cmd == "pt.run sdram.probe":
 			return []string{
 				"SDRAM_TEST: controller not up yet, running MX_FMC_Init()",
 				"OK sdram.probe base=0xC0000000 size=67108864 ready=1 databus=1 addrbus=1",
 			}, nil
 		case cmd == "pt.run eth.link":
-			// What the board printed on 2026-09-08 with a cable plugged in.
-			return []string{
-				"ETH_TEST: MDIO bring-up - PC1 = MDC, PA2 = MDIO, AF11",
-				"ETH_TEST: PHY at address 0, id 0x0007C131, link UP, 100 Mbit/s full duplex",
-				"OK eth.link found=1 addr=0 id=0x0007C131 link=1 autoneg=1 speed=100 fd=1 " +
-					"bsr=0x782D scsr=0x1058 mdio_errors=0",
-			}, nil
+			return ethLinkCabled, nil
 		case cmd == "pt.run rtc.read":
 			return []string{
 				"RTC_TEST: not up yet, running MX_RTC_Init()",
@@ -942,28 +979,75 @@ func TestPlanRunTargetsUncheckedAgainstOlderFirmware(t *testing.T) {
 	}
 }
 
-// TestStation6PlanRuns drives the production plan file, so a mistake in it -
-// a field name the firmware does not send, a target that does not exist, a
-// parameter string the port would refuse - is found here rather than at a
-// station with an operator waiting.
-//
-// The caps are the firmware's own, read from the T4-01 transcript, and the
-// frames below are the shapes it really prints. That is the point: a fake board
-// answering in some other shape would let a broken plan pass here.
+// TestStation6PlanRuns drives the production plan file against the firmware's
+// own caps (T4-01 transcript) and frames in the shapes it really prints, so a
+// wrong field, target or parameter is found here rather than at a station.
 func TestStation6PlanRuns(t *testing.T) {
-	plan, err := ptplan.Load(filepath.Join("..", "..", "plans", "station6-poweron.json"))
+	shipped, err := ptplan.Load(filepath.Join("..", "..", "..", "src", "plans", "station6-poweron.json"))
 	if err != nil {
 		t.Fatalf("the plan we ship does not load: %v", err)
 	}
+	// The reference-board pairs need a second board wired to this one; they
+	// run on two wired simulated boards in ref_test.go instead.
+	plan := withoutRefPairs(shipped)
 
 	caps := goldenCaps(t)
 
-	fake := newScriptBoard(t, func(cmd string, nth int) ([]string, []string) {
+	// mode=mirror steps flood for as long as frames keep coming, so those two
+	// sessions stream frames until the test ends (PORTTOOL-FLOW.md B.9).
+	done := make(chan struct{})
+	defer close(done)
+	var fake *scriptBoard
+	stream := func(line string) {
+		go func() {
+			for {
+				select {
+				case <-done:
+					return
+				case <-time.After(50 * time.Millisecond):
+				}
+				fake.emit(line)
+			}
+		}()
+	}
+	// streamPort is stream until that port's pt.stop: mode=sink / source.
+	var linkMode atomic.Value
+	linkMode.Store("mode=mirror")
+	var stopMu sync.Mutex
+	stops := map[string]chan struct{}{}
+	streamPort := func(port, line string) {
+		stop := make(chan struct{})
+		stopMu.Lock()
+		stops[port] = stop
+		stopMu.Unlock()
+		go func() {
+			for {
+				select {
+				case <-done:
+					return
+				case <-stop:
+					return
+				case <-time.After(50 * time.Millisecond):
+				}
+				fake.emit(line)
+			}
+		}()
+	}
+	stopPort := func(port string) {
+		stopMu.Lock()
+		defer stopMu.Unlock()
+		if c, ok := stops[port]; ok {
+			close(c)
+			delete(stops, port)
+		}
+	}
+
+	fake = newScriptBoard(t, func(cmd string, nth int) ([]string, []string) {
 		switch {
 		case cmd == "pt.caps":
 			return caps, nil
 		case cmd == "pt.id":
-			return []string{"OK uid=003400413135511439303538 porttool=0.10.0"}, nil
+			return []string{"OK uid=003400413135511439303538 porttool=0.12.0"}, nil
 
 		case cmd == "pt.run sdram.probe":
 			return []string{"OK sdram.probe base=0xC0000000 size=67108864 ready=1 databus=1 addrbus=1"}, nil
@@ -973,21 +1057,14 @@ func TestStation6PlanRuns(t *testing.T) {
 				"OK sdram.sweep ready=1 patterns=4 words_each=16777216 mismatches=0 " +
 					"first_bad=0x00000000 bad_pattern=0x00000000 write_ms=28400 verify_ms=21600",
 			}, nil
-		// Added with the targets themselves, 2026-09-13. This board is hand
-		// written: a target the plan names and this switch does not answer is
-		// reported as "unexpected", not as a board that said nothing.
-		// The cause is whatever this board says it came up from. POR is the
-		// ordinary one at a test station; the step only refuses IWDG and WWDG,
-		// which mean the board hung and its own watchdog restarted it.
+		// Hand-written board: a target the plan names and this switch does not answer is
+		// reported as "unexpected". The step refuses only IWDG and WWDG (the board hung
+		// and its watchdog restarted it); POR is the ordinary cause at a station.
 		case cmd == "pt.run reset.cause":
 			return []string{"OK reset.cause cause=POR rsr=0x10000000"}, nil
 		case cmd == "pt.run rs485.pins":
 			return []string{
 				"OK rs485.pins checked=1 busy=0 dir_low=0 tx_low=0 dir_high=1 tx_high=1 follows=1",
-			}, nil
-		case cmd == "pt.run sdram.crc bytes=65536 offset=0":
-			return []string{
-				"OK sdram.crc ready=1 offset=0 bytes=65536 crc=0x1A2B3C4D",
 			}, nil
 		case cmd == "pt.run sd.probe":
 			return []string{"OK sd.probe detected=1 ready=1 blocks=62333952 block_size=512 " +
@@ -1015,13 +1092,7 @@ func TestStation6PlanRuns(t *testing.T) {
 					"first_bad_pass=0 fresult=0",
 			}, nil
 		case cmd == "pt.run eth.link":
-			// What the board printed on 2026-09-08 with a cable plugged in.
-			return []string{
-				"ETH_TEST: MDIO bring-up - PC1 = MDC, PA2 = MDIO, AF11",
-				"ETH_TEST: PHY at address 0, id 0x0007C131, link UP, 100 Mbit/s full duplex",
-				"OK eth.link found=1 addr=0 id=0x0007C131 link=1 autoneg=1 speed=100 fd=1 " +
-					"bsr=0x782D scsr=0x1058 mdio_errors=0",
-			}, nil
+			return ethLinkCabled, nil
 		case cmd == "pt.run rtc.read":
 			return []string{"OK rtc.read init=0 clk=lse date=26-09-08 time=09:14:22"}, nil
 		case cmd == "pt.run led.blink":
@@ -1033,10 +1104,16 @@ func TestStation6PlanRuns(t *testing.T) {
 				"!din t=2 seq=2 rx=1 miss=0 v=0xFF ch1=1 ch8=1",
 				"!din t=3 seq=3 rx=2 miss=0 v=0xFF ch1=1 ch8=1",
 			}
+		case strings.HasPrefix(cmd, "pt.start dout ") && strings.Contains(cmd, "mode=blink"):
+			var frames []string
+			for i := 1; i <= 6; i++ {
+				frames = append(frames, fmt.Sprintf("!dout t=%d seq=%d rx=0 miss=0 mode=blink tick=100000 ch1=255", i, i))
+			}
+			return []string{"OK dout started"}, frames
 		case strings.HasPrefix(cmd, "pt.start dout "):
 			return []string{"OK dout started"}, []string{
-				"!dout t=1 seq=1 rx=0 miss=0 mode=hold tick=100000 ch1=100 ch8=100",
-				"!dout t=2 seq=2 rx=1 miss=0 mode=hold tick=100000 ch1=100 ch8=100",
+				"!dout t=1 seq=1 rx=0 miss=0 mode=hold tick=100000 ch1=255 ch8=255",
+				"!dout t=2 seq=2 rx=1 miss=0 mode=hold tick=100000 ch1=255 ch8=255",
 			}
 		case strings.HasPrefix(cmd, "pt.start relay "):
 			return []string{"OK relay started"}, []string{
@@ -1071,15 +1148,26 @@ func TestStation6PlanRuns(t *testing.T) {
 		// ⚠️ The parameter order is the one the runner sends, alphabetical - a
 		// mismatch reads as "unexpected command" and looks like a firmware
 		// fault rather than a stale fake.
-		case cmd == "pt.start eth ip=dhcp mode=echo period=500 port=5000":
-			return []string{"OK eth started"}, []string{
-				"!eth t=1 seq=1 rx=0 miss=0 ip=192.168.0.30 link=1 conn=1 mode=echo port=5000 rx_bytes=0 tx_bytes=2 kbps=0",
-				"!eth t=2 seq=2 rx=1 miss=0 ip=192.168.0.30 link=1 conn=1 mode=echo port=5000 rx_bytes=2 tx_bytes=4 kbps=0",
-				"!eth t=3 seq=3 rx=2 miss=0 ip=192.168.0.30 link=1 conn=1 mode=echo port=5000 rx_bytes=4 tx_bytes=6 kbps=0",
-				"!eth t=4 seq=4 rx=3 miss=0 ip=192.168.0.30 link=1 conn=1 mode=echo port=5000 rx_bytes=6 tx_bytes=8 kbps=0",
-			}
-		// 手写假板子，加端口/加步骤都要跟一次。sd 2026-09-10 变成会话之后
-		// station6 多了 sd-detect 这一步。
+		// Download, then upload (decision 151 item 1): the counter the step
+		// judges moves. Streamed like mirror, since frames before the peer is
+		// up do not count; stopped by its pt.stop so the next step's frames
+		// are its own.
+		case cmd == "pt.start eth ip=dhcp mode=sink period=500 port=5000",
+			cmd == "pt.start eth ip=dhcp mode=source period=500 port=5000":
+			m := strings.Fields(cmd)[3]
+			linkMode.Store(m)
+			streamPort("eth", "!eth t=1 seq=1 rx=0 miss=0 ip=192.168.0.30 link=1 conn=1 "+m+" port=5000 rx_bytes=4096 tx_bytes=4096 kbps=64 drop=0")
+			return []string{"OK eth started"}, nil
+		case cmd == "pt.start usb mode=sink period=500", cmd == "pt.start usb mode=source period=500":
+			m := strings.Fields(cmd)[2]
+			linkMode.Store(m)
+			streamPort("usb", "!usb t=1 seq=1 rx=0 miss=0 state=cfg enum=0 "+m+" rx_bytes=4096 tx_bytes=4096 kbps=64 busy=0 drop=0")
+			return []string{"OK usb started"}, nil
+		case cmd == "pt.start eth ip=dhcp mode=mirror period=500 port=5000":
+			linkMode.Store("mode=mirror")
+			stream("!eth t=1 seq=1 rx=0 miss=0 ip=192.168.0.30 link=1 conn=1 mode=mirror port=5000 rx_bytes=0 tx_bytes=0 kbps=0 drop=0")
+			return []string{"OK eth started"}, nil
+		// Hand-written board: every port or plan step added needs a case here.
 		// wait=1000 is the floor: cells hold for tens of milliseconds without
 		// refresh, so a second already proves refresh is running, and cycles
 		// has to reach 1 or "failed=0" would be a step that never ran.
@@ -1098,13 +1186,10 @@ func TestStation6PlanRuns(t *testing.T) {
 				"!sd t=2 seq=2 rx=1 miss=0 detected=1 changes=0 in=0 out=0",
 				"!sd t=3 seq=3 rx=2 miss=0 detected=1 changes=0 in=0 out=0",
 			}
-		case cmd == "pt.start usb mode=echo period=500":
-			return []string{"OK usb started"}, []string{
-				"!usb t=1 seq=1 rx=0 miss=0 state=cfg enum=0 mode=echo rx_bytes=0 tx_bytes=2 kbps=0 busy=0",
-				"!usb t=2 seq=2 rx=1 miss=0 state=cfg enum=0 mode=echo rx_bytes=2 tx_bytes=4 kbps=0 busy=0",
-				"!usb t=3 seq=3 rx=2 miss=0 state=cfg enum=0 mode=echo rx_bytes=4 tx_bytes=6 kbps=0 busy=0",
-				"!usb t=4 seq=4 rx=3 miss=0 state=cfg enum=0 mode=echo rx_bytes=6 tx_bytes=8 kbps=0 busy=0",
-			}
+		case cmd == "pt.start usb mode=mirror period=500":
+			linkMode.Store("mode=mirror")
+			stream("!usb t=1 seq=1 rx=0 miss=0 state=cfg enum=0 mode=mirror rx_bytes=0 tx_bytes=0 kbps=0 busy=0 drop=0")
+			return []string{"OK usb started"}, nil
 		case cmd == "pt.start rs485 baud=115200 period=2000":
 			return []string{"OK rs485 started"}, []string{
 				"!rs485 t=1 seq=1 rx=0 miss=0 baud=115200 rxbytes=8 junk=0 overrun=0",
@@ -1134,6 +1219,7 @@ func TestStation6PlanRuns(t *testing.T) {
 		case cmd == "pt.stop all":
 			return []string{"OK all stopped"}, nil
 		case strings.HasPrefix(cmd, "pt.stop "):
+			stopPort(strings.TrimPrefix(cmd, "pt.stop "))
 			return []string{"OK " + strings.TrimPrefix(cmd, "pt.stop ") + " stopped"}, nil
 		}
 		return []string{"ERR unexpected " + cmd}, nil
@@ -1149,18 +1235,28 @@ func TestStation6PlanRuns(t *testing.T) {
 	// A production run has an operator, so the indicator step gets an answer.
 	// Leaving Confirm nil is what a headless run does, and that turns the step
 	// into an error rather than a silent pass - covered elsewhere.
-	runner := &ptseq.Runner{OpenPeer: refusePeer, FindCDC: noCDC,
+	// eth and usb answer as a board in the mode last started; anything else is refused.
+	open := func(kind, addr string, baud int) (io.ReadWriteCloser, error) {
+		if kind == "tcp" || addr == "COM-usb" {
+			switch linkMode.Load().(string) {
+			case "mode=sink":
+				return newLinkPeer(false), nil
+			case "mode=source":
+				return newLinkPeer(true), nil
+			}
+			return newBoardMirror(), nil
+		}
+		return refusePeer(kind, addr, baud)
+	}
+	runner := &ptseq.Runner{OpenPeer: open, FindCDC: func() (string, error) { return "COM-usb", nil },
 		Board: board, Caps: &parsed,
 		Sleep:       func(time.Duration) {},
 		ToolVersion: "test",
 		Confirm:     func(string) (bool, error) { return true, nil },
 		// The RS485 step's peer is "serial": somebody has bound an adapter.
 		SerialPeer: func(string) (string, int, bool) { return "bound-adapter", 0, true },
-		// The plan's last step archives the report to "dir:reports/station6",
-		// relative to BaseDir. Left empty that resolves against the working
-		// directory, so every `go test` dropped another report into the source
-		// tree - 48 of them had piled up by 2026-09-08. A temp dir puts them
-		// where the run can still be inspected and Go deletes them afterwards.
+		// The plan's last step archives to "dir:reports/station6" relative to BaseDir;
+		// a temp dir keeps those reports out of the source tree.
 		BaseDir: t.TempDir(),
 	}
 	rep, err := runner.Run(plan)
@@ -1175,6 +1271,29 @@ func TestStation6PlanRuns(t *testing.T) {
 		// PLACEHOLDER being replaced by a USB test inside the tool image, with
 		// selectable modes. See the step's own note.
 		"usb-enumerates": true,
+		// The panel's USB enumeration item; it turns the step on itself.
+		"usb-enum": true,
+		// Research-test extloop criteria, the CANable variant of the CAN
+		// step, and the manual DO reading the panel asks (their notes say why).
+		"can":            true,
+		"can-pc":         true,
+		"high-side-drop": true,
+		// A person counting the DO toggles (STG-33); the panel asks it.
+		"dout-blink-seen": true,
+		// AI / AO per-point limits: the panel's item runner walks the points
+		// (ptlib/analog.go); a plan run has no walk.
+		"ai1-read": true,
+		"ai2-read": true,
+		"ao1-out":  true,
+		"ao2-out":  true,
+		// Disconnect-and-recover limits: only the panel's pull-and-plug walk
+		// runs them (ptlib/recover.go, decision 150).
+		"eth-recover":   true,
+		"usb-recover":   true,
+		"rs232-recover": true,
+		"rs485-recover": true,
+		"can-recover":   true,
+		"knx-recover":   true,
 	}
 
 	for _, s := range rep.Steps {
@@ -1202,7 +1321,7 @@ func TestStation6PlanRuns(t *testing.T) {
 
 	// The plan has to survive its own offline check too: a target or parameter
 	// this firmware does not report would be a plan that only fails on a line.
-	if findings := plan.CheckAgainstCaps(parsed); len(findings) != 0 {
+	if findings := shipped.CheckAgainstCaps(parsed); len(findings) != 0 {
 		t.Fatalf("the shipped plan disagrees with the caps it was written for:\n%s",
 			strings.Join(findings, "\n"))
 	}
@@ -1288,7 +1407,7 @@ func goldenCaps(t *testing.T) []string {
 	t.Helper()
 	raw, err := os.ReadFile(filepath.Join("..", "porttool_caps", "caps_golden.txt"))
 	if err != nil {
-		t.Fatalf("read the T4-01 transcript: %v - run TestCase/host/porttool_caps/build.py", err)
+		t.Fatalf("read the T4-01 transcript: %v - run TestCase/test.sh t4-01", err)
 	}
 	chunks := strings.Split(string(raw), ">>> ")
 	for _, chunk := range chunks[1:] {

@@ -1,26 +1,28 @@
 # 端口工装协议契约测试
 
-用例 **T4-01**，两半，一条命令一起跑：
+用例 **T4-01**，两半，同一次 `go test` 一起跑：
 
 1. **固件侧** —— 把端口工装的**真实固件源码**（`open_plc_cube_ide/TestCase/porttool/` 的
    `porttool.c` `porttool_cmd.c` `porttool_din.c` `porttool_relay.c`）
    在 PC 上原生编译并运行，敲一串 `pt.*` 命令，检查它吐出来的每一行，写出 `caps_golden.txt`
 2. **上位机侧** —— Go 测试拿那份字节验三层，**带 `-race`**：
-   `internal/ptproto`（解析）、`internal/ptboard`（连接层）、`internal/ptpanel`（面板的 HTTP 面）
+   `src/ptproto`（解析）、`src/ptboard`（连接层）、`src/ptpanel`（面板的 HTTP 面）
 
 **两半不能分开跑。**分开的话它们会各自漂，而且都还是绿的 —— 那正是这条用例要防的事。
 
 ```
 porttool_caps/
-├── build.py          ← 入口，两半都由它跑
+├── firmware_test.go  ← 入口：带 -build 时 TestMain 编固件、跑出逐字记录、写 caps_golden.txt
+├── transcript_test.go← 固件那半的逐项检查（TestFirmwareTranscript，一项一个子测试）
 ├── caps_golden.txt   ← 产物，也是 Go 测试的夹具
 ├── ptproto_test.go   ← 解析层
 ├── ptboard_test.go   ← 连接层，假串口回放
 ├── ptpanel_test.go   ← 面板 HTTP 面，httptest 端到端
 └── harness/          ← C 那半。⚠️ 放子目录是因为 CGO_ENABLED=1 时
-    ├── test_main.c      Go 会去编译包目录里的 .c 文件并直接拒绝整个包
-    └── stubs/
+    └── test_main.c      Go 会去编译包目录里的 .c 文件并直接拒绝整个包
 ```
+
+桩（`stubs/`）和源文件清单 `sources.txt` 在 `src/simboard/c/`，和模拟板共用一份，下文的 `stubs/...` 都指那里。
 
 ## 为什么要有这一条
 
@@ -36,13 +38,15 @@ porttool_caps/
 ## 跑
 
 ```
-python build.py
+TestCase/test.sh t4-01
+# 即：CGO_ENABLED=1 CC=<HOST_CC> go test -race -count=1 -v ./TestCase/host/porttool_caps/ -args -build
 ```
 
-编译器解析顺序：`$CC` → `config/machine.py` 的 `HOST_CC` → PATH 上的
-`gcc` / `clang`。退出码 `0` = 全过，`1` = 有检查没过，`2` = 编译或运行失败。
+编译器解析顺序：`$CC` → `tools/local.json` 的 `HOST_CC` → PATH 上的
+`gcc` / `clang`。编译或运行失败时整包直接失败、不跑任何检查。不带 `-build`（`go test ./...` 就是）只拿已提交的
+`caps_golden.txt` 跑 Go 那半，固件那半跳过。
 
-找得到 C 编译器时 Go 那半会带 `-race` 跑（竞态检测要 cgo）。**这不是装饰** ——
+Go 那半要带 `-race` 跑（竞态检测要 cgo，所以要 `CC`），没带时开头打一行 WARN。**这不是装饰** ——
 `ptboard` 的读串口、发命令、浏览器订阅分别在三个 goroutine 上，
 **第一次开 `-race` 就抓到一个真的**：订阅通道在读线程还在向它投递时被关掉了，
 放到生产里就是「有人关浏览器标签的那一刻正好来了一帧」→ panic。
@@ -100,6 +104,23 @@ python build.py
 - `din` 起始 `running=0` → `pt.start` 后 `running=1` → `pt.stop all` 后回到 `0`
 - caps 回报的 `ch=` 就是 `pt.start` 给的那一组
 - `pt.stop all` 之后六路继电器全部释放
+- `relay mode=cycle`（决策 123）：每路各自的吸合 / 断开时长和次数；开始一帧、每次翻转一帧，`n<n>` 逐路计数，全部跑满 `done=1` 且全部释放；`close` / `open` 低于 1000、`count` 出 1..1000000 都拒
+
+**这一轮加的**（2026-10-11，决策 87、98）
+
+- `eth` / `usb` 的 `mode=mirror`：收到的字节原样送回、计数器不动；`usb` 一次灌超过 2048 字节的环，多出的记进 `drop=`
+- `can` 的 `info=` 行：时钟源和位时序都报了，`bps` 由 `clk_hz`、`presc`、`tq` 算得出且等于 `baud=`
+- `knx.edges` / `knx.hist` / `knx.pullup` 三个 `pt.run` 目标挂在 `knx` 会话行上；会话在跑时回 `busy=1`、什么都不量
+
+⚠️ 这三个 KNX 目标在这里用的是桩（`stubs/knx_stub.c`），只验应答形状；真的边沿和直方图要上板。
+
+**`pt.calw`**（2026-10-16，决策 142）
+
+- 坏记录（CRC 不对、UID 不是这块板的、长度不对、不是十六进制）和 bank 互换时都拒，带原因，一次都不擦
+- 好记录：只擦一次扇区 15，前 56 字节是记录、校准值区其余是 `0xFF`，根区原样留下，空格子还是空的；擦除失败回 `ERR calw failed: erase`
+- `PortTool_S15Program` 对扇区 15 以下、以上和没对齐的地址都拒，交到 HAL 的写全在扇区 15 里
+
+⚠️ flash 是桩（`stubs/hal_stub.c`，擦写都落在 `test_calib_area` 这 128 KiB 上），擦写时序、ECC、真地址要上板。
 
 **拒绝**
 
@@ -141,27 +162,29 @@ python build.py
 - **SSE 先补 backlog 再推实时帧** —— 晚开的页面必须看到板子之前已经说过的话
 - **没连板子就发命令要说人话**
 
-### 看门狗和持续测试（`pthold_test.go`）
+### 看门狗和持续测试（已移到 [`../porttool_plan/hold_test.go`](../porttool_plan/hold_test.go)）
 
 这是面板里**唯一决定 24 V 该不该继续开着**的东西，所以它在这一层单独测，
 而不是只靠用例 **T4-02** 那条浏览器路径 —— 那条慢，而且只能证明顺的那一遍。
+入口是 `/api/lib/start` 带时长、`/api/lib/stop` 停（旧的 `/api/hold` / `/api/fault` 已删，决策 105）。
 这里盯的是不顺的那几种：
 
-- **武装在发布这一轮之前** —— 中间那段时间输出已经带电了
+- **武装在第一次续期之前** —— 中间那段时间输出已经带电了
 - **真的在续期，不是只武装了一次** —— 等到第二次 `pt.hold 6000` 才算过，超时就失败
 - **停下来之后续期不再涨** —— 还涨就说明有个 goroutine 活得比连接还久，在向已关的口写
 - **先放输出再解除看门狗**（`pt.stop all` 在 `pt.hold 0` 之前）—— 反过来就留一个
   输出带电、又没人盯着上位机的窗口
 - **第二轮被拒绝，不是叠上去** —— 两个 goroutine 续同一个看门狗，后面没人说得清它处于什么状态
-- **时长只收 0..4** —— 页面就这五个选项，服务端不能比页面宽
-- **判出故障就全停并点灯**（`pt.stop all` + `pt.hold 0` + `pt.led fault=1`）—— 产线要知道的是
+- **时长只收 `once`、`1`..`4`、`forever`** —— 页面就这几个选项，服务端不能比页面宽
+- **判据不过就全停并点灯**（`pt.stop all` + `pt.hold 0` + `pt.led fault=1`）—— 产线要知道的是
   「这块板废了」，不是五个端口里哪个先发现
 - **断开板子会先把这一轮停掉**，赶在串口关之前
-- **日志真的落盘了** —— 文件里要有头、端口名、时长、`OK hold=6000`、结尾，
+- **板子中途复位（tick 倒退）、端口中途没声了都算故障**，同样点灯
+- **日志真的落盘了** —— 文件里要有头、端口名、帧、`OK hold=6000`、结尾，
   **而且不得包含 `OK echo `**（那是三行里的两行，留着把四小时的文件撑成三倍）
 
-⚠️ **`pt.hold 6000` 不在 T4-01 的记录里** —— 这个跨度是服务端自己选的，不是 harness 发过的，
-所以假板子那条回复是测试里现登的。其余每一条断言的回复都是真固件真打印过的。
+⚠️ **这组用的是 `porttool_plan` 的脚本假板子，不是 T4-01 的记录回放** —— 回复和 temp 帧都是测试自己写的，
+格式照 `caps_golden.txt` 里真固件的样子。
 
 ⚠️ **假串口用的是 `io.Pipe`，不是真 COM 口。**这台机器上那对 ELTIMA 虚拟串口
 （COM1↔COM2）被占着开不了，所以这层测的是面板逻辑，**不包括串口驱动本身**。

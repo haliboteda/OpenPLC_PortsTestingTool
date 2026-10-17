@@ -1,19 +1,21 @@
 package testcase
 
 import (
+	"encoding/hex"
+	"errors"
+	"fmt"
 	"os"
 	"regexp"
 	"slices"
 	"strings"
 	"testing"
 
-	"PortTool/internal/ptproto"
+	"PortTool/src/calarea"
+	"PortTool/src/ptproto"
 )
 
-// The fixture is the transcript case T4-01 captures by running the real firmware
-// source natively (TestCase/host/porttool_caps). Testing against a hand-typed
-// copy of what the board "should" say would only prove this file agrees with
-// itself; testing against what the firmware actually printed is the point.
+// The fixture is the transcript T4-01 captures by running the real firmware source
+// natively, not a hand-typed copy of what the board should say.
 const goldenPath = "caps_golden.txt"
 
 // transcript splits the fixture into the commands and the lines each produced.
@@ -22,7 +24,7 @@ func transcript(t *testing.T) map[string][][]string {
 	raw, err := os.ReadFile(goldenPath)
 	if err != nil {
 		t.Fatalf("read fixture: %v\n"+
-			"Run TestCase/host/porttool_caps/build.py to regenerate it.", err)
+			"Regenerate it: TestCase/test.sh t4-01.", err)
 	}
 	out := map[string][][]string{}
 	for _, chunk := range strings.Split(string(raw), ">>> ")[1:] {
@@ -54,21 +56,14 @@ func TestParseGoldenCaps(t *testing.T) {
 		t.Fatalf("ParseCaps: %v", err)
 	}
 
-	if caps.Version != "0.10.0" {
-		t.Errorf("version = %q, want 0.10.0", caps.Version)
+	if caps.Version != "0.18.1" {
+		t.Errorf("version = %q, want 0.18.1", caps.Version)
 	}
-	// Deliberately not a hard port count: adding a port to the firmware is
-	// meant to cost nothing here, and ParseCaps already refuses a reply whose
-	// ports= disagrees with the rows that followed. What matters is that the
-	// ports the panel is built around are all present and typed correctly.
-	// One piece of hardware gets one row: sdram's retention is the session and
-	// its one-shot checks ride on that row as runs=, the shape sd and eth
-	// already have.
+	// No hard port count: adding a port must cost nothing here, and ParseCaps already
+	// checks ports= against the rows. One piece of hardware gets one row, so sd's and
+	// sdram's one-shot checks ride on their session as runs=.
 	wantSessions := []string{"din", "dout", "relay", "ain", "aout", "temp",
 		"rs232", "rs485", "can", "knx", "sd", "sdram"}
-	// sd left this list on 2026-09-10 and sdram on 2026-09-13, both for the
-	// same reason: the hardware got a session, and one piece of hardware gets
-	// one row, so the one-shot checks became runs= on that row.
 	wantRuns := []string{"rtc", "led"}
 
 	for _, name := range wantSessions {
@@ -142,8 +137,8 @@ func TestGoldenSessionDetail(t *testing.T) {
 	if got := relay.TerminalLabels(); !equal(got, wantRelay) {
 		t.Errorf("relay labels = %v, want %v", got, wantRelay)
 	}
-	if len(relay.Params) != 4 {
-		t.Errorf("relay params = %v, want four of them", relay.Params)
+	if len(relay.Params) != 6 {
+		t.Errorf("relay params = %v, want six of them", relay.Params)
 	}
 	for _, p := range relay.Params {
 		if _, ok := relay.Values[p]; !ok {
@@ -173,15 +168,9 @@ func TestGoldenLifecycle(t *testing.T) {
 }
 
 func TestClassifyGoldenLines(t *testing.T) {
-	// A bare log line is the protocol's fourth kind and is legal - it is the
-	// bring-up printf a person reads. What must not happen is one appearing
-	// where the PC is waiting for a reply and nobody knows what printed it, so
-	// every source of prose is named here and anything else fails.
-	//
-	// pt.run is the first command in this transcript that produces any: the
-	// checks it runs print as they go, before its OK line.
-	// Matched by shape, not by a list of names: a new pt.run target should not
-	// have to be registered here, while a stray printf still fails.
+	// A bare log line is legal (the bring-up printf); what must not happen is one of
+	// unknown origin where the PC waits for a reply. pt.run's checks print before its
+	// OK line, matched by shape so a new target needs no registration here.
 	prose := regexp.MustCompile(`^[A-Z][A-Z0-9_]*_TEST: `)
 	for cmd, runs := range transcript(t) {
 		for _, body := range runs {
@@ -252,7 +241,7 @@ func TestGoldenFramesCarryTheEchoCounter(t *testing.T) {
 		}
 	}
 	if len(frames) == 0 {
-		t.Fatal("the fixture has no din frames; run build.py to regenerate it")
+		t.Fatal("the fixture has no din frames; regenerate it with TestCase/test.sh t4-01")
 	}
 	for _, f := range frames {
 		for _, k := range []string{"seq", "rx", "miss", "v"} {
@@ -293,12 +282,9 @@ func TestTickUnwrap(t *testing.T) {
 	if got, restarted := u.Unwrap(2000); got != 2000 || restarted {
 		t.Errorf("forward = %d restarted=%v, want 2000 false", got, restarted)
 	}
-	// 49.7 days in, the board's counter starts over. The timeline must not.
-	//
-	// *** The pre-wrap value has to be near the top of the range. *** Until
-	// 2026-09-14 this case was written as 2000 -> 5 and called a wrap, which is
-	// the shape of a RESTART: a board two seconds up cannot have exhausted a
-	// 49.7-day counter. The test encoded the bug it should have caught.
+	// 49.7 days in, the board's counter starts over; the timeline must not. The
+	// pre-wrap value has to be near the top of the range: a small value dropping is a
+	// restart, not a wrap.
 	const nearTop = ^uint32(0) - 1000
 	if got, restarted := u.Unwrap(nearTop); restarted {
 		t.Error("climbing towards the wrap is not a restart")
@@ -315,10 +301,8 @@ func TestTickUnwrap(t *testing.T) {
 	}
 }
 
-// The event an ageing run exists to catch. A board that resets mid-run sends
-// its tick back to near zero from wherever it had got to, and that has to be
-// visible - the production test guide's criterion is "0 abnormal resets", and
-// a reset counted as a wrap is a reset nobody hears about.
+// A board that resets mid-run sends its tick back near zero; that must count as a
+// restart, not a wrap (criterion "0 abnormal resets", production test guide).
 func TestTickUnwrapSeesARestart(t *testing.T) {
 	var u ptproto.TickUnwrapper
 
@@ -371,4 +355,87 @@ func equal(a, b []string) bool {
 		}
 	}
 	return true
+}
+
+// can's clock source and bit timing reach the parsed caps as read-only facts,
+// not as parameters (DECISIONS.md 87, PORTTOOL-FLOW.md A.4 in $PROD).
+func TestGoldenCanInfo(t *testing.T) {
+	caps, err := ptproto.ParseCaps(transcript(t)["pt.caps"][0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, p := range caps.Ports {
+		if p.Name != "can" {
+			continue
+		}
+		if v, ok := ptproto.Get(p.Info, "clk"); !ok || v == "" {
+			t.Fatalf("can has no clk in its info: %v", p.Info)
+		}
+		if _, ok := ptproto.Get(p.Info, "bps"); !ok {
+			t.Fatalf("can has no bps in its info: %v", p.Info)
+		}
+		if _, isParam := p.Values["clk"]; isParam {
+			t.Fatal("clk turned into a parameter")
+		}
+		return
+	}
+	t.Fatal("no can port in the golden caps")
+}
+
+// pt.cal, written then erased (harness/test_main.c). The coefficients are the
+// ones test_main.c writes; the UID is the one pt.id reports in the same run.
+func TestGoldenCal(t *testing.T) {
+	tr := transcript(t)
+	runs := tr["pt.cal"]
+	if len(runs) != 2 || len(runs[0]) == 0 || len(runs[1]) == 0 {
+		t.Fatalf("want two pt.cal replies in the golden, got %v", runs)
+	}
+
+	kind, body := ptproto.Classify(runs[0][0])
+	if kind != ptproto.LineOK {
+		t.Fatalf("written area: %q is not an OK line", runs[0][0])
+	}
+	got, err := ptproto.ParseCal(body)
+	if err != nil || !got.Present {
+		t.Fatalf("written area: Present=%v err=%v", got.Present, err)
+	}
+	_, idBody := ptproto.Classify(tr["pt.id"][0][0])
+	uid, _ := ptproto.Get(ptproto.Fields(idBody), "uid")
+	if s := fmt.Sprintf("%08X%08X%08X", got.UID[0], got.UID[1], got.UID[2]); s != uid {
+		t.Errorf("UID %s, pt.id says %s", s, uid)
+	}
+	want := [calarea.Channels]calarea.Channel{
+		{Gain: 1.0625, Offset: -12.5},
+		{Gain: 0.96875, Offset: 0.125},
+		{Gain: 1.03125, Offset: -0.25},
+		{Gain: 0.9375, Offset: 0.5},
+	}
+	if got.Ch != want {
+		t.Errorf("coefficients %v, want %v", got.Ch, want)
+	}
+
+	// Erased flash is a board without calibration, not a failed read.
+	_, body = ptproto.Classify(runs[1][0])
+	blank, err := ptproto.ParseCal(body)
+	if err != nil || blank.Present {
+		t.Errorf("erased area: Present=%v err=%v, want no calibration and no error", blank.Present, err)
+	}
+}
+
+// A damaged area and a damaged reply are different failures.
+func TestParseCalRejects(t *testing.T) {
+	rec := calarea.Encode([3]uint32{1, 2, 3}, [calarea.Channels]calarea.Channel{{Gain: 1}, {Gain: 1}, {Gain: 1}, {Gain: 1}})
+	rec[20] ^= 1
+	if _, err := ptproto.ParseCal("cal=" + strings.ToUpper(hex.EncodeToString(rec))); !errors.Is(err, calarea.ErrCorrupt) {
+		t.Errorf("bad CRC: err=%v, want calarea.ErrCorrupt", err)
+	}
+	for _, body := range []string{
+		"uid=00340041",
+		"cal=4F43414C",
+		"cal=" + strings.Repeat("ZZ", calarea.Size),
+	} {
+		if _, err := ptproto.ParseCal(body); err == nil || errors.Is(err, calarea.ErrCorrupt) {
+			t.Errorf("%q: err=%v, want a malformed-reply error", body, err)
+		}
+	}
 }

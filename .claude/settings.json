@@ -10,10 +10,6 @@
       "Bash(go build *)",
       "Bash(go test *)",
       "Bash(gofmt -l *)",
-      "Bash(./compile_tool.sh)",
-      "Bash(bash compile_tool.sh)",
-      "Bash(cd TestCase && python host/porttool_caps/build.py*)",
-      "Bash(python TestCase/host/porttool_caps/build.py*)",
       "PowerShell(git status *)",
       "PowerShell(git log *)",
       "PowerShell(git diff *)"

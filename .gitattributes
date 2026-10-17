@@ -1,0 +1,2 @@
+# bash reads a CR as part of each command, so shell scripts stay LF on every checkout.
+*.sh text eol=lf

@@ -1,15 +1,8 @@
 package testcase
 
-// The third part of T4-01: the panel's own HTTP surface, driven end to end
-// against the same fake board.
-//
-// The page is built entirely from what /api/state reports, so a mistake here
-// looks like "the panel renders the wrong thing", never like an error. These
-// are the parts worth pinning down: that a port added to the firmware reaches
-// the page with no change to the panel, that a refusal arrives with the
-// board's own words rather than a summary, that caps is re-read after a
-// command so the page cannot show a stale running state, and that the event
-// stream carries frames while all of that happens.
+// The third part of T4-01: the panel's HTTP surface end to end against the fake
+// board. The page is built only from /api/state, so a mistake here renders wrong
+// rather than failing.
 
 import (
 	"encoding/json"
@@ -21,8 +14,8 @@ import (
 	"testing"
 	"time"
 
-	"PortTool/internal/portmap"
-	"PortTool/internal/ptpanel"
+	"PortTool/src/portmap"
+	"PortTool/src/ptpanel"
 )
 
 func newPanel(t *testing.T) (*httptest.Server, *fakeBoard) {
@@ -100,8 +93,8 @@ func TestPanelBuildsItselfFromWhatTheBoardReports(t *testing.T) {
 	if st["connected"] != true {
 		t.Fatalf("connect did not take: %v", st)
 	}
-	if st["firmware"] != "0.10.0" {
-		t.Errorf("firmware = %v, want 0.10.0", st["firmware"])
+	if st["firmware"] != "0.18.1" {
+		t.Errorf("firmware = %v, want 0.18.1", st["firmware"])
 	}
 	if msg, _ := st["capsError"].(string); msg != "" {
 		t.Errorf("capsError = %q, want empty", msg)
@@ -136,17 +129,14 @@ func TestPanelBuildsItselfFromWhatTheBoardReports(t *testing.T) {
 		t.Errorf("relay terminals = %v, want the contact pairs", relayTerms)
 	}
 
-	// One piece of hardware, one row. can has had a session since 2026-09-08,
-	// so its four deep bring-up entries ride on that row as targets= rather
-	// than becoming a second card for the same terminals - the same shape
-	// rs485 has always had (DECISIONS.md 17).
+	// One piece of hardware, one row: can's bring-up entries would ride on it as
+	// targets=, the shape rs485 has (DECISIONS.md 17).
 	can := byName["can"]
 	if can["kind"] != "session" {
 		t.Errorf("can kind = %v, want session", can["kind"])
 	}
-	// No deep entries ride along any more: they left caps on 2026-09-13, so a
-	// panel built from what the board reports has no button that would take
-	// the board away (DECISIONS.md 40).
+	// No deep entries in caps, so the panel has no button that takes the board away
+	// (DECISIONS.md 40).
 	if tg, _ := can["targets"].([]any); len(tg) != 0 {
 		t.Errorf("can targets = %v, want none", tg)
 	}
@@ -162,9 +152,7 @@ func TestPanelSplitsPerChannelValues(t *testing.T) {
 		byName[m["name"].(string)] = m
 	}
 
-	// The page draws one control per channel from this. Handed the raw
-	// "1:0,2:0,...,8:0" instead it could only show a text box nobody can edit
-	// by hand, which is the opposite of a per-channel panel.
+	// Split per channel so the page can draw one control per channel.
 	dout := byName["dout"]
 	if dout == nil {
 		t.Fatal("dout missing")
@@ -181,9 +169,7 @@ func TestPanelSplitsPerChannelValues(t *testing.T) {
 		t.Errorf("relay on= did not arrive per channel: %v", relayPer)
 	}
 
-	// freq became per channel on 2026-09-10, when the software PWM gained a
-	// phase accumulator per output. It has to arrive split for the same reason
-	// duty does: eight independent frequencies need eight controls.
+	// freq is per channel too: eight independent frequencies need eight controls.
 	freq, _ := per["freq"].(map[string]any)
 	if len(freq) != 8 {
 		t.Errorf("dout freq split into %d channels, want 8: %v", len(freq), per)
@@ -200,10 +186,8 @@ func TestPanelRefreshesCapsAfterACommand(t *testing.T) {
 	srv, _ := newPanel(t)
 	postJSON(t, srv, "/api/connect", map[string]any{"port": "COM_TEST"})
 
-	// The transcript's second pt.caps has din running, so a panel that
-	// re-reads after the command sees running=true and one that caches does
-	// not. A stale running flag is the difference between a stop button that
-	// works and one that is greyed out for no reason.
+	// The transcript's second pt.caps has din running: the panel must re-read caps
+	// after a command, or the running state shown goes stale.
 	res := postJSON(t, srv, "/api/command",
 		map[string]any{"cmd": "pt.start din ch=1,3,5 period=200"})
 	if res["error"] != nil {
@@ -254,9 +238,8 @@ func TestPanelAnswersTheEchoLoopByItself(t *testing.T) {
 	srv, fake := newPanel(t)
 	postJSON(t, srv, "/api/connect", map[string]any{"port": "COM_TEST"})
 
-	// A frame from a loop=ctrl session has to be answered with the number it
-	// carried, or the board's counter only ever reports misses and nobody can
-	// tell a dead loop from a panel that simply never replies.
+	// A loop=ctrl frame has to be answered with the number it carried, or the board's
+	// counter reports only misses.
 	fake.emit("!din t=48213 seq=7 rx=6 miss=0 v=0x16 ch1=0")
 
 	deadline := time.Now().Add(3 * time.Second)
@@ -271,10 +254,8 @@ func TestPanelAnswersTheEchoLoopByItself(t *testing.T) {
 	t.Fatalf("the panel never answered the frame; it sent %v", fake.commands())
 
 answered:
-	// A loop=link port takes its reply off the link under test. Answering it
-	// here would advance its counter while that link is dead, which is the
-	// false pass the whole design refuses - and the firmware would only reply
-	// with a refusal anyway.
+	// A loop=link port takes its reply off the link under test; answering it here
+	// would count a pass on a dead link.
 	fake.emit("!rs485 t=48300 seq=4 rx=3 miss=0 tx=PT")
 	time.Sleep(300 * time.Millisecond)
 	for _, c := range fake.commands() {
@@ -347,9 +328,7 @@ func TestPanelRepeatsOnTheLinkUnderTest(t *testing.T) {
 		t.Fatalf("rs485 did not bind: %v", st)
 	}
 
-	// The board puts a number on the pair. The far end has to send exactly
-	// that back: the board compares what returns against what it sent, so any
-	// change here would look precisely like a dead link.
+	// The far end sends back exactly what the board put on the pair; the board compares the two.
 	go func() { _, _ = io.WriteString(link.toPanelW, "7\n") }()
 
 	// io.Pipe has no read deadline, so the read runs on its own goroutine and
@@ -374,9 +353,23 @@ func TestPanelRepeatsOnTheLinkUnderTest(t *testing.T) {
 		t.Fatal("the far end sent nothing back, so the loop could never close")
 	}
 
-	// A port whose reply comes back on the control port has no far end to
-	// bind, and pretending otherwise would send somebody looking for a fault
-	// in wiring that does not exist.
+	// The connection block's row counts what its peer echoed, once a second
+	// from /api/conn (decision 106).
+	// The count is taken just after the write, so it is polled briefly.
+	var conn map[string]any
+	for deadline := time.Now().Add(2 * time.Second); ; time.Sleep(50 * time.Millisecond) {
+		conn = getJSON(t, srv, "/api/conn")
+		cl, _ := conn["links"].(map[string]any)
+		row, _ := cl["rs485"].(map[string]any)
+		if row != nil && row["com"] == "COM_LINK" && row["echoed"].(float64) >= 1 {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("/api/conn links = %v, want rs485 on COM_LINK with its echo counted", conn["links"])
+		}
+	}
+
+	// A port whose reply comes back on the control port has no far end to bind.
 	res := postJSON(t, srv, "/api/link",
 		map[string]any{"port": "din", "com": "COM_LINK"})
 	if res["error"] == nil {
@@ -438,7 +431,7 @@ func TestPanelStreamsFrames(t *testing.T) {
 	}
 	// The backlog matters as much as the live frames: a page opened after the
 	// board has been talking has to see what it already said.
-	if !strings.Contains(text, "porttool=0.10.0") {
+	if !strings.Contains(text, "porttool=0.18.1") {
 		t.Error("the stream did not replay the backlog to a page that opened late")
 	}
 	if !strings.Contains(text, `"kind":"frame"`) {

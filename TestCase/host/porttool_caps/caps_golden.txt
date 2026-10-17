@@ -1,15 +1,15 @@
 >>> pt.caps
-OK porttool=0.10.0 ports=17 lines=53 hold=1 led=1
+OK porttool=0.18.1 ports=17 lines=54 hold=1 led=1
 OK port=din board=upper kind=session blk=D term=D02-D09 channels=8 loop=ctrl params=ch,mode,period running=0
 OK vals=din ch=1,2,3,4,5,6,7,8 mode=level period=200
 OK limits=din ch:1..8 mode:level|quad period:50..
-OK port=dout board=lower kind=session blk=A term=A03-A10 channels=8 loop=ctrl params=ch,mode,duty,freq,period running=0
-OK vals=dout ch=1,2,3,4,5,6,7,8 mode=hold duty=1:0,2:0,3:0,4:0,5:0,6:0,7:0,8:0 freq=1:1000,2:1000,3:1000,4:1000,5:1000,6:1000,7:1000,8:1000 period=1000
-OK limits=dout ch:1..8 mode:hold|blink duty:0..100 freq:1..2000 period:50..
-OK port=relay board=lower kind=session blk=B term=B01-B12 channels=6 loop=ctrl params=ch,mode,on,period running=0
-OK vals=relay ch=1,2,3,4,5,6 mode=hold on=1:0,2:0,3:0,4:0,5:0,6:0 period=2000
+OK port=dout board=lower kind=session blk=A term=A03-A10 channels=8 loop=ctrl params=ch,mode,res,duty,freq,period,cycles running=0
+OK vals=dout ch=1,2,3,4,5,6,7,8 mode=hold res=8 duty=1:0,2:0,3:0,4:0,5:0,6:0,7:0,8:0 freq=1:1000,2:1000,3:1000,4:1000,5:1000,6:1000,7:1000,8:1000 period=1000 cycles=100
+OK limits=dout ch:1..8 mode:hold|blink|quad res:1..16 duty:0..65535 freq:1..128000 period:50.. cycles:1..10000
+OK port=relay board=lower kind=session blk=B term=B01-B12 channels=6 loop=ctrl params=ch,mode,on,close,open,count running=0
+OK vals=relay ch=1,2,3,4,5,6 mode=hold on=1:0,2:0,3:0,4:0,5:0,6:0 close=2000 open=2000 count=10
 OK terms=relay B01+B02,B03+B04,B05+B06,B07+B08,B09+B10,B11+B12
-OK limits=relay ch:1..6 mode:hold|square on:0..1 period:1000..
+OK limits=relay ch:1..6 mode:hold|cycle on:0..1 close:1000.. open:1000.. count:1..1000000
 OK port=ain board=upper kind=session blk=D term=D12,D13 channels=2 loop=ctrl params=ch,period running=0
 OK vals=ain ch=1,2 period=500
 OK terms=ain D12,D13
@@ -17,15 +17,15 @@ OK limits=ain ch:1..2 period:50..
 OK port=aout board=upper kind=session blk=D term=D14,D15 channels=2 loop=ctrl params=ch,mv,period running=0
 OK vals=aout ch=1,2 mv=1:0,2:0 period=1000
 OK terms=aout D14,D15
-OK limits=aout ch:1..2 mv:0..3300 period:50..
+OK limits=aout ch:1..2 mv:0..2500 period:50..
 OK port=temp board=lower kind=session blk=- term=- channels=2 loop=ctrl params=ch,period running=0
 OK vals=temp ch=1,2 period=1000
 OK terms=temp SC-protect,HS-switch
 OK limits=temp ch:1..2 period:50..
-OK port=rs232 board=upper kind=session blk=C term=C05,C06 channels=1 loop=self params=period running=0
-OK vals=rs232 period=3000
+OK port=rs232 board=upper kind=session blk=C term=C05,C06 channels=1 loop=self params=baud,period running=0
+OK vals=rs232 baud=115200 period=3000
 OK terms=rs232 C05+C06
-OK limits=rs232 period:50..
+OK limits=rs232 baud:9600|19200|38400|57600|115200|230400 period:50..
 OK port=rs485 board=upper kind=session blk=C term=C10,C11 channels=1 loop=link params=baud,period running=0 runs=rs485.pins
 OK vals=rs485 baud=115200 period=3000
 OK terms=rs485 C10+C11
@@ -33,18 +33,19 @@ OK limits=rs485 baud:9600|19200|38400|57600|115200 period:50..
 OK port=can board=upper kind=session blk=C term=C07,C08 channels=1 loop=link params=baud,mode,period running=0
 OK vals=can baud=500000 mode=normal period=1000
 OK terms=can C07+C08
-OK limits=can baud:125000|250000|500000|1000000 mode:normal|listen|loopback|extloop|echo period:50..
-OK port=knx board=upper kind=session blk=C term=C03,C04 channels=1 loop=link params=mode,period,ga,src,val running=0
+OK limits=can baud:125000|250000|500000|1000000 mode:normal|listen|loopback|extloop|echo|bus period:50..
+OK info=can clk=HSE clk_hz=25000000 presc=1 seg1=43 seg2=6 sjw=4 tq=50 bps=500000
+OK port=knx board=upper kind=session blk=C term=C03,C04 channels=1 loop=link params=mode,period,ga,src,val running=0 runs=knx.edges,knx.hist,knx.pullup
 OK vals=knx mode=loopback period=1000 ga=31/7/255 src=15.15.250 val=toggle
 OK terms=knx C03+C04
 OK limits=knx mode:loopback|listen|frames period:50.. val:toggle|0|1
 OK port=eth board=bridge kind=session blk=- term=J1 channels=1 loop=link params=mode,port,ip,period running=0 runs=eth.link
 OK vals=eth mode=echo port=5000 ip=dhcp period=1000
-OK limits=eth mode:echo|sink|source port:1..65535 period:50..
+OK limits=eth mode:echo|sink|source|mirror|file port:1..65535 period:50..
 OK port=usb board=bridge kind=session blk=- term=J2 channels=1 loop=link params=mode,period running=0
 OK vals=usb mode=echo period=1000
-OK limits=usb mode:echo|sink|source|info period:50..
-OK port=sd board=bridge kind=session blk=- term=J6 channels=1 loop=ctrl params=period running=0 runs=sd.probe,sd.integrity,sd.speed
+OK limits=usb mode:echo|sink|source|info|mirror|file period:50..
+OK port=sd board=bridge kind=session blk=- term=J6 channels=1 loop=ctrl params=period running=0 runs=sd.probe,sd.integrity,sd.speed,sd.put,sd.get,sd.ls,sd.rm,sd.eject
 OK vals=sd period=500
 OK limits=sd period:50..
 OK port=sdram board=bridge kind=session blk=- term=U6 channels=1 loop=ctrl params=wait,period running=0 runs=sdram.probe,sdram.sweep,sdram.crc
@@ -54,30 +55,53 @@ OK port=rtc board=bridge kind=run blk=- term=- channels=1 loop=none runs=rtc.rea
 OK port=reset board=bridge kind=run blk=- term=- channels=1 loop=none runs=reset.cause
 OK port=led board=bridge kind=run blk=- term=- channels=1 loop=none runs=led.blink
 >>> pt.id
-OK uid=003400413135511439303538 porttool=0.10.0 rx_errors=0 rx_dropped=0
+OK uid=003400413135511439303538 porttool=0.18.1 rx_errors=0 rx_dropped=0
+>>> pt.cal
+OK cal=4F43414C010004004100340014513531383530390000883F000048C10000783F0000003E0000843F000080BE0000703F0000003F179E8809
+>>> pt.cal
+OK cal=FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+>>> pt.calw 4F43414C010004004100340014513531383530390000883F000048C10000783F0000003E0000843F000080BE0000703F0000003F179E8800
+ERR calw refused: crc does not match
+>>> pt.calw 4F43414C010004000100000002000000030000000000883F000048C10000783F0000003E0000843F000080BE0000703F0000003FC4434F46
+ERR calw refused: uid is not this board's
+>>> pt.calw 4F43
+ERR calw refused: want 112 hex digits
+>>> pt.calw
+ERR calw refused: want 112 hex digits
+>>> pt.calw 4FG3414C010004004100340014513531383530390000883F000048C10000783F0000003E0000843F000080BE0000703F0000003F179E8809
+ERR calw refused: not hex
+>>> pt.calw 4F43414C010004004100340014513531383530390000883F000048C10000783F0000003E0000843F000080BE0000703F0000003F179E8809
+ERR calw refused: flash banks are swapped
+TEST calw_refused_erases=0
+>>> pt.calw 4F43414C010004004100340014513531383530390000883F000048C10000783F0000003E0000843F000080BE0000703F0000003F179E8809
+OK calw words=7 ms=0
+TEST calw_erases=1 programs=7 stray=0 record=1 tail_blank=1 root_kept=1 after_root_blank=1
+>>> pt.calw 4F43414C010004004100340014513531383530390000883F000048C10000783F0000003E0000843F000080BE0000703F0000003F179E8809
+ERR calw failed: erase err=0x00000100
+TEST calw_guard below=0 above=0 misaligned=0 inside=1 stray=0
 >>> pt.list
 OK running=none
 >>> pt.start din ch=1,3,5 period=200
 OK started din
->>> pt.start relay ch=1,2 mode=square period=2000
+>>> pt.start relay ch=1,2 mode=cycle close=2000 open=2000 count=10
 OK started relay
->>> pt.start relay period=100
-ERR relay start refused: period=100 is below 1000 ms - these are mechanical relays rated 3e4 operations, and faster than
+>>> pt.start relay close=100
+ERR relay start refused: close="100" must be at least 1000 ms
 >>> pt.list
 OK running=din
 OK running=relay
 >>> pt.caps
-OK porttool=0.10.0 ports=17 lines=53 hold=1 led=1
+OK porttool=0.18.1 ports=17 lines=54 hold=1 led=1
 OK port=din board=upper kind=session blk=D term=D02-D09 channels=8 loop=ctrl params=ch,mode,period running=1
 OK vals=din ch=1,3,5 mode=level period=200
 OK limits=din ch:1..8 mode:level|quad period:50..
-OK port=dout board=lower kind=session blk=A term=A03-A10 channels=8 loop=ctrl params=ch,mode,duty,freq,period running=0
-OK vals=dout ch=1,2,3,4,5,6,7,8 mode=hold duty=1:0,2:0,3:0,4:0,5:0,6:0,7:0,8:0 freq=1:1000,2:1000,3:1000,4:1000,5:1000,6:1000,7:1000,8:1000 period=1000
-OK limits=dout ch:1..8 mode:hold|blink duty:0..100 freq:1..2000 period:50..
-OK port=relay board=lower kind=session blk=B term=B01-B12 channels=6 loop=ctrl params=ch,mode,on,period running=1
-OK vals=relay ch=1,2 mode=square on=1:0,2:0 period=2000
+OK port=dout board=lower kind=session blk=A term=A03-A10 channels=8 loop=ctrl params=ch,mode,res,duty,freq,period,cycles running=0
+OK vals=dout ch=1,2,3,4,5,6,7,8 mode=hold res=8 duty=1:0,2:0,3:0,4:0,5:0,6:0,7:0,8:0 freq=1:1000,2:1000,3:1000,4:1000,5:1000,6:1000,7:1000,8:1000 period=1000 cycles=100
+OK limits=dout ch:1..8 mode:hold|blink|quad res:1..16 duty:0..65535 freq:1..128000 period:50.. cycles:1..10000
+OK port=relay board=lower kind=session blk=B term=B01-B12 channels=6 loop=ctrl params=ch,mode,on,close,open,count running=1
+OK vals=relay ch=1,2 mode=cycle on=1:0,2:0 close=2000 open=2000 count=10
 OK terms=relay B01+B02,B03+B04,B05+B06,B07+B08,B09+B10,B11+B12
-OK limits=relay ch:1..6 mode:hold|square on:0..1 period:1000..
+OK limits=relay ch:1..6 mode:hold|cycle on:0..1 close:1000.. open:1000.. count:1..1000000
 OK port=ain board=upper kind=session blk=D term=D12,D13 channels=2 loop=ctrl params=ch,period running=0
 OK vals=ain ch=1,2 period=500
 OK terms=ain D12,D13
@@ -85,15 +109,15 @@ OK limits=ain ch:1..2 period:50..
 OK port=aout board=upper kind=session blk=D term=D14,D15 channels=2 loop=ctrl params=ch,mv,period running=0
 OK vals=aout ch=1,2 mv=1:0,2:0 period=1000
 OK terms=aout D14,D15
-OK limits=aout ch:1..2 mv:0..3300 period:50..
+OK limits=aout ch:1..2 mv:0..2500 period:50..
 OK port=temp board=lower kind=session blk=- term=- channels=2 loop=ctrl params=ch,period running=0
 OK vals=temp ch=1,2 period=1000
 OK terms=temp SC-protect,HS-switch
 OK limits=temp ch:1..2 period:50..
-OK port=rs232 board=upper kind=session blk=C term=C05,C06 channels=1 loop=self params=period running=0
-OK vals=rs232 period=3000
+OK port=rs232 board=upper kind=session blk=C term=C05,C06 channels=1 loop=self params=baud,period running=0
+OK vals=rs232 baud=115200 period=3000
 OK terms=rs232 C05+C06
-OK limits=rs232 period:50..
+OK limits=rs232 baud:9600|19200|38400|57600|115200|230400 period:50..
 OK port=rs485 board=upper kind=session blk=C term=C10,C11 channels=1 loop=link params=baud,period running=0 runs=rs485.pins
 OK vals=rs485 baud=115200 period=3000
 OK terms=rs485 C10+C11
@@ -101,18 +125,19 @@ OK limits=rs485 baud:9600|19200|38400|57600|115200 period:50..
 OK port=can board=upper kind=session blk=C term=C07,C08 channels=1 loop=link params=baud,mode,period running=0
 OK vals=can baud=500000 mode=normal period=1000
 OK terms=can C07+C08
-OK limits=can baud:125000|250000|500000|1000000 mode:normal|listen|loopback|extloop|echo period:50..
-OK port=knx board=upper kind=session blk=C term=C03,C04 channels=1 loop=link params=mode,period,ga,src,val running=0
+OK limits=can baud:125000|250000|500000|1000000 mode:normal|listen|loopback|extloop|echo|bus period:50..
+OK info=can clk=HSE clk_hz=25000000 presc=1 seg1=43 seg2=6 sjw=4 tq=50 bps=500000
+OK port=knx board=upper kind=session blk=C term=C03,C04 channels=1 loop=link params=mode,period,ga,src,val running=0 runs=knx.edges,knx.hist,knx.pullup
 OK vals=knx mode=loopback period=1000 ga=31/7/255 src=15.15.250 val=toggle
 OK terms=knx C03+C04
 OK limits=knx mode:loopback|listen|frames period:50.. val:toggle|0|1
 OK port=eth board=bridge kind=session blk=- term=J1 channels=1 loop=link params=mode,port,ip,period running=0 runs=eth.link
 OK vals=eth mode=echo port=5000 ip=dhcp period=1000
-OK limits=eth mode:echo|sink|source port:1..65535 period:50..
+OK limits=eth mode:echo|sink|source|mirror|file port:1..65535 period:50..
 OK port=usb board=bridge kind=session blk=- term=J2 channels=1 loop=link params=mode,period running=0
 OK vals=usb mode=echo period=1000
-OK limits=usb mode:echo|sink|source|info period:50..
-OK port=sd board=bridge kind=session blk=- term=J6 channels=1 loop=ctrl params=period running=0 runs=sd.probe,sd.integrity,sd.speed
+OK limits=usb mode:echo|sink|source|info|mirror|file period:50..
+OK port=sd board=bridge kind=session blk=- term=J6 channels=1 loop=ctrl params=period running=0 runs=sd.probe,sd.integrity,sd.speed,sd.put,sd.get,sd.ls,sd.rm,sd.eject
 OK vals=sd period=500
 OK limits=sd period:50..
 OK port=sdram board=bridge kind=session blk=- term=U6 channels=1 loop=ctrl params=wait,period running=0 runs=sdram.probe,sdram.sweep,sdram.crc
@@ -137,6 +162,11 @@ ERR unknown command "pt.foo"
 OK run=sd.probe         detect pin, card identification, capacity and class
 OK run=sd.integrity     write/read/verify through FatFs, passes= rounds of bytes= each
 OK run=sd.speed         how fast the card moves data each way; does not verify content
+OK run=sd.put           arm a write of name= size= into PORTTOOL/; data on eth or usb mode=file
+OK run=sd.get           send PORTTOOL/name= back on eth or usb mode=file; reply size and crc
+OK run=sd.ls            list PORTTOOL/, one !sd.file line per file
+OK run=sd.rm            delete PORTTOOL/name=
+OK run=sd.eject         stop any transfer and unmount so the card can be pulled
 OK run=sdram.probe      FMC bring-up, data bus and address bus; reports the window and three flags
 OK run=sdram.sweep      all 64 MiB, four patterns; reports mismatches and where the first was
 OK run=eth.link         PHY identity, link, and the speed/duplex auto-negotiation settled on
@@ -145,6 +175,9 @@ OK run=sdram.crc        CRC32 of one window; reads only, so it checks what a too
 OK run=rs485.pins       drives PD4 and PD5 as plain GPIO and reads them back; nothing attached
 OK run=reset.cause      why the board last came up - POR, PIN, IWDG, WWDG, SOFT or BOR
 OK run=led.blink        blinks the system indicator on PE2; a person decides whether it lit
+OK run=knx.edges        single pulses, every KNX_RX edge after each; shots= how many
+OK run=knx.hist         pulse bursts; KNX_RX width and TX->RX delay, min/avg/max and histograms
+OK run=knx.pullup       one burst with PA10's pull-up on, one with it off; leaves it on
 >>> pt.run sdram.probe
 SDRAM_TEST: probing (stub)
 OK sdram.probe base=0xC0000000 size=67108864 ready=1 databus=1 addrbus=1
@@ -225,7 +258,7 @@ ERR can start refused: FDCAN1 is not clocked (ENDN wrong), so nothing would reac
 >>> pt.start can baud=999
 ERR can start refused: baud="999" must be one of 125000, 250000, 500000, 1000000
 >>> pt.start can mode=sideways
-ERR can start refused: mode="sideways" must be normal, listen, loopback, extloop or echo
+ERR can start refused: mode="sideways" must be normal, listen, loopback, extloop, echo or bus
 >>> pt.stop all
 OK stopped all
 >>> pt.start can mode=echo period=100
@@ -238,6 +271,45 @@ TEST can_echo_idle_sent=0
 TEST can_echo_sent=1 id=123 len=4 payload=42
 >>> pt.stop can
 OK stopped can
+>>> pt.start can mode=bus period=100
+OK started can
+>>> (host) 100 ms later
+!can t=1700 seq=1 rx=0 miss=0 bps=250000 mode=bus alive=1 tx=0 rx_frames=0 junk=0 replied=0 tec=0 rec=0 lec=0 lost=0 bus=active
+TEST can_bus_idle_sent=0
+>>> pt.set can tx=123:1122AA
+!can.tx t=1700 id=0x123 dlc=3 data=1122AA ok=1
+OK set can
+TEST can_bus_sent=1 id=123 len=3 last=170
+>>> pt.set can tx=7FF
+!can.tx t=1700 id=0x7FF dlc=0 data=- ok=1
+OK set can
+>>> pt.set can tx=800:11
+ERR can set refused: tx="800:11" must be <id>:<data>, id hex up to 7FF, data 0-8 hex bytes
+>>> pt.set can tx=123:112
+ERR can set refused: tx="123:112" must be <id>:<data>, id hex up to 7FF, data 0-8 hex bytes
+>>> pt.set can tx=123:112233445566778899
+ERR can set refused: tx="123:112233445566778899" must be <id>:<data>, id hex up to 7FF, data 0-8 hex bytes
+>>> pt.set can tx=123:11 period=abc
+ERR can set refused: period="abc" is not a number
+TEST can_bus_after_refusals=2
+>>> (host) 100 ms later
+!can.rx t=1800 id=0x456 dlc=2 data=BEEF
+!can.rx t=1800 id=0x456 dlc=2 data=BEEF
+!can.rx t=1800 id=0x456 dlc=2 data=BEEF
+!can.rx t=1800 id=0x456 dlc=2 data=BEEF
+!can.rx t=1800 id=0x456 dlc=2 data=BEEF
+!can.rx t=1800 id=0x456 dlc=2 data=BEEF
+!can.rx t=1800 id=0x456 dlc=2 data=BEEF
+!can.rx t=1800 id=0x456 dlc=2 data=BEEF
+!can t=1800 seq=1 rx=0 miss=1 bps=250000 mode=bus alive=1 tx=2 rx_frames=10 junk=0 replied=0 tec=0 rec=0 lec=0 lost=2 bus=active
+>>> pt.stop can
+OK stopped can
+>>> pt.start can mode=normal
+OK started can
+>>> pt.set can tx=123:11
+ERR can set refused: tx= is for mode=bus only
+>>> pt.stop can
+OK stopped can
 >>> pt.stop all
 OK stopped all
 >>> pt.stop all
@@ -246,20 +318,20 @@ OK stopped all
 OK started eth
 TEST eth_inits=1 listening=1 port=5000 dhcp=1
 >>> (host) 100 ms later
-!eth t=1700 seq=1 rx=0 miss=0 ip=192.168.1.50 link=1 conn=0 mode=echo port=5000 rx_bytes=0 tx_bytes=0 kbps=0
+!eth t=1900 seq=1 rx=0 miss=0 ip=192.168.1.50 link=1 conn=0 mode=echo port=5000 rx_bytes=0 tx_bytes=0 kbps=0 drop=0
 >>> (host) 100 ms later
-!eth t=1800 seq=1 rx=0 miss=1 ip=192.168.1.50 link=1 conn=0 mode=echo port=5000 rx_bytes=0 tx_bytes=0 kbps=0
+!eth t=2000 seq=1 rx=0 miss=1 ip=192.168.1.50 link=1 conn=0 mode=echo port=5000 rx_bytes=0 tx_bytes=0 kbps=0 drop=0
 TEST eth_sent_before_peer=0
 TEST eth_connect=1
 >>> (host) 100 ms later
-!eth t=1900 seq=1 rx=0 miss=2 ip=192.168.1.50 link=1 conn=1 mode=echo port=5000 rx_bytes=0 tx_bytes=2 kbps=0
+!eth t=2100 seq=1 rx=0 miss=2 ip=192.168.1.50 link=1 conn=1 mode=echo port=5000 rx_bytes=0 tx_bytes=2 kbps=0 drop=0
 >>> (host) 100 ms later
-!eth t=2000 seq=2 rx=1 miss=0 ip=192.168.1.50 link=1 conn=1 mode=echo port=5000 rx_bytes=2 tx_bytes=4 kbps=0
+!eth t=2200 seq=2 rx=1 miss=0 ip=192.168.1.50 link=1 conn=1 mode=echo port=5000 rx_bytes=2 tx_bytes=4 kbps=0 drop=0
 >>> (host) 100 ms later
-!eth t=2100 seq=3 rx=2 miss=0 ip=192.168.1.50 link=1 conn=1 mode=echo port=5000 rx_bytes=4 tx_bytes=6 kbps=0
+!eth t=2300 seq=3 rx=2 miss=0 ip=192.168.1.50 link=1 conn=1 mode=echo port=5000 rx_bytes=4 tx_bytes=6 kbps=0 drop=0
 TEST eth_second_peer=0
 >>> (host) 100 ms later
-!eth t=2200 seq=3 rx=2 miss=1 ip=192.168.1.50 link=1 conn=1 mode=echo port=5000 rx_bytes=7 tx_bytes=8 kbps=0
+!eth t=2400 seq=3 rx=2 miss=1 ip=192.168.1.50 link=1 conn=1 mode=echo port=5000 rx_bytes=7 tx_bytes=8 kbps=0 drop=0
 >>> pt.echo eth 1
 ERR eth takes its echo on its own link, not on this one
 >>> pt.stop eth
@@ -269,14 +341,14 @@ OK started eth
 TEST eth_rebound=5001
 TEST eth_sink_connect=1
 >>> (host) 100 ms later
-!eth t=2300 seq=1 rx=0 miss=0 ip=192.168.1.50 link=1 conn=1 mode=sink port=5001 rx_bytes=50 tx_bytes=0 kbps=4
+!eth t=2500 seq=1 rx=0 miss=0 ip=192.168.1.50 link=1 conn=1 mode=sink port=5001 rx_bytes=50 tx_bytes=0 kbps=4 drop=0
 >>> pt.stop eth
 OK stopped eth
 >>> pt.start eth mode=source port=5000 period=100
 OK started eth
 TEST eth_source_connect=1
 >>> (host) 100 ms later
-!eth t=2400 seq=1 rx=0 miss=0 ip=192.168.1.50 link=1 conn=1 mode=source port=5000 rx_bytes=0 tx_bytes=256 kbps=20
+!eth t=2600 seq=1 rx=0 miss=0 ip=192.168.1.50 link=1 conn=1 mode=source port=5000 rx_bytes=0 tx_bytes=256 kbps=20 drop=0
 TEST eth_source_pushed=1
 >>> pt.stop eth
 OK stopped eth
@@ -284,9 +356,19 @@ OK stopped eth
 OK started eth
 TEST eth_static_dhcp=0 inits=1
 >>> (host) 1000 ms later
-!eth t=3400 seq=1 rx=0 miss=0 ip=192.168.9.9 link=1 conn=0 mode=source port=5000 rx_bytes=0 tx_bytes=0 kbps=0
+!eth t=3600 seq=1 rx=0 miss=0 ip=192.168.9.9 link=1 conn=0 mode=source port=5000 rx_bytes=0 tx_bytes=0 kbps=0 drop=0
+>>> pt.stop eth
+OK stopped eth
+>>> pt.start eth mode=mirror port=5000 period=100
+OK started eth
+TEST eth_mirror_connect=1
+>>> (host) 100 ms later
+!eth t=3700 seq=1 rx=0 miss=0 ip=192.168.9.9 link=1 conn=1 mode=mirror port=5000 rx_bytes=300 tx_bytes=256 kbps=24 drop=0
+>>> (host) 100 ms later
+!eth t=3800 seq=1 rx=0 miss=0 ip=192.168.9.9 link=1 conn=1 mode=mirror port=5000 rx_bytes=300 tx_bytes=300 kbps=0 drop=0
+TEST eth_mirror_same=1 len=300
 >>> pt.start eth mode=sideways
-ERR eth start refused: mode="sideways" must be echo, sink or source
+ERR eth start refused: mode="sideways" must be echo, sink, source, mirror or file
 >>> pt.start eth port=0
 ERR eth start refused: port="0" must be 1..65535
 >>> pt.start eth port=70000
@@ -295,56 +377,102 @@ ERR eth start refused: port="70000" must be 1..65535
 ERR eth start refused: ip="192.168.1" must be dhcp or a dotted address like 192.168.1.50
 >>> pt.stop all
 OK stopped all
+>>> pt.start eth mode=file port=5000 period=100
+OK started eth
+TEST sdf_connect=1
+>>> pt.run sd.put name=hello.txt size=10
+OK sd.put ok=1 name=hello.txt size=10 chunk=4096
+>>> (host) 10 ms later
+!eth t=3810 seq=1 rx=0 miss=0 ip=192.168.9.9 link=1 conn=1 mode=file port=5000 rx_bytes=10 tx_bytes=0 kbps=0 drop=0
+>>> (host) 10 ms later
+!sd.put t=3820 name=hello.txt size=10 wrote=10 crc=0xA684C7C6 ok=1
+TEST sdf_ack=A10
+>>> pt.run sd.ls
+!sd.file t=3820 name=hello.txt size=10 date=2026-10-13 time=12:34
+OK sd.ls ok=1 count=1
+>>> pt.run sd.get name=hello.txt
+OK sd.get ok=1 name=hello.txt size=10 crc=0xA684C7C6
+>>> (host) 10 ms later
+>>> (host) 10 ms later
+!sd.get t=3840 name=hello.txt sent=10 ok=1
+TEST sdf_get_same=1 len=10
+>>> pt.run sd.put name=a/b size=1
+OK sd.put ok=0 error=name
+>>> pt.run sd.put name=slow.bin size=5
+OK sd.put ok=1 name=slow.bin size=5 chunk=4096
+>>> (host) 10 ms later
+>>> (host) 11000 ms later
+!sd.put t=14850 name=slow.bin size=5 wrote=2 crc=0x00000000 ok=0 error=timeout
+!eth t=14850 seq=1 rx=0 miss=0 ip=192.168.9.9 link=1 conn=1 mode=file port=5000 rx_bytes=12 tx_bytes=14 kbps=1 drop=0
+>>> pt.run sd.rm name=hello.txt
+OK sd.rm ok=1 name=hello.txt
+>>> pt.run sd.rm name=slow.bin
+OK sd.rm ok=1 name=slow.bin
+>>> pt.run sd.ls
+OK sd.ls ok=1 count=0
+>>> pt.run sd.eject
+OK sd.eject ok=1 fresult=0
+>>> pt.stop all
+OK stopped all
 >>> pt.stop all
 OK stopped all
 >>> pt.start usb mode=echo period=100
 OK started usb
 TEST usb_inits=1
 >>> (host) 100 ms later
-!usb t=3500 seq=1 rx=0 miss=0 state=cfg enum=0 mode=echo rx_bytes=0 tx_bytes=2 kbps=0 busy=0
+!usb t=14950 seq=1 rx=0 miss=0 state=cfg enum=0 mode=echo rx_bytes=0 tx_bytes=2 kbps=0 busy=0 drop=0
 >>> (host) 100 ms later
-!usb t=3600 seq=2 rx=1 miss=0 state=cfg enum=0 mode=echo rx_bytes=2 tx_bytes=4 kbps=0 busy=0
+!usb t=15050 seq=2 rx=1 miss=0 state=cfg enum=0 mode=echo rx_bytes=2 tx_bytes=4 kbps=0 busy=0 drop=0
 >>> (host) 100 ms later
-!usb t=3700 seq=3 rx=2 miss=0 state=cfg enum=0 mode=echo rx_bytes=4 tx_bytes=6 kbps=0 busy=0
+!usb t=15150 seq=3 rx=2 miss=0 state=cfg enum=0 mode=echo rx_bytes=4 tx_bytes=6 kbps=0 busy=0 drop=0
 >>> (host) 100 ms later
-!usb t=3800 seq=3 rx=2 miss=1 state=cfg enum=0 mode=echo rx_bytes=7 tx_bytes=8 kbps=0 busy=0
+!usb t=15250 seq=3 rx=2 miss=1 state=cfg enum=0 mode=echo rx_bytes=7 tx_bytes=8 kbps=0 busy=0 drop=0
 >>> pt.echo usb 1
 ERR usb takes its echo on its own link, not on this one
 >>> (host) 100 ms later
-!usb t=3900 seq=3 rx=2 miss=2 state=cfg enum=0 mode=echo rx_bytes=7 tx_bytes=8 kbps=0 busy=1
+!usb t=15350 seq=3 rx=2 miss=2 state=cfg enum=0 mode=echo rx_bytes=7 tx_bytes=8 kbps=0 busy=1 drop=0
 >>> (host) 100 ms later
-!usb t=4000 seq=3 rx=2 miss=3 state=cfg enum=0 mode=echo rx_bytes=7 tx_bytes=8 kbps=0 busy=2
+!usb t=15450 seq=3 rx=2 miss=3 state=cfg enum=0 mode=echo rx_bytes=7 tx_bytes=8 kbps=0 busy=2 drop=0
 >>> (host) 100 ms later
-!usb t=4100 seq=3 rx=2 miss=4 state=default enum=1 mode=echo rx_bytes=7 tx_bytes=8 kbps=0 busy=2
+!usb t=15550 seq=3 rx=2 miss=4 state=default enum=1 mode=echo rx_bytes=7 tx_bytes=8 kbps=0 busy=2 drop=0
 >>> (host) 100 ms later
-!usb t=4200 seq=3 rx=2 miss=5 state=cfg enum=2 mode=echo rx_bytes=7 tx_bytes=10 kbps=0 busy=2
+!usb t=15650 seq=3 rx=2 miss=5 state=cfg enum=2 mode=echo rx_bytes=7 tx_bytes=10 kbps=0 busy=2 drop=0
 >>> pt.stop usb
 OK stopped usb
 >>> pt.start usb mode=sink period=100
 OK started usb
 >>> (host) 100 ms later
-!usb t=4300 seq=1 rx=0 miss=0 state=cfg enum=0 mode=sink rx_bytes=50 tx_bytes=0 kbps=4 busy=0
+!usb t=15750 seq=1 rx=0 miss=0 state=cfg enum=0 mode=sink rx_bytes=50 tx_bytes=0 kbps=4 busy=0 drop=0
 TEST usb_sink_sent=0
 >>> pt.stop usb
 OK stopped usb
 >>> pt.start usb mode=source period=100
 OK started usb
 >>> (host) 100 ms later
-!usb t=4400 seq=1 rx=0 miss=0 state=cfg enum=0 mode=source rx_bytes=0 tx_bytes=512 kbps=40 busy=0
+!usb t=15850 seq=1 rx=0 miss=0 state=cfg enum=0 mode=source rx_bytes=0 tx_bytes=512 kbps=40 busy=0 drop=0
 TEST usb_source_pushed=1
 >>> pt.stop usb
 OK stopped usb
 >>> pt.start usb mode=info period=100
 OK started usb
 >>> (host) 100 ms later
-!usb t=4500 seq=1 rx=0 miss=0 state=cfg enum=0 mode=info rx_bytes=0 tx_bytes=0 kbps=0 busy=0
+!usb t=15950 seq=1 rx=0 miss=0 state=cfg enum=0 mode=info rx_bytes=0 tx_bytes=0 kbps=0 busy=0 drop=0
 >>> (host) 100 ms later
-!usb t=4600 seq=1 rx=0 miss=0 state=cfg enum=0 mode=info rx_bytes=0 tx_bytes=0 kbps=0 busy=0
+!usb t=16050 seq=1 rx=0 miss=0 state=cfg enum=0 mode=info rx_bytes=0 tx_bytes=0 kbps=0 busy=0 drop=0
 >>> (host) 100 ms later
-!usb t=4700 seq=1 rx=0 miss=0 state=cfg enum=0 mode=info rx_bytes=0 tx_bytes=0 kbps=0 busy=0
+!usb t=16150 seq=1 rx=0 miss=0 state=cfg enum=0 mode=info rx_bytes=0 tx_bytes=0 kbps=0 busy=0 drop=0
 TEST usb_info_sent=0 inits=1
+>>> pt.stop usb
+OK stopped usb
+>>> pt.start usb mode=mirror period=100
+OK started usb
+>>> (host) 100 ms later
+!usb t=16250 seq=1 rx=0 miss=0 state=cfg enum=0 mode=mirror rx_bytes=200 tx_bytes=200 kbps=32 busy=0 drop=0
+TEST usb_mirror_same=1 len=200
+>>> (host) 100 ms later
+!usb t=16350 seq=1 rx=0 miss=0 state=cfg enum=0 mode=mirror rx_bytes=3200 tx_bytes=200 kbps=240 busy=1 drop=952
 >>> pt.start usb mode=sideways
-ERR usb start refused: mode="sideways" must be echo, sink, source or info
+ERR usb start refused: mode="sideways" must be echo, sink, source, info, mirror or file
 >>> pt.start usb period=abc
 ERR usb start refused: period="abc" is not a number
 >>> pt.stop all
@@ -357,38 +485,38 @@ OK hold=off
 ERR hold="abc" is not a number of milliseconds
 >>> pt.hold 999999999
 ERR hold=999999999 is over the 600000 ms ceiling
->>> pt.start dout ch=1,2 duty=1:100,2:100 period=100
+>>> pt.start dout ch=1,2 duty=1:255,2:255 period=100
 OK started dout
->>> pt.start relay ch=1 mode=hold on=1:1 period=1000
+>>> pt.start relay ch=1 mode=hold on=1:1
 OK started relay
 >>> pt.hold 500
 OK hold=500
 >>> pt.hold
 OK hold=500 left=500
 >>> (host) 100 ms later
-!dout t=4800 seq=1 rx=0 miss=0 mode=hold tick=100000 ch1=100 ch2=100
-!relay t=4800 seq=1 rx=0 miss=0 mode=hold ch1=1
+!dout t=16450 seq=1 rx=0 miss=0 mode=hold res=8 tick=256000 ch1=255 ch2=255
+!relay t=16450 seq=1 rx=0 miss=0 mode=hold ch1=1
 TEST hold_live_driving=1 dout_duty_any=1
 >>> pt.hold 500
 OK hold=500
 >>> (host) 400 ms later
-!dout t=5200 seq=1 rx=0 miss=1 mode=hold tick=100000 ch1=100 ch2=100
+!dout t=16850 seq=1 rx=0 miss=1 mode=hold res=8 tick=256000 ch1=255 ch2=255
 TEST hold_renewed_driving=1 dout_duty_any=1
 >>> (host) 600 ms later
-!hold t=5800 expired=1 span=500
+!hold t=17450 expired=1 span=500
 TEST hold_expired_driving=0 dout_duty_any=0 led_high=1
 >>> pt.list
 OK running=none
 >>> pt.hold
 OK hold=off
->>> pt.start dout ch=1 duty=1:100 period=100
+>>> pt.start dout ch=1 duty=1:255 period=100
 OK started dout
 >>> pt.hold 500
 OK hold=500
 >>> pt.hold 0
 OK hold=off
 >>> (host) 900 ms later
-!dout t=6700 seq=1 rx=0 miss=0 mode=hold tick=100000 ch1=100
+!dout t=18350 seq=1 rx=0 miss=0 mode=hold res=8 tick=256000 ch1=255
 TEST hold_disarmed_dout_duty_any=1
 >>> pt.stop all
 OK stopped all
@@ -407,18 +535,35 @@ OK led.blink pin=PE2 pulses=6 half_ms=250 observed=unknown
 TEST led_configured=1 led_writes=12 led_high=6
 >>> pt.stop all
 OK stopped all
+>>> pt.run knx.edges shots=2
+KNX_TEST: edges shot 1: H@+3us L@+38us
+KNX_TEST: edges shot 2: H@+3us L@+38us
+OK knx.edges busy=0 bus=ok shots=2 moved=2 edges=4 dropped=0 first_us=3 width_us=35
+>>> pt.run knx.hist
+OK knx.hist busy=0 bus=ok tx=600 rx=600 miss=0 w_min=33 w_avg=35 w_max=37 d_min=5 d_avg=7 d_max=9 w_hist=0,0,0,0,600,0,0,0 d_hist=0,0,0,0,600,0,0,0
+>>> pt.run knx.pullup
+OK knx.pullup busy=0 bus=ok pu_tx=200 pu_rx=200 pu_miss=0 pu_w_avg=35 np_tx=200 np_rx=200 np_miss=0 np_w_avg=35
+>>> pt.start knx mode=listen period=1000
+KNX_TEST: capture and bit engine started (stub)
+OK started knx
+>>> pt.run knx.hist
+OK knx.hist busy=1
+>>> pt.stop knx
+OK stopped knx
+>>> pt.stop all
+OK stopped all
 >>> pt.caps
-OK porttool=0.10.0 ports=17 lines=53 hold=1 led=1
+OK porttool=0.18.1 ports=17 lines=54 hold=1 led=1
 OK port=din board=upper kind=session blk=D term=D02-D09 channels=8 loop=ctrl params=ch,mode,period running=0
 OK vals=din ch=2,4 mode=level period=200
 OK limits=din ch:1..8 mode:level|quad period:50..
-OK port=dout board=lower kind=session blk=A term=A03-A10 channels=8 loop=ctrl params=ch,mode,duty,freq,period running=0
-OK vals=dout ch=1 mode=hold duty=1:100 freq=1:1000,2:1000,3:1000,4:1000,5:1000,6:1000,7:1000,8:1000 period=100
-OK limits=dout ch:1..8 mode:hold|blink duty:0..100 freq:1..2000 period:50..
-OK port=relay board=lower kind=session blk=B term=B01-B12 channels=6 loop=ctrl params=ch,mode,on,period running=0
-OK vals=relay ch=1 mode=hold on=1:0 period=1000
+OK port=dout board=lower kind=session blk=A term=A03-A10 channels=8 loop=ctrl params=ch,mode,res,duty,freq,period,cycles running=0
+OK vals=dout ch=1 mode=hold res=8 duty=1:255 freq=1:1000,2:1000,3:1000,4:1000,5:1000,6:1000,7:1000,8:1000 period=100 cycles=100
+OK limits=dout ch:1..8 mode:hold|blink|quad res:1..16 duty:0..65535 freq:1..128000 period:50.. cycles:1..10000
+OK port=relay board=lower kind=session blk=B term=B01-B12 channels=6 loop=ctrl params=ch,mode,on,close,open,count running=0
+OK vals=relay ch=1 mode=hold on=1:0 close=2000 open=2000 count=10
 OK terms=relay B01+B02,B03+B04,B05+B06,B07+B08,B09+B10,B11+B12
-OK limits=relay ch:1..6 mode:hold|square on:0..1 period:1000..
+OK limits=relay ch:1..6 mode:hold|cycle on:0..1 close:1000.. open:1000.. count:1..1000000
 OK port=ain board=upper kind=session blk=D term=D12,D13 channels=2 loop=ctrl params=ch,period running=0
 OK vals=ain ch=1,2 period=500
 OK terms=ain D12,D13
@@ -426,34 +571,35 @@ OK limits=ain ch:1..2 period:50..
 OK port=aout board=upper kind=session blk=D term=D14,D15 channels=2 loop=ctrl params=ch,mv,period running=0
 OK vals=aout ch=1,2 mv=1:0,2:0 period=1000
 OK terms=aout D14,D15
-OK limits=aout ch:1..2 mv:0..3300 period:50..
+OK limits=aout ch:1..2 mv:0..2500 period:50..
 OK port=temp board=lower kind=session blk=- term=- channels=2 loop=ctrl params=ch,period running=0
 OK vals=temp ch=1,2 period=1000
 OK terms=temp SC-protect,HS-switch
 OK limits=temp ch:1..2 period:50..
-OK port=rs232 board=upper kind=session blk=C term=C05,C06 channels=1 loop=self params=period running=0
-OK vals=rs232 period=3000
+OK port=rs232 board=upper kind=session blk=C term=C05,C06 channels=1 loop=self params=baud,period running=0
+OK vals=rs232 baud=115200 period=3000
 OK terms=rs232 C05+C06
-OK limits=rs232 period:50..
+OK limits=rs232 baud:9600|19200|38400|57600|115200|230400 period:50..
 OK port=rs485 board=upper kind=session blk=C term=C10,C11 channels=1 loop=link params=baud,period running=0 runs=rs485.pins
 OK vals=rs485 baud=115200 period=3000
 OK terms=rs485 C10+C11
 OK limits=rs485 baud:9600|19200|38400|57600|115200 period:50..
 OK port=can board=upper kind=session blk=C term=C07,C08 channels=1 loop=link params=baud,mode,period running=0
-OK vals=can baud=250000 mode=echo period=100
+OK vals=can baud=250000 mode=normal period=100
 OK terms=can C07+C08
-OK limits=can baud:125000|250000|500000|1000000 mode:normal|listen|loopback|extloop|echo period:50..
-OK port=knx board=upper kind=session blk=C term=C03,C04 channels=1 loop=link params=mode,period,ga,src,val running=0
-OK vals=knx mode=loopback period=1000 ga=31/7/255 src=15.15.250 val=toggle
+OK limits=can baud:125000|250000|500000|1000000 mode:normal|listen|loopback|extloop|echo|bus period:50..
+OK info=can clk=HSE clk_hz=25000000 presc=1 seg1=43 seg2=6 sjw=4 tq=50 bps=500000
+OK port=knx board=upper kind=session blk=C term=C03,C04 channels=1 loop=link params=mode,period,ga,src,val running=0 runs=knx.edges,knx.hist,knx.pullup
+OK vals=knx mode=listen period=1000 ga=31/7/255 src=15.15.250 val=toggle
 OK terms=knx C03+C04
 OK limits=knx mode:loopback|listen|frames period:50.. val:toggle|0|1
 OK port=eth board=bridge kind=session blk=- term=J1 channels=1 loop=link params=mode,port,ip,period running=0 runs=eth.link
-OK vals=eth mode=source port=5000 ip=192.168.9.9 period=100
-OK limits=eth mode:echo|sink|source port:1..65535 period:50..
+OK vals=eth mode=file port=5000 ip=192.168.9.9 period=100
+OK limits=eth mode:echo|sink|source|mirror|file port:1..65535 period:50..
 OK port=usb board=bridge kind=session blk=- term=J2 channels=1 loop=link params=mode,period running=0
-OK vals=usb mode=info period=100
-OK limits=usb mode:echo|sink|source|info period:50..
-OK port=sd board=bridge kind=session blk=- term=J6 channels=1 loop=ctrl params=period running=0 runs=sd.probe,sd.integrity,sd.speed
+OK vals=usb mode=mirror period=100
+OK limits=usb mode:echo|sink|source|info|mirror|file period:50..
+OK port=sd board=bridge kind=session blk=- term=J6 channels=1 loop=ctrl params=period running=0 runs=sd.probe,sd.integrity,sd.speed,sd.put,sd.get,sd.ls,sd.rm,sd.eject
 OK vals=sd period=500
 OK limits=sd period:50..
 OK port=sdram board=bridge kind=session blk=- term=U6 channels=1 loop=ctrl params=wait,period running=0 runs=sdram.probe,sdram.sweep,sdram.crc
@@ -467,53 +613,53 @@ OK stopped all
 >>> pt.start sd period=1000
 OK started sd
 >>> (host) 1000 ms later
-!sd t=7700 seq=1 rx=0 miss=0 detected=1 changes=0 in=0 out=0
+!sd t=19350 seq=1 rx=0 miss=0 detected=1 changes=0 in=0 out=0
 >>> (host) 10 ms later
 >>> (host) 1000 ms later
-!sd t=8710 seq=1 rx=0 miss=1 detected=0 changes=1 in=0 out=1
+!sd t=20360 seq=1 rx=0 miss=1 detected=0 changes=1 in=0 out=1
 >>> (host) 10 ms later
 >>> (host) 1000 ms later
-!sd t=9720 seq=1 rx=0 miss=2 detected=1 changes=2 in=1 out=1
+!sd t=21370 seq=1 rx=0 miss=2 detected=1 changes=2 in=1 out=1
 >>> (host) 10 ms later
 >>> (host) 10 ms later
 >>> (host) 1000 ms later
-!sd t=10740 seq=1 rx=0 miss=3 detected=1 changes=4 in=2 out=2
+!sd t=22390 seq=1 rx=0 miss=3 detected=1 changes=4 in=2 out=2
 >>> pt.start sd period=1000
 OK started sd
 >>> (host) 1000 ms later
-!sd t=11740 seq=1 rx=0 miss=0 detected=1 changes=0 in=0 out=0
+!sd t=23390 seq=1 rx=0 miss=0 detected=1 changes=0 in=0 out=0
 >>> pt.stop all
 OK stopped all
 >>> pt.start din ch=1,2,3,4,5,6,7,8 mode=quad period=1000
 OK started din
 >>> (host) 10 ms later
-!din t=11750 seq=1 rx=0 miss=0 v=0x00 mode=quad g1=0 d1=0 g2=0 d2=0 g3=0 d3=0 g4=0 d4=0 err=0
+!din t=23400 seq=1 rx=0 miss=0 v=0x00 mode=quad g1=0 d1=0 g2=0 d2=0 g3=0 d3=0 g4=0 d4=0 err=0 moved=0x00
 >>> (host) 10 ms later
 >>> (host) 10 ms later
 >>> (host) 10 ms later
 >>> (host) 10 ms later
 >>> (host) 1000 ms later
-!din t=12790 seq=1 rx=0 miss=1 v=0x00 mode=quad g1=4 d1=1 g2=0 d2=0 g3=0 d3=0 g4=0 d4=0 err=0
+!din t=24440 seq=1 rx=0 miss=1 v=0x00 mode=quad g1=4 d1=1 g2=0 d2=0 g3=0 d3=0 g4=0 d4=0 err=0 moved=0x03
 >>> (host) 10 ms later
 >>> (host) 10 ms later
 >>> (host) 10 ms later
 >>> (host) 10 ms later
 >>> (host) 1000 ms later
-!din t=13830 seq=1 rx=0 miss=2 v=0x00 mode=quad g1=0 d1=-1 g2=0 d2=0 g3=0 d3=0 g4=0 d4=0 err=0
+!din t=25480 seq=1 rx=0 miss=2 v=0x00 mode=quad g1=0 d1=-1 g2=0 d2=0 g3=0 d3=0 g4=0 d4=0 err=0 moved=0x03
 >>> (host) 10 ms later
 >>> (host) 1000 ms later
-!din t=14840 seq=1 rx=0 miss=3 v=0x03 mode=quad g1=0 d1=-1 g2=0 d2=0 g3=0 d3=0 g4=0 d4=0 err=1
+!din t=26490 seq=1 rx=0 miss=3 v=0x03 mode=quad g1=0 d1=-1 g2=0 d2=0 g3=0 d3=0 g4=0 d4=0 err=1 moved=0x03
 >>> (host) 10 ms later
 >>> (host) 10 ms later
 >>> (host) 10 ms later
 >>> (host) 10 ms later
 >>> (host) 10 ms later
 >>> (host) 1000 ms later
-!din t=15890 seq=1 rx=0 miss=4 v=0x00 mode=quad g1=0 d1=-1 g2=4 d2=1 g3=0 d3=0 g4=0 d4=0 err=2
+!din t=27540 seq=1 rx=0 miss=4 v=0x00 mode=quad g1=0 d1=-1 g2=4 d2=1 g3=0 d3=0 g4=0 d4=0 err=2 moved=0x0F
 >>> pt.start din ch=1,2,3,4 mode=level period=1000
 OK started din
 >>> (host) 1000 ms later
-!din t=16890 seq=1 rx=0 miss=0 v=0x16 mode=level ch1=0 ch2=1 ch3=1 ch4=0
+!din t=28540 seq=1 rx=0 miss=0 v=0x16 mode=level ch1=0 ch2=1 ch3=1 ch4=0
 >>> pt.stop all
 OK stopped all
 >>> pt.stop all
@@ -521,23 +667,23 @@ OK stopped all
 >>> pt.start din ch=1 period=200
 OK started din
 >>> (host) 200 ms later
-!din t=17090 seq=1 rx=0 miss=0 v=0x16 mode=level ch1=0
+!din t=28740 seq=1 rx=0 miss=0 v=0x16 mode=level ch1=0
 >>> pt.echo din 1
 OK echo din 1
 >>> (host) 200 ms later
-!din t=17290 seq=2 rx=1 miss=0 v=0x16 mode=level ch1=0
+!din t=28940 seq=2 rx=1 miss=0 v=0x16 mode=level ch1=0
 >>> pt.echo din 2
 OK echo din 2
 >>> (host) 200 ms later
-!din t=17490 seq=3 rx=2 miss=0 v=0x16 mode=level ch1=0
+!din t=29140 seq=3 rx=2 miss=0 v=0x16 mode=level ch1=0
 >>> (host) 200 ms later
-!din t=17690 seq=3 rx=2 miss=1 v=0x16 mode=level ch1=0
+!din t=29340 seq=3 rx=2 miss=1 v=0x16 mode=level ch1=0
 >>> (host) 200 ms later
-!din t=17890 seq=3 rx=2 miss=2 v=0x16 mode=level ch1=0
+!din t=29540 seq=3 rx=2 miss=2 v=0x16 mode=level ch1=0
 >>> pt.echo din 99
 OK echo din 99
 >>> (host) 200 ms later
-!din t=18090 seq=3 rx=2 miss=3 v=0x16 mode=level ch1=0
+!din t=29740 seq=3 rx=2 miss=3 v=0x16 mode=level ch1=0
 >>> pt.echo relay 1
 ERR relay is not running
 >>> pt.echo nosuch 1
@@ -551,17 +697,17 @@ OK stopped all
 >>> pt.start relay ch=1,2,3 mode=hold on=1:1,2:0,3:1
 OK started relay
 >>> pt.caps
-OK porttool=0.10.0 ports=17 lines=53 hold=1 led=1
+OK porttool=0.18.1 ports=17 lines=54 hold=1 led=1
 OK port=din board=upper kind=session blk=D term=D02-D09 channels=8 loop=ctrl params=ch,mode,period running=0
 OK vals=din ch=1 mode=level period=200
 OK limits=din ch:1..8 mode:level|quad period:50..
-OK port=dout board=lower kind=session blk=A term=A03-A10 channels=8 loop=ctrl params=ch,mode,duty,freq,period running=0
-OK vals=dout ch=1 mode=hold duty=1:100 freq=1:1000,2:1000,3:1000,4:1000,5:1000,6:1000,7:1000,8:1000 period=100
-OK limits=dout ch:1..8 mode:hold|blink duty:0..100 freq:1..2000 period:50..
-OK port=relay board=lower kind=session blk=B term=B01-B12 channels=6 loop=ctrl params=ch,mode,on,period running=1
-OK vals=relay ch=1,2,3 mode=hold on=1:1,2:0,3:1 period=1000
+OK port=dout board=lower kind=session blk=A term=A03-A10 channels=8 loop=ctrl params=ch,mode,res,duty,freq,period,cycles running=0
+OK vals=dout ch=1 mode=hold res=8 duty=1:255 freq=1:1000,2:1000,3:1000,4:1000,5:1000,6:1000,7:1000,8:1000 period=100 cycles=100
+OK limits=dout ch:1..8 mode:hold|blink|quad res:1..16 duty:0..65535 freq:1..128000 period:50.. cycles:1..10000
+OK port=relay board=lower kind=session blk=B term=B01-B12 channels=6 loop=ctrl params=ch,mode,on,close,open,count running=1
+OK vals=relay ch=1,2,3 mode=hold on=1:1,2:0,3:1 close=2000 open=2000 count=10
 OK terms=relay B01+B02,B03+B04,B05+B06,B07+B08,B09+B10,B11+B12
-OK limits=relay ch:1..6 mode:hold|square on:0..1 period:1000..
+OK limits=relay ch:1..6 mode:hold|cycle on:0..1 close:1000.. open:1000.. count:1..1000000
 OK port=ain board=upper kind=session blk=D term=D12,D13 channels=2 loop=ctrl params=ch,period running=0
 OK vals=ain ch=1,2 period=500
 OK terms=ain D12,D13
@@ -569,34 +715,35 @@ OK limits=ain ch:1..2 period:50..
 OK port=aout board=upper kind=session blk=D term=D14,D15 channels=2 loop=ctrl params=ch,mv,period running=0
 OK vals=aout ch=1,2 mv=1:0,2:0 period=1000
 OK terms=aout D14,D15
-OK limits=aout ch:1..2 mv:0..3300 period:50..
+OK limits=aout ch:1..2 mv:0..2500 period:50..
 OK port=temp board=lower kind=session blk=- term=- channels=2 loop=ctrl params=ch,period running=0
 OK vals=temp ch=1,2 period=1000
 OK terms=temp SC-protect,HS-switch
 OK limits=temp ch:1..2 period:50..
-OK port=rs232 board=upper kind=session blk=C term=C05,C06 channels=1 loop=self params=period running=0
-OK vals=rs232 period=3000
+OK port=rs232 board=upper kind=session blk=C term=C05,C06 channels=1 loop=self params=baud,period running=0
+OK vals=rs232 baud=115200 period=3000
 OK terms=rs232 C05+C06
-OK limits=rs232 period:50..
+OK limits=rs232 baud:9600|19200|38400|57600|115200|230400 period:50..
 OK port=rs485 board=upper kind=session blk=C term=C10,C11 channels=1 loop=link params=baud,period running=0 runs=rs485.pins
 OK vals=rs485 baud=115200 period=3000
 OK terms=rs485 C10+C11
 OK limits=rs485 baud:9600|19200|38400|57600|115200 period:50..
 OK port=can board=upper kind=session blk=C term=C07,C08 channels=1 loop=link params=baud,mode,period running=0
-OK vals=can baud=250000 mode=echo period=100
+OK vals=can baud=250000 mode=normal period=100
 OK terms=can C07+C08
-OK limits=can baud:125000|250000|500000|1000000 mode:normal|listen|loopback|extloop|echo period:50..
-OK port=knx board=upper kind=session blk=C term=C03,C04 channels=1 loop=link params=mode,period,ga,src,val running=0
-OK vals=knx mode=loopback period=1000 ga=31/7/255 src=15.15.250 val=toggle
+OK limits=can baud:125000|250000|500000|1000000 mode:normal|listen|loopback|extloop|echo|bus period:50..
+OK info=can clk=HSE clk_hz=25000000 presc=1 seg1=43 seg2=6 sjw=4 tq=50 bps=500000
+OK port=knx board=upper kind=session blk=C term=C03,C04 channels=1 loop=link params=mode,period,ga,src,val running=0 runs=knx.edges,knx.hist,knx.pullup
+OK vals=knx mode=listen period=1000 ga=31/7/255 src=15.15.250 val=toggle
 OK terms=knx C03+C04
 OK limits=knx mode:loopback|listen|frames period:50.. val:toggle|0|1
 OK port=eth board=bridge kind=session blk=- term=J1 channels=1 loop=link params=mode,port,ip,period running=0 runs=eth.link
-OK vals=eth mode=source port=5000 ip=192.168.9.9 period=100
-OK limits=eth mode:echo|sink|source port:1..65535 period:50..
+OK vals=eth mode=file port=5000 ip=192.168.9.9 period=100
+OK limits=eth mode:echo|sink|source|mirror|file port:1..65535 period:50..
 OK port=usb board=bridge kind=session blk=- term=J2 channels=1 loop=link params=mode,period running=0
-OK vals=usb mode=info period=100
-OK limits=usb mode:echo|sink|source|info period:50..
-OK port=sd board=bridge kind=session blk=- term=J6 channels=1 loop=ctrl params=period running=0 runs=sd.probe,sd.integrity,sd.speed
+OK vals=usb mode=mirror period=100
+OK limits=usb mode:echo|sink|source|info|mirror|file period:50..
+OK port=sd board=bridge kind=session blk=- term=J6 channels=1 loop=ctrl params=period running=0 runs=sd.probe,sd.integrity,sd.speed,sd.put,sd.get,sd.ls,sd.rm,sd.eject
 OK vals=sd period=1000
 OK limits=sd period:50..
 OK port=sdram board=bridge kind=session blk=- term=U6 channels=1 loop=ctrl params=wait,period running=0 runs=sdram.probe,sdram.sweep,sdram.crc
@@ -608,17 +755,17 @@ OK port=led board=bridge kind=run blk=- term=- channels=1 loop=none runs=led.bli
 >>> pt.set relay on=2:1
 OK set relay
 >>> pt.caps
-OK porttool=0.10.0 ports=17 lines=53 hold=1 led=1
+OK porttool=0.18.1 ports=17 lines=54 hold=1 led=1
 OK port=din board=upper kind=session blk=D term=D02-D09 channels=8 loop=ctrl params=ch,mode,period running=0
 OK vals=din ch=1 mode=level period=200
 OK limits=din ch:1..8 mode:level|quad period:50..
-OK port=dout board=lower kind=session blk=A term=A03-A10 channels=8 loop=ctrl params=ch,mode,duty,freq,period running=0
-OK vals=dout ch=1 mode=hold duty=1:100 freq=1:1000,2:1000,3:1000,4:1000,5:1000,6:1000,7:1000,8:1000 period=100
-OK limits=dout ch:1..8 mode:hold|blink duty:0..100 freq:1..2000 period:50..
-OK port=relay board=lower kind=session blk=B term=B01-B12 channels=6 loop=ctrl params=ch,mode,on,period running=1
-OK vals=relay ch=1,2,3 mode=hold on=1:1,2:1,3:1 period=1000
+OK port=dout board=lower kind=session blk=A term=A03-A10 channels=8 loop=ctrl params=ch,mode,res,duty,freq,period,cycles running=0
+OK vals=dout ch=1 mode=hold res=8 duty=1:255 freq=1:1000,2:1000,3:1000,4:1000,5:1000,6:1000,7:1000,8:1000 period=100 cycles=100
+OK limits=dout ch:1..8 mode:hold|blink|quad res:1..16 duty:0..65535 freq:1..128000 period:50.. cycles:1..10000
+OK port=relay board=lower kind=session blk=B term=B01-B12 channels=6 loop=ctrl params=ch,mode,on,close,open,count running=1
+OK vals=relay ch=1,2,3 mode=hold on=1:1,2:1,3:1 close=2000 open=2000 count=10
 OK terms=relay B01+B02,B03+B04,B05+B06,B07+B08,B09+B10,B11+B12
-OK limits=relay ch:1..6 mode:hold|square on:0..1 period:1000..
+OK limits=relay ch:1..6 mode:hold|cycle on:0..1 close:1000.. open:1000.. count:1..1000000
 OK port=ain board=upper kind=session blk=D term=D12,D13 channels=2 loop=ctrl params=ch,period running=0
 OK vals=ain ch=1,2 period=500
 OK terms=ain D12,D13
@@ -626,34 +773,35 @@ OK limits=ain ch:1..2 period:50..
 OK port=aout board=upper kind=session blk=D term=D14,D15 channels=2 loop=ctrl params=ch,mv,period running=0
 OK vals=aout ch=1,2 mv=1:0,2:0 period=1000
 OK terms=aout D14,D15
-OK limits=aout ch:1..2 mv:0..3300 period:50..
+OK limits=aout ch:1..2 mv:0..2500 period:50..
 OK port=temp board=lower kind=session blk=- term=- channels=2 loop=ctrl params=ch,period running=0
 OK vals=temp ch=1,2 period=1000
 OK terms=temp SC-protect,HS-switch
 OK limits=temp ch:1..2 period:50..
-OK port=rs232 board=upper kind=session blk=C term=C05,C06 channels=1 loop=self params=period running=0
-OK vals=rs232 period=3000
+OK port=rs232 board=upper kind=session blk=C term=C05,C06 channels=1 loop=self params=baud,period running=0
+OK vals=rs232 baud=115200 period=3000
 OK terms=rs232 C05+C06
-OK limits=rs232 period:50..
+OK limits=rs232 baud:9600|19200|38400|57600|115200|230400 period:50..
 OK port=rs485 board=upper kind=session blk=C term=C10,C11 channels=1 loop=link params=baud,period running=0 runs=rs485.pins
 OK vals=rs485 baud=115200 period=3000
 OK terms=rs485 C10+C11
 OK limits=rs485 baud:9600|19200|38400|57600|115200 period:50..
 OK port=can board=upper kind=session blk=C term=C07,C08 channels=1 loop=link params=baud,mode,period running=0
-OK vals=can baud=250000 mode=echo period=100
+OK vals=can baud=250000 mode=normal period=100
 OK terms=can C07+C08
-OK limits=can baud:125000|250000|500000|1000000 mode:normal|listen|loopback|extloop|echo period:50..
-OK port=knx board=upper kind=session blk=C term=C03,C04 channels=1 loop=link params=mode,period,ga,src,val running=0
-OK vals=knx mode=loopback period=1000 ga=31/7/255 src=15.15.250 val=toggle
+OK limits=can baud:125000|250000|500000|1000000 mode:normal|listen|loopback|extloop|echo|bus period:50..
+OK info=can clk=HSE clk_hz=25000000 presc=1 seg1=43 seg2=6 sjw=4 tq=50 bps=500000
+OK port=knx board=upper kind=session blk=C term=C03,C04 channels=1 loop=link params=mode,period,ga,src,val running=0 runs=knx.edges,knx.hist,knx.pullup
+OK vals=knx mode=listen period=1000 ga=31/7/255 src=15.15.250 val=toggle
 OK terms=knx C03+C04
 OK limits=knx mode:loopback|listen|frames period:50.. val:toggle|0|1
 OK port=eth board=bridge kind=session blk=- term=J1 channels=1 loop=link params=mode,port,ip,period running=0 runs=eth.link
-OK vals=eth mode=source port=5000 ip=192.168.9.9 period=100
-OK limits=eth mode:echo|sink|source port:1..65535 period:50..
+OK vals=eth mode=file port=5000 ip=192.168.9.9 period=100
+OK limits=eth mode:echo|sink|source|mirror|file port:1..65535 period:50..
 OK port=usb board=bridge kind=session blk=- term=J2 channels=1 loop=link params=mode,period running=0
-OK vals=usb mode=info period=100
-OK limits=usb mode:echo|sink|source|info period:50..
-OK port=sd board=bridge kind=session blk=- term=J6 channels=1 loop=ctrl params=period running=0 runs=sd.probe,sd.integrity,sd.speed
+OK vals=usb mode=mirror period=100
+OK limits=usb mode:echo|sink|source|info|mirror|file period:50..
+OK port=sd board=bridge kind=session blk=- term=J6 channels=1 loop=ctrl params=period running=0 runs=sd.probe,sd.integrity,sd.speed,sd.put,sd.get,sd.ls,sd.rm,sd.eject
 OK vals=sd period=1000
 OK limits=sd period:50..
 OK port=sdram board=bridge kind=session blk=- term=U6 channels=1 loop=ctrl params=wait,period running=0 runs=sdram.probe,sdram.sweep,sdram.crc
@@ -671,17 +819,17 @@ ERR relay start refused: on="1:1,1:0" must be like 1:1,2:0 - relays 1..6, level 
 >>> pt.start relay on=1:
 ERR relay start refused: on="1:" must be like 1:1,2:0 - relays 1..6, level 0 or 1, each relay named at most once
 >>> pt.caps
-OK porttool=0.10.0 ports=17 lines=53 hold=1 led=1
+OK porttool=0.18.1 ports=17 lines=54 hold=1 led=1
 OK port=din board=upper kind=session blk=D term=D02-D09 channels=8 loop=ctrl params=ch,mode,period running=0
 OK vals=din ch=1 mode=level period=200
 OK limits=din ch:1..8 mode:level|quad period:50..
-OK port=dout board=lower kind=session blk=A term=A03-A10 channels=8 loop=ctrl params=ch,mode,duty,freq,period running=0
-OK vals=dout ch=1 mode=hold duty=1:100 freq=1:1000,2:1000,3:1000,4:1000,5:1000,6:1000,7:1000,8:1000 period=100
-OK limits=dout ch:1..8 mode:hold|blink duty:0..100 freq:1..2000 period:50..
-OK port=relay board=lower kind=session blk=B term=B01-B12 channels=6 loop=ctrl params=ch,mode,on,period running=1
-OK vals=relay ch=1,2,3 mode=hold on=1:1,2:1,3:1 period=1000
+OK port=dout board=lower kind=session blk=A term=A03-A10 channels=8 loop=ctrl params=ch,mode,res,duty,freq,period,cycles running=0
+OK vals=dout ch=1 mode=hold res=8 duty=1:255 freq=1:1000,2:1000,3:1000,4:1000,5:1000,6:1000,7:1000,8:1000 period=100 cycles=100
+OK limits=dout ch:1..8 mode:hold|blink|quad res:1..16 duty:0..65535 freq:1..128000 period:50.. cycles:1..10000
+OK port=relay board=lower kind=session blk=B term=B01-B12 channels=6 loop=ctrl params=ch,mode,on,close,open,count running=1
+OK vals=relay ch=1,2,3 mode=hold on=1:1,2:1,3:1 close=2000 open=2000 count=10
 OK terms=relay B01+B02,B03+B04,B05+B06,B07+B08,B09+B10,B11+B12
-OK limits=relay ch:1..6 mode:hold|square on:0..1 period:1000..
+OK limits=relay ch:1..6 mode:hold|cycle on:0..1 close:1000.. open:1000.. count:1..1000000
 OK port=ain board=upper kind=session blk=D term=D12,D13 channels=2 loop=ctrl params=ch,period running=0
 OK vals=ain ch=1,2 period=500
 OK terms=ain D12,D13
@@ -689,34 +837,35 @@ OK limits=ain ch:1..2 period:50..
 OK port=aout board=upper kind=session blk=D term=D14,D15 channels=2 loop=ctrl params=ch,mv,period running=0
 OK vals=aout ch=1,2 mv=1:0,2:0 period=1000
 OK terms=aout D14,D15
-OK limits=aout ch:1..2 mv:0..3300 period:50..
+OK limits=aout ch:1..2 mv:0..2500 period:50..
 OK port=temp board=lower kind=session blk=- term=- channels=2 loop=ctrl params=ch,period running=0
 OK vals=temp ch=1,2 period=1000
 OK terms=temp SC-protect,HS-switch
 OK limits=temp ch:1..2 period:50..
-OK port=rs232 board=upper kind=session blk=C term=C05,C06 channels=1 loop=self params=period running=0
-OK vals=rs232 period=3000
+OK port=rs232 board=upper kind=session blk=C term=C05,C06 channels=1 loop=self params=baud,period running=0
+OK vals=rs232 baud=115200 period=3000
 OK terms=rs232 C05+C06
-OK limits=rs232 period:50..
+OK limits=rs232 baud:9600|19200|38400|57600|115200|230400 period:50..
 OK port=rs485 board=upper kind=session blk=C term=C10,C11 channels=1 loop=link params=baud,period running=0 runs=rs485.pins
 OK vals=rs485 baud=115200 period=3000
 OK terms=rs485 C10+C11
 OK limits=rs485 baud:9600|19200|38400|57600|115200 period:50..
 OK port=can board=upper kind=session blk=C term=C07,C08 channels=1 loop=link params=baud,mode,period running=0
-OK vals=can baud=250000 mode=echo period=100
+OK vals=can baud=250000 mode=normal period=100
 OK terms=can C07+C08
-OK limits=can baud:125000|250000|500000|1000000 mode:normal|listen|loopback|extloop|echo period:50..
-OK port=knx board=upper kind=session blk=C term=C03,C04 channels=1 loop=link params=mode,period,ga,src,val running=0
-OK vals=knx mode=loopback period=1000 ga=31/7/255 src=15.15.250 val=toggle
+OK limits=can baud:125000|250000|500000|1000000 mode:normal|listen|loopback|extloop|echo|bus period:50..
+OK info=can clk=HSE clk_hz=25000000 presc=1 seg1=43 seg2=6 sjw=4 tq=50 bps=500000
+OK port=knx board=upper kind=session blk=C term=C03,C04 channels=1 loop=link params=mode,period,ga,src,val running=0 runs=knx.edges,knx.hist,knx.pullup
+OK vals=knx mode=listen period=1000 ga=31/7/255 src=15.15.250 val=toggle
 OK terms=knx C03+C04
 OK limits=knx mode:loopback|listen|frames period:50.. val:toggle|0|1
 OK port=eth board=bridge kind=session blk=- term=J1 channels=1 loop=link params=mode,port,ip,period running=0 runs=eth.link
-OK vals=eth mode=source port=5000 ip=192.168.9.9 period=100
-OK limits=eth mode:echo|sink|source port:1..65535 period:50..
+OK vals=eth mode=file port=5000 ip=192.168.9.9 period=100
+OK limits=eth mode:echo|sink|source|mirror|file port:1..65535 period:50..
 OK port=usb board=bridge kind=session blk=- term=J2 channels=1 loop=link params=mode,period running=0
-OK vals=usb mode=info period=100
-OK limits=usb mode:echo|sink|source|info period:50..
-OK port=sd board=bridge kind=session blk=- term=J6 channels=1 loop=ctrl params=period running=0 runs=sd.probe,sd.integrity,sd.speed
+OK vals=usb mode=mirror period=100
+OK limits=usb mode:echo|sink|source|info|mirror|file period:50..
+OK port=sd board=bridge kind=session blk=- term=J6 channels=1 loop=ctrl params=period running=0 runs=sd.probe,sd.integrity,sd.speed,sd.put,sd.get,sd.ls,sd.rm,sd.eject
 OK vals=sd period=1000
 OK limits=sd period:50..
 OK port=sdram board=bridge kind=session blk=- term=U6 channels=1 loop=ctrl params=wait,period running=0 runs=sdram.probe,sdram.sweep,sdram.crc
@@ -730,17 +879,17 @@ OK stopped all
 >>> pt.start din ch=2,4 period=nonsense
 ERR din start refused: period="nonsense" is not a number
 >>> pt.caps
-OK porttool=0.10.0 ports=17 lines=53 hold=1 led=1
+OK porttool=0.18.1 ports=17 lines=54 hold=1 led=1
 OK port=din board=upper kind=session blk=D term=D02-D09 channels=8 loop=ctrl params=ch,mode,period running=0
 OK vals=din ch=1 mode=level period=200
 OK limits=din ch:1..8 mode:level|quad period:50..
-OK port=dout board=lower kind=session blk=A term=A03-A10 channels=8 loop=ctrl params=ch,mode,duty,freq,period running=0
-OK vals=dout ch=1 mode=hold duty=1:100 freq=1:1000,2:1000,3:1000,4:1000,5:1000,6:1000,7:1000,8:1000 period=100
-OK limits=dout ch:1..8 mode:hold|blink duty:0..100 freq:1..2000 period:50..
-OK port=relay board=lower kind=session blk=B term=B01-B12 channels=6 loop=ctrl params=ch,mode,on,period running=0
-OK vals=relay ch=1,2,3 mode=hold on=1:0,2:0,3:0 period=1000
+OK port=dout board=lower kind=session blk=A term=A03-A10 channels=8 loop=ctrl params=ch,mode,res,duty,freq,period,cycles running=0
+OK vals=dout ch=1 mode=hold res=8 duty=1:255 freq=1:1000,2:1000,3:1000,4:1000,5:1000,6:1000,7:1000,8:1000 period=100 cycles=100
+OK limits=dout ch:1..8 mode:hold|blink|quad res:1..16 duty:0..65535 freq:1..128000 period:50.. cycles:1..10000
+OK port=relay board=lower kind=session blk=B term=B01-B12 channels=6 loop=ctrl params=ch,mode,on,close,open,count running=0
+OK vals=relay ch=1,2,3 mode=hold on=1:0,2:0,3:0 close=2000 open=2000 count=10
 OK terms=relay B01+B02,B03+B04,B05+B06,B07+B08,B09+B10,B11+B12
-OK limits=relay ch:1..6 mode:hold|square on:0..1 period:1000..
+OK limits=relay ch:1..6 mode:hold|cycle on:0..1 close:1000.. open:1000.. count:1..1000000
 OK port=ain board=upper kind=session blk=D term=D12,D13 channels=2 loop=ctrl params=ch,period running=0
 OK vals=ain ch=1,2 period=500
 OK terms=ain D12,D13
@@ -748,34 +897,35 @@ OK limits=ain ch:1..2 period:50..
 OK port=aout board=upper kind=session blk=D term=D14,D15 channels=2 loop=ctrl params=ch,mv,period running=0
 OK vals=aout ch=1,2 mv=1:0,2:0 period=1000
 OK terms=aout D14,D15
-OK limits=aout ch:1..2 mv:0..3300 period:50..
+OK limits=aout ch:1..2 mv:0..2500 period:50..
 OK port=temp board=lower kind=session blk=- term=- channels=2 loop=ctrl params=ch,period running=0
 OK vals=temp ch=1,2 period=1000
 OK terms=temp SC-protect,HS-switch
 OK limits=temp ch:1..2 period:50..
-OK port=rs232 board=upper kind=session blk=C term=C05,C06 channels=1 loop=self params=period running=0
-OK vals=rs232 period=3000
+OK port=rs232 board=upper kind=session blk=C term=C05,C06 channels=1 loop=self params=baud,period running=0
+OK vals=rs232 baud=115200 period=3000
 OK terms=rs232 C05+C06
-OK limits=rs232 period:50..
+OK limits=rs232 baud:9600|19200|38400|57600|115200|230400 period:50..
 OK port=rs485 board=upper kind=session blk=C term=C10,C11 channels=1 loop=link params=baud,period running=0 runs=rs485.pins
 OK vals=rs485 baud=115200 period=3000
 OK terms=rs485 C10+C11
 OK limits=rs485 baud:9600|19200|38400|57600|115200 period:50..
 OK port=can board=upper kind=session blk=C term=C07,C08 channels=1 loop=link params=baud,mode,period running=0
-OK vals=can baud=250000 mode=echo period=100
+OK vals=can baud=250000 mode=normal period=100
 OK terms=can C07+C08
-OK limits=can baud:125000|250000|500000|1000000 mode:normal|listen|loopback|extloop|echo period:50..
-OK port=knx board=upper kind=session blk=C term=C03,C04 channels=1 loop=link params=mode,period,ga,src,val running=0
-OK vals=knx mode=loopback period=1000 ga=31/7/255 src=15.15.250 val=toggle
+OK limits=can baud:125000|250000|500000|1000000 mode:normal|listen|loopback|extloop|echo|bus period:50..
+OK info=can clk=HSE clk_hz=25000000 presc=1 seg1=43 seg2=6 sjw=4 tq=50 bps=500000
+OK port=knx board=upper kind=session blk=C term=C03,C04 channels=1 loop=link params=mode,period,ga,src,val running=0 runs=knx.edges,knx.hist,knx.pullup
+OK vals=knx mode=listen period=1000 ga=31/7/255 src=15.15.250 val=toggle
 OK terms=knx C03+C04
 OK limits=knx mode:loopback|listen|frames period:50.. val:toggle|0|1
 OK port=eth board=bridge kind=session blk=- term=J1 channels=1 loop=link params=mode,port,ip,period running=0 runs=eth.link
-OK vals=eth mode=source port=5000 ip=192.168.9.9 period=100
-OK limits=eth mode:echo|sink|source port:1..65535 period:50..
+OK vals=eth mode=file port=5000 ip=192.168.9.9 period=100
+OK limits=eth mode:echo|sink|source|mirror|file port:1..65535 period:50..
 OK port=usb board=bridge kind=session blk=- term=J2 channels=1 loop=link params=mode,period running=0
-OK vals=usb mode=info period=100
-OK limits=usb mode:echo|sink|source|info period:50..
-OK port=sd board=bridge kind=session blk=- term=J6 channels=1 loop=ctrl params=period running=0 runs=sd.probe,sd.integrity,sd.speed
+OK vals=usb mode=mirror period=100
+OK limits=usb mode:echo|sink|source|info|mirror|file period:50..
+OK port=sd board=bridge kind=session blk=- term=J6 channels=1 loop=ctrl params=period running=0 runs=sd.probe,sd.integrity,sd.speed,sd.put,sd.get,sd.ls,sd.rm,sd.eject
 OK vals=sd period=1000
 OK limits=sd period:50..
 OK port=sdram board=bridge kind=session blk=- term=U6 channels=1 loop=ctrl params=wait,period running=0 runs=sdram.probe,sdram.sweep,sdram.crc
@@ -784,20 +934,20 @@ OK limits=sdram wait:1000.. period:50..
 OK port=rtc board=bridge kind=run blk=- term=- channels=1 loop=none runs=rtc.read
 OK port=reset board=bridge kind=run blk=- term=- channels=1 loop=none runs=reset.cause
 OK port=led board=bridge kind=run blk=- term=- channels=1 loop=none runs=led.blink
->>> pt.start dout ch=1,5 mode=hold duty=1:20,5:75 freq=1000
+>>> pt.start dout ch=1,5 mode=hold duty=1:51,5:191 freq=1000
 OK started dout
 >>> pt.caps
-OK porttool=0.10.0 ports=17 lines=53 hold=1 led=1
+OK porttool=0.18.1 ports=17 lines=54 hold=1 led=1
 OK port=din board=upper kind=session blk=D term=D02-D09 channels=8 loop=ctrl params=ch,mode,period running=0
 OK vals=din ch=1 mode=level period=200
 OK limits=din ch:1..8 mode:level|quad period:50..
-OK port=dout board=lower kind=session blk=A term=A03-A10 channels=8 loop=ctrl params=ch,mode,duty,freq,period running=1
-OK vals=dout ch=1,5 mode=hold duty=1:20,5:75 freq=1:1000,2:1000,3:1000,4:1000,5:1000,6:1000,7:1000,8:1000 period=100
-OK limits=dout ch:1..8 mode:hold|blink duty:0..100 freq:1..2000 period:50..
-OK port=relay board=lower kind=session blk=B term=B01-B12 channels=6 loop=ctrl params=ch,mode,on,period running=0
-OK vals=relay ch=1,2,3 mode=hold on=1:0,2:0,3:0 period=1000
+OK port=dout board=lower kind=session blk=A term=A03-A10 channels=8 loop=ctrl params=ch,mode,res,duty,freq,period,cycles running=1
+OK vals=dout ch=1,5 mode=hold res=8 duty=1:51,5:191 freq=1:1000,2:1000,3:1000,4:1000,5:1000,6:1000,7:1000,8:1000 period=100 cycles=100
+OK limits=dout ch:1..8 mode:hold|blink|quad res:1..16 duty:0..65535 freq:1..128000 period:50.. cycles:1..10000
+OK port=relay board=lower kind=session blk=B term=B01-B12 channels=6 loop=ctrl params=ch,mode,on,close,open,count running=0
+OK vals=relay ch=1,2,3 mode=hold on=1:0,2:0,3:0 close=2000 open=2000 count=10
 OK terms=relay B01+B02,B03+B04,B05+B06,B07+B08,B09+B10,B11+B12
-OK limits=relay ch:1..6 mode:hold|square on:0..1 period:1000..
+OK limits=relay ch:1..6 mode:hold|cycle on:0..1 close:1000.. open:1000.. count:1..1000000
 OK port=ain board=upper kind=session blk=D term=D12,D13 channels=2 loop=ctrl params=ch,period running=0
 OK vals=ain ch=1,2 period=500
 OK terms=ain D12,D13
@@ -805,34 +955,35 @@ OK limits=ain ch:1..2 period:50..
 OK port=aout board=upper kind=session blk=D term=D14,D15 channels=2 loop=ctrl params=ch,mv,period running=0
 OK vals=aout ch=1,2 mv=1:0,2:0 period=1000
 OK terms=aout D14,D15
-OK limits=aout ch:1..2 mv:0..3300 period:50..
+OK limits=aout ch:1..2 mv:0..2500 period:50..
 OK port=temp board=lower kind=session blk=- term=- channels=2 loop=ctrl params=ch,period running=0
 OK vals=temp ch=1,2 period=1000
 OK terms=temp SC-protect,HS-switch
 OK limits=temp ch:1..2 period:50..
-OK port=rs232 board=upper kind=session blk=C term=C05,C06 channels=1 loop=self params=period running=0
-OK vals=rs232 period=3000
+OK port=rs232 board=upper kind=session blk=C term=C05,C06 channels=1 loop=self params=baud,period running=0
+OK vals=rs232 baud=115200 period=3000
 OK terms=rs232 C05+C06
-OK limits=rs232 period:50..
+OK limits=rs232 baud:9600|19200|38400|57600|115200|230400 period:50..
 OK port=rs485 board=upper kind=session blk=C term=C10,C11 channels=1 loop=link params=baud,period running=0 runs=rs485.pins
 OK vals=rs485 baud=115200 period=3000
 OK terms=rs485 C10+C11
 OK limits=rs485 baud:9600|19200|38400|57600|115200 period:50..
 OK port=can board=upper kind=session blk=C term=C07,C08 channels=1 loop=link params=baud,mode,period running=0
-OK vals=can baud=250000 mode=echo period=100
+OK vals=can baud=250000 mode=normal period=100
 OK terms=can C07+C08
-OK limits=can baud:125000|250000|500000|1000000 mode:normal|listen|loopback|extloop|echo period:50..
-OK port=knx board=upper kind=session blk=C term=C03,C04 channels=1 loop=link params=mode,period,ga,src,val running=0
-OK vals=knx mode=loopback period=1000 ga=31/7/255 src=15.15.250 val=toggle
+OK limits=can baud:125000|250000|500000|1000000 mode:normal|listen|loopback|extloop|echo|bus period:50..
+OK info=can clk=HSE clk_hz=25000000 presc=1 seg1=43 seg2=6 sjw=4 tq=50 bps=500000
+OK port=knx board=upper kind=session blk=C term=C03,C04 channels=1 loop=link params=mode,period,ga,src,val running=0 runs=knx.edges,knx.hist,knx.pullup
+OK vals=knx mode=listen period=1000 ga=31/7/255 src=15.15.250 val=toggle
 OK terms=knx C03+C04
 OK limits=knx mode:loopback|listen|frames period:50.. val:toggle|0|1
 OK port=eth board=bridge kind=session blk=- term=J1 channels=1 loop=link params=mode,port,ip,period running=0 runs=eth.link
-OK vals=eth mode=source port=5000 ip=192.168.9.9 period=100
-OK limits=eth mode:echo|sink|source port:1..65535 period:50..
+OK vals=eth mode=file port=5000 ip=192.168.9.9 period=100
+OK limits=eth mode:echo|sink|source|mirror|file port:1..65535 period:50..
 OK port=usb board=bridge kind=session blk=- term=J2 channels=1 loop=link params=mode,period running=0
-OK vals=usb mode=info period=100
-OK limits=usb mode:echo|sink|source|info period:50..
-OK port=sd board=bridge kind=session blk=- term=J6 channels=1 loop=ctrl params=period running=0 runs=sd.probe,sd.integrity,sd.speed
+OK vals=usb mode=mirror period=100
+OK limits=usb mode:echo|sink|source|info|mirror|file period:50..
+OK port=sd board=bridge kind=session blk=- term=J6 channels=1 loop=ctrl params=period running=0 runs=sd.probe,sd.integrity,sd.speed,sd.put,sd.get,sd.ls,sd.rm,sd.eject
 OK vals=sd period=1000
 OK limits=sd period:50..
 OK port=sdram board=bridge kind=session blk=- term=U6 channels=1 loop=ctrl params=wait,period running=0 runs=sdram.probe,sdram.sweep,sdram.crc
@@ -842,25 +993,25 @@ OK port=rtc board=bridge kind=run blk=- term=- channels=1 loop=none runs=rtc.rea
 OK port=reset board=bridge kind=run blk=- term=- channels=1 loop=none runs=reset.cause
 OK port=led board=bridge kind=run blk=- term=- channels=1 loop=none runs=led.blink
 >>> (host) 1000 ms later
-!dout t=19090 seq=1 rx=0 miss=0 mode=hold tick=100000 ch1=20 ch5=75
+!dout t=30740 seq=1 rx=0 miss=0 mode=hold res=8 tick=256000 ch1=51 ch5=191
 >>> (host) dout duties now
-TEST dout_duty=20,0,0,0,75,0,0,0
->>> pt.start dout ch=1,2 mode=blink duty=100 period=200
+TEST dout_duty=51,0,0,0,191,0,0,0
+>>> pt.start dout ch=1,2 mode=blink duty=255 period=200
 OK started dout
 >>> (host) 200 ms later
-!dout t=19290 seq=1 rx=0 miss=0 mode=blink tick=100000 ch1=0 ch2=0
+!dout t=30940 seq=1 rx=0 miss=0 mode=blink res=8 tick=256000 ch1=0 ch2=0
 >>> pt.caps
-OK porttool=0.10.0 ports=17 lines=53 hold=1 led=1
+OK porttool=0.18.1 ports=17 lines=54 hold=1 led=1
 OK port=din board=upper kind=session blk=D term=D02-D09 channels=8 loop=ctrl params=ch,mode,period running=0
 OK vals=din ch=1 mode=level period=200
 OK limits=din ch:1..8 mode:level|quad period:50..
-OK port=dout board=lower kind=session blk=A term=A03-A10 channels=8 loop=ctrl params=ch,mode,duty,freq,period running=1
-OK vals=dout ch=1,2 mode=blink duty=1:100,2:100 freq=1:1000,2:1000,3:1000,4:1000,5:1000,6:1000,7:1000,8:1000 period=200
-OK limits=dout ch:1..8 mode:hold|blink duty:0..100 freq:1..2000 period:50..
-OK port=relay board=lower kind=session blk=B term=B01-B12 channels=6 loop=ctrl params=ch,mode,on,period running=0
-OK vals=relay ch=1,2,3 mode=hold on=1:0,2:0,3:0 period=1000
+OK port=dout board=lower kind=session blk=A term=A03-A10 channels=8 loop=ctrl params=ch,mode,res,duty,freq,period,cycles running=1
+OK vals=dout ch=1,2 mode=blink res=8 duty=1:255,2:255 freq=1:1000,2:1000,3:1000,4:1000,5:1000,6:1000,7:1000,8:1000 period=200 cycles=100
+OK limits=dout ch:1..8 mode:hold|blink|quad res:1..16 duty:0..65535 freq:1..128000 period:50.. cycles:1..10000
+OK port=relay board=lower kind=session blk=B term=B01-B12 channels=6 loop=ctrl params=ch,mode,on,close,open,count running=0
+OK vals=relay ch=1,2,3 mode=hold on=1:0,2:0,3:0 close=2000 open=2000 count=10
 OK terms=relay B01+B02,B03+B04,B05+B06,B07+B08,B09+B10,B11+B12
-OK limits=relay ch:1..6 mode:hold|square on:0..1 period:1000..
+OK limits=relay ch:1..6 mode:hold|cycle on:0..1 close:1000.. open:1000.. count:1..1000000
 OK port=ain board=upper kind=session blk=D term=D12,D13 channels=2 loop=ctrl params=ch,period running=0
 OK vals=ain ch=1,2 period=500
 OK terms=ain D12,D13
@@ -868,34 +1019,35 @@ OK limits=ain ch:1..2 period:50..
 OK port=aout board=upper kind=session blk=D term=D14,D15 channels=2 loop=ctrl params=ch,mv,period running=0
 OK vals=aout ch=1,2 mv=1:0,2:0 period=1000
 OK terms=aout D14,D15
-OK limits=aout ch:1..2 mv:0..3300 period:50..
+OK limits=aout ch:1..2 mv:0..2500 period:50..
 OK port=temp board=lower kind=session blk=- term=- channels=2 loop=ctrl params=ch,period running=0
 OK vals=temp ch=1,2 period=1000
 OK terms=temp SC-protect,HS-switch
 OK limits=temp ch:1..2 period:50..
-OK port=rs232 board=upper kind=session blk=C term=C05,C06 channels=1 loop=self params=period running=0
-OK vals=rs232 period=3000
+OK port=rs232 board=upper kind=session blk=C term=C05,C06 channels=1 loop=self params=baud,period running=0
+OK vals=rs232 baud=115200 period=3000
 OK terms=rs232 C05+C06
-OK limits=rs232 period:50..
+OK limits=rs232 baud:9600|19200|38400|57600|115200|230400 period:50..
 OK port=rs485 board=upper kind=session blk=C term=C10,C11 channels=1 loop=link params=baud,period running=0 runs=rs485.pins
 OK vals=rs485 baud=115200 period=3000
 OK terms=rs485 C10+C11
 OK limits=rs485 baud:9600|19200|38400|57600|115200 period:50..
 OK port=can board=upper kind=session blk=C term=C07,C08 channels=1 loop=link params=baud,mode,period running=0
-OK vals=can baud=250000 mode=echo period=100
+OK vals=can baud=250000 mode=normal period=100
 OK terms=can C07+C08
-OK limits=can baud:125000|250000|500000|1000000 mode:normal|listen|loopback|extloop|echo period:50..
-OK port=knx board=upper kind=session blk=C term=C03,C04 channels=1 loop=link params=mode,period,ga,src,val running=0
-OK vals=knx mode=loopback period=1000 ga=31/7/255 src=15.15.250 val=toggle
+OK limits=can baud:125000|250000|500000|1000000 mode:normal|listen|loopback|extloop|echo|bus period:50..
+OK info=can clk=HSE clk_hz=25000000 presc=1 seg1=43 seg2=6 sjw=4 tq=50 bps=500000
+OK port=knx board=upper kind=session blk=C term=C03,C04 channels=1 loop=link params=mode,period,ga,src,val running=0 runs=knx.edges,knx.hist,knx.pullup
+OK vals=knx mode=listen period=1000 ga=31/7/255 src=15.15.250 val=toggle
 OK terms=knx C03+C04
 OK limits=knx mode:loopback|listen|frames period:50.. val:toggle|0|1
 OK port=eth board=bridge kind=session blk=- term=J1 channels=1 loop=link params=mode,port,ip,period running=0 runs=eth.link
-OK vals=eth mode=source port=5000 ip=192.168.9.9 period=100
-OK limits=eth mode:echo|sink|source port:1..65535 period:50..
+OK vals=eth mode=file port=5000 ip=192.168.9.9 period=100
+OK limits=eth mode:echo|sink|source|mirror|file port:1..65535 period:50..
 OK port=usb board=bridge kind=session blk=- term=J2 channels=1 loop=link params=mode,period running=0
-OK vals=usb mode=info period=100
-OK limits=usb mode:echo|sink|source|info period:50..
-OK port=sd board=bridge kind=session blk=- term=J6 channels=1 loop=ctrl params=period running=0 runs=sd.probe,sd.integrity,sd.speed
+OK vals=usb mode=mirror period=100
+OK limits=usb mode:echo|sink|source|info|mirror|file period:50..
+OK port=sd board=bridge kind=session blk=- term=J6 channels=1 loop=ctrl params=period running=0 runs=sd.probe,sd.integrity,sd.speed,sd.put,sd.get,sd.ls,sd.rm,sd.eject
 OK vals=sd period=1000
 OK limits=sd period:50..
 OK port=sdram board=bridge kind=session blk=- term=U6 channels=1 loop=ctrl params=wait,period running=0 runs=sdram.probe,sdram.sweep,sdram.crc
@@ -905,19 +1057,19 @@ OK port=rtc board=bridge kind=run blk=- term=- channels=1 loop=none runs=rtc.rea
 OK port=reset board=bridge kind=run blk=- term=- channels=1 loop=none runs=reset.cause
 OK port=led board=bridge kind=run blk=- term=- channels=1 loop=none runs=led.blink
 >>> (host) 200 ms later
-!dout t=19490 seq=1 rx=0 miss=1 mode=blink tick=100000 ch1=100 ch2=100
+!dout t=31140 seq=1 rx=0 miss=1 mode=blink res=8 tick=256000 ch1=255 ch2=255
 >>> pt.caps
-OK porttool=0.10.0 ports=17 lines=53 hold=1 led=1
+OK porttool=0.18.1 ports=17 lines=54 hold=1 led=1
 OK port=din board=upper kind=session blk=D term=D02-D09 channels=8 loop=ctrl params=ch,mode,period running=0
 OK vals=din ch=1 mode=level period=200
 OK limits=din ch:1..8 mode:level|quad period:50..
-OK port=dout board=lower kind=session blk=A term=A03-A10 channels=8 loop=ctrl params=ch,mode,duty,freq,period running=1
-OK vals=dout ch=1,2 mode=blink duty=1:100,2:100 freq=1:1000,2:1000,3:1000,4:1000,5:1000,6:1000,7:1000,8:1000 period=200
-OK limits=dout ch:1..8 mode:hold|blink duty:0..100 freq:1..2000 period:50..
-OK port=relay board=lower kind=session blk=B term=B01-B12 channels=6 loop=ctrl params=ch,mode,on,period running=0
-OK vals=relay ch=1,2,3 mode=hold on=1:0,2:0,3:0 period=1000
+OK port=dout board=lower kind=session blk=A term=A03-A10 channels=8 loop=ctrl params=ch,mode,res,duty,freq,period,cycles running=1
+OK vals=dout ch=1,2 mode=blink res=8 duty=1:255,2:255 freq=1:1000,2:1000,3:1000,4:1000,5:1000,6:1000,7:1000,8:1000 period=200 cycles=100
+OK limits=dout ch:1..8 mode:hold|blink|quad res:1..16 duty:0..65535 freq:1..128000 period:50.. cycles:1..10000
+OK port=relay board=lower kind=session blk=B term=B01-B12 channels=6 loop=ctrl params=ch,mode,on,close,open,count running=0
+OK vals=relay ch=1,2,3 mode=hold on=1:0,2:0,3:0 close=2000 open=2000 count=10
 OK terms=relay B01+B02,B03+B04,B05+B06,B07+B08,B09+B10,B11+B12
-OK limits=relay ch:1..6 mode:hold|square on:0..1 period:1000..
+OK limits=relay ch:1..6 mode:hold|cycle on:0..1 close:1000.. open:1000.. count:1..1000000
 OK port=ain board=upper kind=session blk=D term=D12,D13 channels=2 loop=ctrl params=ch,period running=0
 OK vals=ain ch=1,2 period=500
 OK terms=ain D12,D13
@@ -925,34 +1077,35 @@ OK limits=ain ch:1..2 period:50..
 OK port=aout board=upper kind=session blk=D term=D14,D15 channels=2 loop=ctrl params=ch,mv,period running=0
 OK vals=aout ch=1,2 mv=1:0,2:0 period=1000
 OK terms=aout D14,D15
-OK limits=aout ch:1..2 mv:0..3300 period:50..
+OK limits=aout ch:1..2 mv:0..2500 period:50..
 OK port=temp board=lower kind=session blk=- term=- channels=2 loop=ctrl params=ch,period running=0
 OK vals=temp ch=1,2 period=1000
 OK terms=temp SC-protect,HS-switch
 OK limits=temp ch:1..2 period:50..
-OK port=rs232 board=upper kind=session blk=C term=C05,C06 channels=1 loop=self params=period running=0
-OK vals=rs232 period=3000
+OK port=rs232 board=upper kind=session blk=C term=C05,C06 channels=1 loop=self params=baud,period running=0
+OK vals=rs232 baud=115200 period=3000
 OK terms=rs232 C05+C06
-OK limits=rs232 period:50..
+OK limits=rs232 baud:9600|19200|38400|57600|115200|230400 period:50..
 OK port=rs485 board=upper kind=session blk=C term=C10,C11 channels=1 loop=link params=baud,period running=0 runs=rs485.pins
 OK vals=rs485 baud=115200 period=3000
 OK terms=rs485 C10+C11
 OK limits=rs485 baud:9600|19200|38400|57600|115200 period:50..
 OK port=can board=upper kind=session blk=C term=C07,C08 channels=1 loop=link params=baud,mode,period running=0
-OK vals=can baud=250000 mode=echo period=100
+OK vals=can baud=250000 mode=normal period=100
 OK terms=can C07+C08
-OK limits=can baud:125000|250000|500000|1000000 mode:normal|listen|loopback|extloop|echo period:50..
-OK port=knx board=upper kind=session blk=C term=C03,C04 channels=1 loop=link params=mode,period,ga,src,val running=0
-OK vals=knx mode=loopback period=1000 ga=31/7/255 src=15.15.250 val=toggle
+OK limits=can baud:125000|250000|500000|1000000 mode:normal|listen|loopback|extloop|echo|bus period:50..
+OK info=can clk=HSE clk_hz=25000000 presc=1 seg1=43 seg2=6 sjw=4 tq=50 bps=500000
+OK port=knx board=upper kind=session blk=C term=C03,C04 channels=1 loop=link params=mode,period,ga,src,val running=0 runs=knx.edges,knx.hist,knx.pullup
+OK vals=knx mode=listen period=1000 ga=31/7/255 src=15.15.250 val=toggle
 OK terms=knx C03+C04
 OK limits=knx mode:loopback|listen|frames period:50.. val:toggle|0|1
 OK port=eth board=bridge kind=session blk=- term=J1 channels=1 loop=link params=mode,port,ip,period running=0 runs=eth.link
-OK vals=eth mode=source port=5000 ip=192.168.9.9 period=100
-OK limits=eth mode:echo|sink|source port:1..65535 period:50..
+OK vals=eth mode=file port=5000 ip=192.168.9.9 period=100
+OK limits=eth mode:echo|sink|source|mirror|file port:1..65535 period:50..
 OK port=usb board=bridge kind=session blk=- term=J2 channels=1 loop=link params=mode,period running=0
-OK vals=usb mode=info period=100
-OK limits=usb mode:echo|sink|source|info period:50..
-OK port=sd board=bridge kind=session blk=- term=J6 channels=1 loop=ctrl params=period running=0 runs=sd.probe,sd.integrity,sd.speed
+OK vals=usb mode=mirror period=100
+OK limits=usb mode:echo|sink|source|info|mirror|file period:50..
+OK port=sd board=bridge kind=session blk=- term=J6 channels=1 loop=ctrl params=period running=0 runs=sd.probe,sd.integrity,sd.speed,sd.put,sd.get,sd.ls,sd.rm,sd.eject
 OK vals=sd period=1000
 OK limits=sd period:50..
 OK port=sdram board=bridge kind=session blk=- term=U6 channels=1 loop=ctrl params=wait,period running=0 runs=sdram.probe,sdram.sweep,sdram.crc
@@ -963,20 +1116,20 @@ OK port=reset board=bridge kind=run blk=- term=- channels=1 loop=none runs=reset
 OK port=led board=bridge kind=run blk=- term=- channels=1 loop=none runs=led.blink
 >>> pt.stop all
 OK stopped all
->>> pt.start dout ch=1,2,3 mode=hold duty=50 freq=1:2000,2:1000,3:250
+>>> pt.start dout ch=1,2,3 mode=hold res=7 duty=64 freq=1:2000,2:1000,3:250
 OK started dout
 >>> pt.caps
-OK porttool=0.10.0 ports=17 lines=53 hold=1 led=1
+OK porttool=0.18.1 ports=17 lines=54 hold=1 led=1
 OK port=din board=upper kind=session blk=D term=D02-D09 channels=8 loop=ctrl params=ch,mode,period running=0
 OK vals=din ch=1 mode=level period=200
 OK limits=din ch:1..8 mode:level|quad period:50..
-OK port=dout board=lower kind=session blk=A term=A03-A10 channels=8 loop=ctrl params=ch,mode,duty,freq,period running=1
-OK vals=dout ch=1,2,3 mode=hold duty=1:50,2:50,3:50 freq=1:2000,2:1000,3:250,4:1000,5:1000,6:1000,7:1000,8:1000 period=200
-OK limits=dout ch:1..8 mode:hold|blink duty:0..100 freq:1..2000 period:50..
-OK port=relay board=lower kind=session blk=B term=B01-B12 channels=6 loop=ctrl params=ch,mode,on,period running=0
-OK vals=relay ch=1,2,3 mode=hold on=1:0,2:0,3:0 period=1000
+OK port=dout board=lower kind=session blk=A term=A03-A10 channels=8 loop=ctrl params=ch,mode,res,duty,freq,period,cycles running=1
+OK vals=dout ch=1,2,3 mode=hold res=7 duty=1:64,2:64,3:64 freq=1:2000,2:1000,3:250,4:1000,5:1000,6:1000,7:1000,8:1000 period=200 cycles=100
+OK limits=dout ch:1..8 mode:hold|blink|quad res:1..16 duty:0..65535 freq:1..128000 period:50.. cycles:1..10000
+OK port=relay board=lower kind=session blk=B term=B01-B12 channels=6 loop=ctrl params=ch,mode,on,close,open,count running=0
+OK vals=relay ch=1,2,3 mode=hold on=1:0,2:0,3:0 close=2000 open=2000 count=10
 OK terms=relay B01+B02,B03+B04,B05+B06,B07+B08,B09+B10,B11+B12
-OK limits=relay ch:1..6 mode:hold|square on:0..1 period:1000..
+OK limits=relay ch:1..6 mode:hold|cycle on:0..1 close:1000.. open:1000.. count:1..1000000
 OK port=ain board=upper kind=session blk=D term=D12,D13 channels=2 loop=ctrl params=ch,period running=0
 OK vals=ain ch=1,2 period=500
 OK terms=ain D12,D13
@@ -984,34 +1137,35 @@ OK limits=ain ch:1..2 period:50..
 OK port=aout board=upper kind=session blk=D term=D14,D15 channels=2 loop=ctrl params=ch,mv,period running=0
 OK vals=aout ch=1,2 mv=1:0,2:0 period=1000
 OK terms=aout D14,D15
-OK limits=aout ch:1..2 mv:0..3300 period:50..
+OK limits=aout ch:1..2 mv:0..2500 period:50..
 OK port=temp board=lower kind=session blk=- term=- channels=2 loop=ctrl params=ch,period running=0
 OK vals=temp ch=1,2 period=1000
 OK terms=temp SC-protect,HS-switch
 OK limits=temp ch:1..2 period:50..
-OK port=rs232 board=upper kind=session blk=C term=C05,C06 channels=1 loop=self params=period running=0
-OK vals=rs232 period=3000
+OK port=rs232 board=upper kind=session blk=C term=C05,C06 channels=1 loop=self params=baud,period running=0
+OK vals=rs232 baud=115200 period=3000
 OK terms=rs232 C05+C06
-OK limits=rs232 period:50..
+OK limits=rs232 baud:9600|19200|38400|57600|115200|230400 period:50..
 OK port=rs485 board=upper kind=session blk=C term=C10,C11 channels=1 loop=link params=baud,period running=0 runs=rs485.pins
 OK vals=rs485 baud=115200 period=3000
 OK terms=rs485 C10+C11
 OK limits=rs485 baud:9600|19200|38400|57600|115200 period:50..
 OK port=can board=upper kind=session blk=C term=C07,C08 channels=1 loop=link params=baud,mode,period running=0
-OK vals=can baud=250000 mode=echo period=100
+OK vals=can baud=250000 mode=normal period=100
 OK terms=can C07+C08
-OK limits=can baud:125000|250000|500000|1000000 mode:normal|listen|loopback|extloop|echo period:50..
-OK port=knx board=upper kind=session blk=C term=C03,C04 channels=1 loop=link params=mode,period,ga,src,val running=0
-OK vals=knx mode=loopback period=1000 ga=31/7/255 src=15.15.250 val=toggle
+OK limits=can baud:125000|250000|500000|1000000 mode:normal|listen|loopback|extloop|echo|bus period:50..
+OK info=can clk=HSE clk_hz=25000000 presc=1 seg1=43 seg2=6 sjw=4 tq=50 bps=500000
+OK port=knx board=upper kind=session blk=C term=C03,C04 channels=1 loop=link params=mode,period,ga,src,val running=0 runs=knx.edges,knx.hist,knx.pullup
+OK vals=knx mode=listen period=1000 ga=31/7/255 src=15.15.250 val=toggle
 OK terms=knx C03+C04
 OK limits=knx mode:loopback|listen|frames period:50.. val:toggle|0|1
 OK port=eth board=bridge kind=session blk=- term=J1 channels=1 loop=link params=mode,port,ip,period running=0 runs=eth.link
-OK vals=eth mode=source port=5000 ip=192.168.9.9 period=100
-OK limits=eth mode:echo|sink|source port:1..65535 period:50..
+OK vals=eth mode=file port=5000 ip=192.168.9.9 period=100
+OK limits=eth mode:echo|sink|source|mirror|file port:1..65535 period:50..
 OK port=usb board=bridge kind=session blk=- term=J2 channels=1 loop=link params=mode,period running=0
-OK vals=usb mode=info period=100
-OK limits=usb mode:echo|sink|source|info period:50..
-OK port=sd board=bridge kind=session blk=- term=J6 channels=1 loop=ctrl params=period running=0 runs=sd.probe,sd.integrity,sd.speed
+OK vals=usb mode=mirror period=100
+OK limits=usb mode:echo|sink|source|info|mirror|file period:50..
+OK port=sd board=bridge kind=session blk=- term=J6 channels=1 loop=ctrl params=period running=0 runs=sd.probe,sd.integrity,sd.speed,sd.put,sd.get,sd.ls,sd.rm,sd.eject
 OK vals=sd period=1000
 OK limits=sd period:50..
 OK port=sdram board=bridge kind=session blk=- term=U6 channels=1 loop=ctrl params=wait,period running=0 runs=sdram.probe,sdram.sweep,sdram.crc
@@ -1021,21 +1175,21 @@ OK port=rtc board=bridge kind=run blk=- term=- channels=1 loop=none runs=rtc.rea
 OK port=reset board=bridge kind=run blk=- term=- channels=1 loop=none runs=reset.cause
 OK port=led board=bridge kind=run blk=- term=- channels=1 loop=none runs=led.blink
 >>> (host) 1000 ms later
-!dout t=20490 seq=1 rx=0 miss=0 mode=hold tick=200000 ch1=50 ch2=50 ch3=50
+!dout t=32140 seq=1 rx=0 miss=0 mode=hold res=7 tick=256000 ch1=64 ch2=64 ch3=64
 >>> pt.set dout freq=1:2000,2:1
 OK set dout
 >>> pt.caps
-OK porttool=0.10.0 ports=17 lines=53 hold=1 led=1
+OK porttool=0.18.1 ports=17 lines=54 hold=1 led=1
 OK port=din board=upper kind=session blk=D term=D02-D09 channels=8 loop=ctrl params=ch,mode,period running=0
 OK vals=din ch=1 mode=level period=200
 OK limits=din ch:1..8 mode:level|quad period:50..
-OK port=dout board=lower kind=session blk=A term=A03-A10 channels=8 loop=ctrl params=ch,mode,duty,freq,period running=1
-OK vals=dout ch=1,2,3 mode=hold duty=1:50,2:50,3:50 freq=1:2000,2:1,3:250,4:1000,5:1000,6:1000,7:1000,8:1000 period=200
-OK limits=dout ch:1..8 mode:hold|blink duty:0..100 freq:1..2000 period:50..
-OK port=relay board=lower kind=session blk=B term=B01-B12 channels=6 loop=ctrl params=ch,mode,on,period running=0
-OK vals=relay ch=1,2,3 mode=hold on=1:0,2:0,3:0 period=1000
+OK port=dout board=lower kind=session blk=A term=A03-A10 channels=8 loop=ctrl params=ch,mode,res,duty,freq,period,cycles running=1
+OK vals=dout ch=1,2,3 mode=hold res=7 duty=1:64,2:64,3:64 freq=1:2000,2:1,3:250,4:1000,5:1000,6:1000,7:1000,8:1000 period=200 cycles=100
+OK limits=dout ch:1..8 mode:hold|blink|quad res:1..16 duty:0..65535 freq:1..128000 period:50.. cycles:1..10000
+OK port=relay board=lower kind=session blk=B term=B01-B12 channels=6 loop=ctrl params=ch,mode,on,close,open,count running=0
+OK vals=relay ch=1,2,3 mode=hold on=1:0,2:0,3:0 close=2000 open=2000 count=10
 OK terms=relay B01+B02,B03+B04,B05+B06,B07+B08,B09+B10,B11+B12
-OK limits=relay ch:1..6 mode:hold|square on:0..1 period:1000..
+OK limits=relay ch:1..6 mode:hold|cycle on:0..1 close:1000.. open:1000.. count:1..1000000
 OK port=ain board=upper kind=session blk=D term=D12,D13 channels=2 loop=ctrl params=ch,period running=0
 OK vals=ain ch=1,2 period=500
 OK terms=ain D12,D13
@@ -1043,34 +1197,35 @@ OK limits=ain ch:1..2 period:50..
 OK port=aout board=upper kind=session blk=D term=D14,D15 channels=2 loop=ctrl params=ch,mv,period running=0
 OK vals=aout ch=1,2 mv=1:0,2:0 period=1000
 OK terms=aout D14,D15
-OK limits=aout ch:1..2 mv:0..3300 period:50..
+OK limits=aout ch:1..2 mv:0..2500 period:50..
 OK port=temp board=lower kind=session blk=- term=- channels=2 loop=ctrl params=ch,period running=0
 OK vals=temp ch=1,2 period=1000
 OK terms=temp SC-protect,HS-switch
 OK limits=temp ch:1..2 period:50..
-OK port=rs232 board=upper kind=session blk=C term=C05,C06 channels=1 loop=self params=period running=0
-OK vals=rs232 period=3000
+OK port=rs232 board=upper kind=session blk=C term=C05,C06 channels=1 loop=self params=baud,period running=0
+OK vals=rs232 baud=115200 period=3000
 OK terms=rs232 C05+C06
-OK limits=rs232 period:50..
+OK limits=rs232 baud:9600|19200|38400|57600|115200|230400 period:50..
 OK port=rs485 board=upper kind=session blk=C term=C10,C11 channels=1 loop=link params=baud,period running=0 runs=rs485.pins
 OK vals=rs485 baud=115200 period=3000
 OK terms=rs485 C10+C11
 OK limits=rs485 baud:9600|19200|38400|57600|115200 period:50..
 OK port=can board=upper kind=session blk=C term=C07,C08 channels=1 loop=link params=baud,mode,period running=0
-OK vals=can baud=250000 mode=echo period=100
+OK vals=can baud=250000 mode=normal period=100
 OK terms=can C07+C08
-OK limits=can baud:125000|250000|500000|1000000 mode:normal|listen|loopback|extloop|echo period:50..
-OK port=knx board=upper kind=session blk=C term=C03,C04 channels=1 loop=link params=mode,period,ga,src,val running=0
-OK vals=knx mode=loopback period=1000 ga=31/7/255 src=15.15.250 val=toggle
+OK limits=can baud:125000|250000|500000|1000000 mode:normal|listen|loopback|extloop|echo|bus period:50..
+OK info=can clk=HSE clk_hz=25000000 presc=1 seg1=43 seg2=6 sjw=4 tq=50 bps=500000
+OK port=knx board=upper kind=session blk=C term=C03,C04 channels=1 loop=link params=mode,period,ga,src,val running=0 runs=knx.edges,knx.hist,knx.pullup
+OK vals=knx mode=listen period=1000 ga=31/7/255 src=15.15.250 val=toggle
 OK terms=knx C03+C04
 OK limits=knx mode:loopback|listen|frames period:50.. val:toggle|0|1
 OK port=eth board=bridge kind=session blk=- term=J1 channels=1 loop=link params=mode,port,ip,period running=0 runs=eth.link
-OK vals=eth mode=source port=5000 ip=192.168.9.9 period=100
-OK limits=eth mode:echo|sink|source port:1..65535 period:50..
+OK vals=eth mode=file port=5000 ip=192.168.9.9 period=100
+OK limits=eth mode:echo|sink|source|mirror|file port:1..65535 period:50..
 OK port=usb board=bridge kind=session blk=- term=J2 channels=1 loop=link params=mode,period running=0
-OK vals=usb mode=info period=100
-OK limits=usb mode:echo|sink|source|info period:50..
-OK port=sd board=bridge kind=session blk=- term=J6 channels=1 loop=ctrl params=period running=0 runs=sd.probe,sd.integrity,sd.speed
+OK vals=usb mode=mirror period=100
+OK limits=usb mode:echo|sink|source|info|mirror|file period:50..
+OK port=sd board=bridge kind=session blk=- term=J6 channels=1 loop=ctrl params=period running=0 runs=sd.probe,sd.integrity,sd.speed,sd.put,sd.get,sd.ls,sd.rm,sd.eject
 OK vals=sd period=1000
 OK limits=sd period:50..
 OK port=sdram board=bridge kind=session blk=- term=U6 channels=1 loop=ctrl params=wait,period running=0 runs=sdram.probe,sdram.sweep,sdram.crc
@@ -1082,17 +1237,17 @@ OK port=led board=bridge kind=run blk=- term=- channels=1 loop=none runs=led.bli
 >>> pt.set dout freq=500
 OK set dout
 >>> pt.caps
-OK porttool=0.10.0 ports=17 lines=53 hold=1 led=1
+OK porttool=0.18.1 ports=17 lines=54 hold=1 led=1
 OK port=din board=upper kind=session blk=D term=D02-D09 channels=8 loop=ctrl params=ch,mode,period running=0
 OK vals=din ch=1 mode=level period=200
 OK limits=din ch:1..8 mode:level|quad period:50..
-OK port=dout board=lower kind=session blk=A term=A03-A10 channels=8 loop=ctrl params=ch,mode,duty,freq,period running=1
-OK vals=dout ch=1,2,3 mode=hold duty=1:50,2:50,3:50 freq=1:500,2:500,3:500,4:500,5:500,6:500,7:500,8:500 period=200
-OK limits=dout ch:1..8 mode:hold|blink duty:0..100 freq:1..2000 period:50..
-OK port=relay board=lower kind=session blk=B term=B01-B12 channels=6 loop=ctrl params=ch,mode,on,period running=0
-OK vals=relay ch=1,2,3 mode=hold on=1:0,2:0,3:0 period=1000
+OK port=dout board=lower kind=session blk=A term=A03-A10 channels=8 loop=ctrl params=ch,mode,res,duty,freq,period,cycles running=1
+OK vals=dout ch=1,2,3 mode=hold res=7 duty=1:64,2:64,3:64 freq=1:500,2:500,3:500,4:500,5:500,6:500,7:500,8:500 period=200 cycles=100
+OK limits=dout ch:1..8 mode:hold|blink|quad res:1..16 duty:0..65535 freq:1..128000 period:50.. cycles:1..10000
+OK port=relay board=lower kind=session blk=B term=B01-B12 channels=6 loop=ctrl params=ch,mode,on,close,open,count running=0
+OK vals=relay ch=1,2,3 mode=hold on=1:0,2:0,3:0 close=2000 open=2000 count=10
 OK terms=relay B01+B02,B03+B04,B05+B06,B07+B08,B09+B10,B11+B12
-OK limits=relay ch:1..6 mode:hold|square on:0..1 period:1000..
+OK limits=relay ch:1..6 mode:hold|cycle on:0..1 close:1000.. open:1000.. count:1..1000000
 OK port=ain board=upper kind=session blk=D term=D12,D13 channels=2 loop=ctrl params=ch,period running=0
 OK vals=ain ch=1,2 period=500
 OK terms=ain D12,D13
@@ -1100,34 +1255,35 @@ OK limits=ain ch:1..2 period:50..
 OK port=aout board=upper kind=session blk=D term=D14,D15 channels=2 loop=ctrl params=ch,mv,period running=0
 OK vals=aout ch=1,2 mv=1:0,2:0 period=1000
 OK terms=aout D14,D15
-OK limits=aout ch:1..2 mv:0..3300 period:50..
+OK limits=aout ch:1..2 mv:0..2500 period:50..
 OK port=temp board=lower kind=session blk=- term=- channels=2 loop=ctrl params=ch,period running=0
 OK vals=temp ch=1,2 period=1000
 OK terms=temp SC-protect,HS-switch
 OK limits=temp ch:1..2 period:50..
-OK port=rs232 board=upper kind=session blk=C term=C05,C06 channels=1 loop=self params=period running=0
-OK vals=rs232 period=3000
+OK port=rs232 board=upper kind=session blk=C term=C05,C06 channels=1 loop=self params=baud,period running=0
+OK vals=rs232 baud=115200 period=3000
 OK terms=rs232 C05+C06
-OK limits=rs232 period:50..
+OK limits=rs232 baud:9600|19200|38400|57600|115200|230400 period:50..
 OK port=rs485 board=upper kind=session blk=C term=C10,C11 channels=1 loop=link params=baud,period running=0 runs=rs485.pins
 OK vals=rs485 baud=115200 period=3000
 OK terms=rs485 C10+C11
 OK limits=rs485 baud:9600|19200|38400|57600|115200 period:50..
 OK port=can board=upper kind=session blk=C term=C07,C08 channels=1 loop=link params=baud,mode,period running=0
-OK vals=can baud=250000 mode=echo period=100
+OK vals=can baud=250000 mode=normal period=100
 OK terms=can C07+C08
-OK limits=can baud:125000|250000|500000|1000000 mode:normal|listen|loopback|extloop|echo period:50..
-OK port=knx board=upper kind=session blk=C term=C03,C04 channels=1 loop=link params=mode,period,ga,src,val running=0
-OK vals=knx mode=loopback period=1000 ga=31/7/255 src=15.15.250 val=toggle
+OK limits=can baud:125000|250000|500000|1000000 mode:normal|listen|loopback|extloop|echo|bus period:50..
+OK info=can clk=HSE clk_hz=25000000 presc=1 seg1=43 seg2=6 sjw=4 tq=50 bps=500000
+OK port=knx board=upper kind=session blk=C term=C03,C04 channels=1 loop=link params=mode,period,ga,src,val running=0 runs=knx.edges,knx.hist,knx.pullup
+OK vals=knx mode=listen period=1000 ga=31/7/255 src=15.15.250 val=toggle
 OK terms=knx C03+C04
 OK limits=knx mode:loopback|listen|frames period:50.. val:toggle|0|1
 OK port=eth board=bridge kind=session blk=- term=J1 channels=1 loop=link params=mode,port,ip,period running=0 runs=eth.link
-OK vals=eth mode=source port=5000 ip=192.168.9.9 period=100
-OK limits=eth mode:echo|sink|source port:1..65535 period:50..
+OK vals=eth mode=file port=5000 ip=192.168.9.9 period=100
+OK limits=eth mode:echo|sink|source|mirror|file port:1..65535 period:50..
 OK port=usb board=bridge kind=session blk=- term=J2 channels=1 loop=link params=mode,period running=0
-OK vals=usb mode=info period=100
-OK limits=usb mode:echo|sink|source|info period:50..
-OK port=sd board=bridge kind=session blk=- term=J6 channels=1 loop=ctrl params=period running=0 runs=sd.probe,sd.integrity,sd.speed
+OK vals=usb mode=mirror period=100
+OK limits=usb mode:echo|sink|source|info|mirror|file period:50..
+OK port=sd board=bridge kind=session blk=- term=J6 channels=1 loop=ctrl params=period running=0 runs=sd.probe,sd.integrity,sd.speed,sd.put,sd.get,sd.ls,sd.rm,sd.eject
 OK vals=sd period=1000
 OK limits=sd period:50..
 OK port=sdram board=bridge kind=session blk=- term=U6 channels=1 loop=ctrl params=wait,period running=0 runs=sdram.probe,sdram.sweep,sdram.crc
@@ -1137,19 +1293,178 @@ OK port=rtc board=bridge kind=run blk=- term=- channels=1 loop=none runs=rtc.rea
 OK port=reset board=bridge kind=run blk=- term=- channels=1 loop=none runs=reset.cause
 OK port=led board=bridge kind=run blk=- term=- channels=1 loop=none runs=led.blink
 >>> (host) 1000 ms later
-!dout t=21490 seq=1 rx=0 miss=1 mode=hold tick=50000 ch1=50 ch2=50 ch3=50
->>> pt.start dout duty=1:150
-ERR dout start refused: duty="1:150" must be like 1:20,5:75 - outputs 1..8, percent 0..100, each output named at most o
+!dout t=33140 seq=1 rx=0 miss=1 mode=hold res=7 tick=64000 ch1=64 ch2=64 ch3=64
+>>> pt.set dout res=10
+ERR dout set refused: output 1 keeps 500 Hz, over 250 Hz at res=10 - give freq= with res=
+>>> pt.set dout res=10 freq=250
+OK set dout
+>>> pt.set dout res=10 duty=1023
+OK set dout
+>>> pt.caps
+OK porttool=0.18.1 ports=17 lines=54 hold=1 led=1
+OK port=din board=upper kind=session blk=D term=D02-D09 channels=8 loop=ctrl params=ch,mode,period running=0
+OK vals=din ch=1 mode=level period=200
+OK limits=din ch:1..8 mode:level|quad period:50..
+OK port=dout board=lower kind=session blk=A term=A03-A10 channels=8 loop=ctrl params=ch,mode,res,duty,freq,period,cycles running=1
+OK vals=dout ch=1,2,3 mode=hold res=10 duty=1:1023,2:1023,3:1023 freq=1:250,2:250,3:250,4:250,5:250,6:250,7:250,8:250 period=200 cycles=100
+OK limits=dout ch:1..8 mode:hold|blink|quad res:1..16 duty:0..65535 freq:1..128000 period:50.. cycles:1..10000
+OK port=relay board=lower kind=session blk=B term=B01-B12 channels=6 loop=ctrl params=ch,mode,on,close,open,count running=0
+OK vals=relay ch=1,2,3 mode=hold on=1:0,2:0,3:0 close=2000 open=2000 count=10
+OK terms=relay B01+B02,B03+B04,B05+B06,B07+B08,B09+B10,B11+B12
+OK limits=relay ch:1..6 mode:hold|cycle on:0..1 close:1000.. open:1000.. count:1..1000000
+OK port=ain board=upper kind=session blk=D term=D12,D13 channels=2 loop=ctrl params=ch,period running=0
+OK vals=ain ch=1,2 period=500
+OK terms=ain D12,D13
+OK limits=ain ch:1..2 period:50..
+OK port=aout board=upper kind=session blk=D term=D14,D15 channels=2 loop=ctrl params=ch,mv,period running=0
+OK vals=aout ch=1,2 mv=1:0,2:0 period=1000
+OK terms=aout D14,D15
+OK limits=aout ch:1..2 mv:0..2500 period:50..
+OK port=temp board=lower kind=session blk=- term=- channels=2 loop=ctrl params=ch,period running=0
+OK vals=temp ch=1,2 period=1000
+OK terms=temp SC-protect,HS-switch
+OK limits=temp ch:1..2 period:50..
+OK port=rs232 board=upper kind=session blk=C term=C05,C06 channels=1 loop=self params=baud,period running=0
+OK vals=rs232 baud=115200 period=3000
+OK terms=rs232 C05+C06
+OK limits=rs232 baud:9600|19200|38400|57600|115200|230400 period:50..
+OK port=rs485 board=upper kind=session blk=C term=C10,C11 channels=1 loop=link params=baud,period running=0 runs=rs485.pins
+OK vals=rs485 baud=115200 period=3000
+OK terms=rs485 C10+C11
+OK limits=rs485 baud:9600|19200|38400|57600|115200 period:50..
+OK port=can board=upper kind=session blk=C term=C07,C08 channels=1 loop=link params=baud,mode,period running=0
+OK vals=can baud=250000 mode=normal period=100
+OK terms=can C07+C08
+OK limits=can baud:125000|250000|500000|1000000 mode:normal|listen|loopback|extloop|echo|bus period:50..
+OK info=can clk=HSE clk_hz=25000000 presc=1 seg1=43 seg2=6 sjw=4 tq=50 bps=500000
+OK port=knx board=upper kind=session blk=C term=C03,C04 channels=1 loop=link params=mode,period,ga,src,val running=0 runs=knx.edges,knx.hist,knx.pullup
+OK vals=knx mode=listen period=1000 ga=31/7/255 src=15.15.250 val=toggle
+OK terms=knx C03+C04
+OK limits=knx mode:loopback|listen|frames period:50.. val:toggle|0|1
+OK port=eth board=bridge kind=session blk=- term=J1 channels=1 loop=link params=mode,port,ip,period running=0 runs=eth.link
+OK vals=eth mode=file port=5000 ip=192.168.9.9 period=100
+OK limits=eth mode:echo|sink|source|mirror|file port:1..65535 period:50..
+OK port=usb board=bridge kind=session blk=- term=J2 channels=1 loop=link params=mode,period running=0
+OK vals=usb mode=mirror period=100
+OK limits=usb mode:echo|sink|source|info|mirror|file period:50..
+OK port=sd board=bridge kind=session blk=- term=J6 channels=1 loop=ctrl params=period running=0 runs=sd.probe,sd.integrity,sd.speed,sd.put,sd.get,sd.ls,sd.rm,sd.eject
+OK vals=sd period=1000
+OK limits=sd period:50..
+OK port=sdram board=bridge kind=session blk=- term=U6 channels=1 loop=ctrl params=wait,period running=0 runs=sdram.probe,sdram.sweep,sdram.crc
+OK vals=sdram wait=5000 period=1000
+OK limits=sdram wait:1000.. period:50..
+OK port=rtc board=bridge kind=run blk=- term=- channels=1 loop=none runs=rtc.read
+OK port=reset board=bridge kind=run blk=- term=- channels=1 loop=none runs=reset.cause
+OK port=led board=bridge kind=run blk=- term=- channels=1 loop=none runs=led.blink
+>>> (host) 1000 ms later
+!dout t=34140 seq=1 rx=0 miss=2 mode=hold res=10 tick=256000 ch1=1023 ch2=1023 ch3=1023
+>>> pt.set dout res=4
+ERR dout set refused: output 1 keeps duty 1023, over 15 at res=4 - give duty= with res=
+>>> pt.set dout res=4 duty=15 freq=16000
+OK set dout
+>>> pt.caps
+OK porttool=0.18.1 ports=17 lines=54 hold=1 led=1
+OK port=din board=upper kind=session blk=D term=D02-D09 channels=8 loop=ctrl params=ch,mode,period running=0
+OK vals=din ch=1 mode=level period=200
+OK limits=din ch:1..8 mode:level|quad period:50..
+OK port=dout board=lower kind=session blk=A term=A03-A10 channels=8 loop=ctrl params=ch,mode,res,duty,freq,period,cycles running=1
+OK vals=dout ch=1,2,3 mode=hold res=4 duty=1:15,2:15,3:15 freq=1:16000,2:16000,3:16000,4:16000,5:16000,6:16000,7:16000,8:16000 period=200 cycles=100
+OK limits=dout ch:1..8 mode:hold|blink|quad res:1..16 duty:0..65535 freq:1..128000 period:50.. cycles:1..10000
+OK port=relay board=lower kind=session blk=B term=B01-B12 channels=6 loop=ctrl params=ch,mode,on,close,open,count running=0
+OK vals=relay ch=1,2,3 mode=hold on=1:0,2:0,3:0 close=2000 open=2000 count=10
+OK terms=relay B01+B02,B03+B04,B05+B06,B07+B08,B09+B10,B11+B12
+OK limits=relay ch:1..6 mode:hold|cycle on:0..1 close:1000.. open:1000.. count:1..1000000
+OK port=ain board=upper kind=session blk=D term=D12,D13 channels=2 loop=ctrl params=ch,period running=0
+OK vals=ain ch=1,2 period=500
+OK terms=ain D12,D13
+OK limits=ain ch:1..2 period:50..
+OK port=aout board=upper kind=session blk=D term=D14,D15 channels=2 loop=ctrl params=ch,mv,period running=0
+OK vals=aout ch=1,2 mv=1:0,2:0 period=1000
+OK terms=aout D14,D15
+OK limits=aout ch:1..2 mv:0..2500 period:50..
+OK port=temp board=lower kind=session blk=- term=- channels=2 loop=ctrl params=ch,period running=0
+OK vals=temp ch=1,2 period=1000
+OK terms=temp SC-protect,HS-switch
+OK limits=temp ch:1..2 period:50..
+OK port=rs232 board=upper kind=session blk=C term=C05,C06 channels=1 loop=self params=baud,period running=0
+OK vals=rs232 baud=115200 period=3000
+OK terms=rs232 C05+C06
+OK limits=rs232 baud:9600|19200|38400|57600|115200|230400 period:50..
+OK port=rs485 board=upper kind=session blk=C term=C10,C11 channels=1 loop=link params=baud,period running=0 runs=rs485.pins
+OK vals=rs485 baud=115200 period=3000
+OK terms=rs485 C10+C11
+OK limits=rs485 baud:9600|19200|38400|57600|115200 period:50..
+OK port=can board=upper kind=session blk=C term=C07,C08 channels=1 loop=link params=baud,mode,period running=0
+OK vals=can baud=250000 mode=normal period=100
+OK terms=can C07+C08
+OK limits=can baud:125000|250000|500000|1000000 mode:normal|listen|loopback|extloop|echo|bus period:50..
+OK info=can clk=HSE clk_hz=25000000 presc=1 seg1=43 seg2=6 sjw=4 tq=50 bps=500000
+OK port=knx board=upper kind=session blk=C term=C03,C04 channels=1 loop=link params=mode,period,ga,src,val running=0 runs=knx.edges,knx.hist,knx.pullup
+OK vals=knx mode=listen period=1000 ga=31/7/255 src=15.15.250 val=toggle
+OK terms=knx C03+C04
+OK limits=knx mode:loopback|listen|frames period:50.. val:toggle|0|1
+OK port=eth board=bridge kind=session blk=- term=J1 channels=1 loop=link params=mode,port,ip,period running=0 runs=eth.link
+OK vals=eth mode=file port=5000 ip=192.168.9.9 period=100
+OK limits=eth mode:echo|sink|source|mirror|file port:1..65535 period:50..
+OK port=usb board=bridge kind=session blk=- term=J2 channels=1 loop=link params=mode,period running=0
+OK vals=usb mode=mirror period=100
+OK limits=usb mode:echo|sink|source|info|mirror|file period:50..
+OK port=sd board=bridge kind=session blk=- term=J6 channels=1 loop=ctrl params=period running=0 runs=sd.probe,sd.integrity,sd.speed,sd.put,sd.get,sd.ls,sd.rm,sd.eject
+OK vals=sd period=1000
+OK limits=sd period:50..
+OK port=sdram board=bridge kind=session blk=- term=U6 channels=1 loop=ctrl params=wait,period running=0 runs=sdram.probe,sdram.sweep,sdram.crc
+OK vals=sdram wait=5000 period=1000
+OK limits=sdram wait:1000.. period:50..
+OK port=rtc board=bridge kind=run blk=- term=- channels=1 loop=none runs=rtc.read
+OK port=reset board=bridge kind=run blk=- term=- channels=1 loop=none runs=reset.cause
+OK port=led board=bridge kind=run blk=- term=- channels=1 loop=none runs=led.blink
+>>> (host) 1000 ms later
+!dout t=35140 seq=1 rx=0 miss=3 mode=hold res=4 tick=256000 ch1=15 ch2=15 ch3=15
+>>> (host) dout after res=4
+TEST dout_res4_duty=15,15,15,0,0,0,0,0
+>>> pt.set dout res=0
+ERR dout set refused: res="0" must be 1..16 bits
+>>> pt.set dout res=17
+ERR dout set refused: res="17" must be 1..16 bits
+>>> pt.set dout res=8 freq=1000 duty=255
+OK set dout
+>>> pt.set dout freq=1001
+ERR dout set refused: freq="1001" must be 1..1000 Hz at res=8
+>>> pt.start dout duty=1:256
+ERR dout start refused: duty="1:256" must be like 1:51,5:191 - outputs 1..8, 0..255 at res=8, each output named at most
 >>> pt.start dout duty=9:50
-ERR dout start refused: duty="9:50" must be like 1:20,5:75 - outputs 1..8, percent 0..100, each output named at most on
+ERR dout start refused: duty="9:50" must be like 1:51,5:191 - outputs 1..8, 0..255 at res=8, each output named at most 
 >>> pt.start dout freq=99999
-ERR dout start refused: freq="99999" must be 1..2000 Hz
+ERR dout start refused: freq="99999" must be 1..1000 Hz at res=8
 >>> pt.start dout freq=1:99999
-ERR dout start refused: freq="1:99999" must be like 1:1000,5:250 - outputs 1..8, 1..2000 Hz, each output named at most 
+ERR dout start refused: freq="1:99999" must be like 1:1000,5:250 - outputs 1..8, 1..1000 Hz at res=8, each output named
 >>> pt.start dout freq=9:500
-ERR dout start refused: freq="9:500" must be like 1:1000,5:250 - outputs 1..8, 1..2000 Hz, each output named at most on
+ERR dout start refused: freq="9:500" must be like 1:1000,5:250 - outputs 1..8, 1..1000 Hz at res=8, each output named a
 >>> pt.start dout mode=sideways
-ERR dout start refused: mode="sideways" is not hold or blink
+ERR dout start refused: mode="sideways" is not hold, blink or quad
+>>> pt.start dout mode=quad cycles=2 period=1000
+OK started dout
+>>> (host) 100 ms later
+!dout t=35240 seq=1 rx=0 miss=0 mode=quad cycles=2 sent=1 done=0
+>>> (host) 3 ms later
+>>> (host) 3 ms later
+>>> (host) 3 ms later
+>>> (host) 3 ms later
+>>> (host) 3 ms later
+>>> (host) 3 ms later
+>>> (host) 3 ms later
+!dout t=35261 seq=1 rx=0 miss=1 mode=quad cycles=2 sent=8 done=1
+>>> (host) 3 ms later
+>>> (host) 3 ms later
+>>> (host) 3 ms later
+>>> (host) 3 ms later
+TEST quad_ab=01,11,10,00,01,11,10,00,00,00,00,00
+>>> pt.start dout mode=quad cycles=0
+ERR dout start refused: cycles="0" must be 1..10000
+>>> pt.start dout mode=quad cycles=10001
+ERR dout start refused: cycles="10001" must be 1..10000
+>>> pt.stop dout
+OK stopped dout
 >>> pt.stop all
 OK stopped all
 >>> (host) dout after pt.stop all
@@ -1166,55 +1481,56 @@ OK running=none
 OK started ain
 >>> pt.start temp period=1000
 OK started temp
->>> pt.start aout ch=1,2 mv=1:500,2:1500
+>>> pt.start aout ch=1,2 mv=1:500,2:1234
 OK started aout
 >>> pt.caps
-OK porttool=0.10.0 ports=17 lines=53 hold=1 led=1
+OK porttool=0.18.1 ports=17 lines=54 hold=1 led=1
 OK port=din board=upper kind=session blk=D term=D02-D09 channels=8 loop=ctrl params=ch,mode,period running=0
 OK vals=din ch=1 mode=level period=200
 OK limits=din ch:1..8 mode:level|quad period:50..
-OK port=dout board=lower kind=session blk=A term=A03-A10 channels=8 loop=ctrl params=ch,mode,duty,freq,period running=0
-OK vals=dout ch=1,2,3 mode=hold duty=1:50,2:50,3:50 freq=1:500,2:500,3:500,4:500,5:500,6:500,7:500,8:500 period=200
-OK limits=dout ch:1..8 mode:hold|blink duty:0..100 freq:1..2000 period:50..
-OK port=relay board=lower kind=session blk=B term=B01-B12 channels=6 loop=ctrl params=ch,mode,on,period running=0
-OK vals=relay ch=1,2,3 mode=hold on=1:0,2:0,3:0 period=1000
+OK port=dout board=lower kind=session blk=A term=A03-A10 channels=8 loop=ctrl params=ch,mode,res,duty,freq,period,cycles running=0
+OK vals=dout ch=1,2,3 mode=quad res=8 duty=1:255,2:255,3:255 freq=1:1000,2:1000,3:1000,4:1000,5:1000,6:1000,7:1000,8:1000 period=1000 cycles=2
+OK limits=dout ch:1..8 mode:hold|blink|quad res:1..16 duty:0..65535 freq:1..128000 period:50.. cycles:1..10000
+OK port=relay board=lower kind=session blk=B term=B01-B12 channels=6 loop=ctrl params=ch,mode,on,close,open,count running=0
+OK vals=relay ch=1,2,3 mode=hold on=1:0,2:0,3:0 close=2000 open=2000 count=10
 OK terms=relay B01+B02,B03+B04,B05+B06,B07+B08,B09+B10,B11+B12
-OK limits=relay ch:1..6 mode:hold|square on:0..1 period:1000..
+OK limits=relay ch:1..6 mode:hold|cycle on:0..1 close:1000.. open:1000.. count:1..1000000
 OK port=ain board=upper kind=session blk=D term=D12,D13 channels=2 loop=ctrl params=ch,period running=1
 OK vals=ain ch=1,2 period=500
 OK terms=ain D12,D13
 OK limits=ain ch:1..2 period:50..
 OK port=aout board=upper kind=session blk=D term=D14,D15 channels=2 loop=ctrl params=ch,mv,period running=1
-OK vals=aout ch=1,2 mv=1:500,2:1500 period=1000
+OK vals=aout ch=1,2 mv=1:500,2:1234 period=1000
 OK terms=aout D14,D15
-OK limits=aout ch:1..2 mv:0..3300 period:50..
+OK limits=aout ch:1..2 mv:0..2500 period:50..
 OK port=temp board=lower kind=session blk=- term=- channels=2 loop=ctrl params=ch,period running=1
 OK vals=temp ch=1,2 period=1000
 OK terms=temp SC-protect,HS-switch
 OK limits=temp ch:1..2 period:50..
-OK port=rs232 board=upper kind=session blk=C term=C05,C06 channels=1 loop=self params=period running=0
-OK vals=rs232 period=3000
+OK port=rs232 board=upper kind=session blk=C term=C05,C06 channels=1 loop=self params=baud,period running=0
+OK vals=rs232 baud=115200 period=3000
 OK terms=rs232 C05+C06
-OK limits=rs232 period:50..
+OK limits=rs232 baud:9600|19200|38400|57600|115200|230400 period:50..
 OK port=rs485 board=upper kind=session blk=C term=C10,C11 channels=1 loop=link params=baud,period running=0 runs=rs485.pins
 OK vals=rs485 baud=115200 period=3000
 OK terms=rs485 C10+C11
 OK limits=rs485 baud:9600|19200|38400|57600|115200 period:50..
 OK port=can board=upper kind=session blk=C term=C07,C08 channels=1 loop=link params=baud,mode,period running=0
-OK vals=can baud=250000 mode=echo period=100
+OK vals=can baud=250000 mode=normal period=100
 OK terms=can C07+C08
-OK limits=can baud:125000|250000|500000|1000000 mode:normal|listen|loopback|extloop|echo period:50..
-OK port=knx board=upper kind=session blk=C term=C03,C04 channels=1 loop=link params=mode,period,ga,src,val running=0
-OK vals=knx mode=loopback period=1000 ga=31/7/255 src=15.15.250 val=toggle
+OK limits=can baud:125000|250000|500000|1000000 mode:normal|listen|loopback|extloop|echo|bus period:50..
+OK info=can clk=HSE clk_hz=25000000 presc=1 seg1=43 seg2=6 sjw=4 tq=50 bps=500000
+OK port=knx board=upper kind=session blk=C term=C03,C04 channels=1 loop=link params=mode,period,ga,src,val running=0 runs=knx.edges,knx.hist,knx.pullup
+OK vals=knx mode=listen period=1000 ga=31/7/255 src=15.15.250 val=toggle
 OK terms=knx C03+C04
 OK limits=knx mode:loopback|listen|frames period:50.. val:toggle|0|1
 OK port=eth board=bridge kind=session blk=- term=J1 channels=1 loop=link params=mode,port,ip,period running=0 runs=eth.link
-OK vals=eth mode=source port=5000 ip=192.168.9.9 period=100
-OK limits=eth mode:echo|sink|source port:1..65535 period:50..
+OK vals=eth mode=file port=5000 ip=192.168.9.9 period=100
+OK limits=eth mode:echo|sink|source|mirror|file port:1..65535 period:50..
 OK port=usb board=bridge kind=session blk=- term=J2 channels=1 loop=link params=mode,period running=0
-OK vals=usb mode=info period=100
-OK limits=usb mode:echo|sink|source|info period:50..
-OK port=sd board=bridge kind=session blk=- term=J6 channels=1 loop=ctrl params=period running=0 runs=sd.probe,sd.integrity,sd.speed
+OK vals=usb mode=mirror period=100
+OK limits=usb mode:echo|sink|source|info|mirror|file period:50..
+OK port=sd board=bridge kind=session blk=- term=J6 channels=1 loop=ctrl params=period running=0 runs=sd.probe,sd.integrity,sd.speed,sd.put,sd.get,sd.ls,sd.rm,sd.eject
 OK vals=sd period=1000
 OK limits=sd period:50..
 OK port=sdram board=bridge kind=session blk=- term=U6 channels=1 loop=ctrl params=wait,period running=0 runs=sdram.probe,sdram.sweep,sdram.crc
@@ -1224,19 +1540,19 @@ OK port=rtc board=bridge kind=run blk=- term=- channels=1 loop=none runs=rtc.rea
 OK port=reset board=bridge kind=run blk=- term=- channels=1 loop=none runs=reset.cause
 OK port=led board=bridge kind=run blk=- term=- channels=1 loop=none runs=led.blink
 >>> (host) 1000 ms later
-!ain t=22490 seq=1 rx=0 miss=0 vdda=3287 ok=1 ch1=21850/2071 ch2=530/50
-!aout t=22490 seq=1 rx=0 miss=0 ch1=500/499/4873 ef1=0 ch2=1500/1499/14638 ef2=0
-!temp t=22490 seq=1 rx=0 miss=0 vdda=3287 ok=1 ch1=738/238 ch2=751/251
+!ain t=36273 seq=1 rx=0 miss=0 vdda=3287 ok=1 ch1=21850/2071 ch2=530/50
+!aout t=36273 seq=1 rx=0 miss=0 ch1=500/500/4882 ef1=0 ch2=1234/1233/12041 ef2=0
+!temp t=36273 seq=1 rx=0 miss=0 vdda=3287 ok=1 ch1=738/238 ch2=751/251
 >>> (host) DAC outputs now
-TEST dac_mv=500,1500 vref_enables=6
+TEST dac_mv=500,1234 vref_enables=6
 >>> (host) 1000 ms later
-!ain t=23490 seq=1 rx=0 miss=1 vdda=3287 ok=1 ch1=21850/2071 ch2=530/50
-!aout t=23490 seq=1 rx=0 miss=1 ch1=500/499/4873 ef1=1 ch2=1500/1499/14638 ef2=0
-!temp t=23490 seq=1 rx=0 miss=1 vdda=3287 ok=1 ch1=738/238 ch2=751/251
+!ain t=37273 seq=1 rx=0 miss=1 vdda=3287 ok=1 ch1=21850/2071 ch2=530/50
+!aout t=37273 seq=1 rx=0 miss=1 ch1=500/500/4882 ef1=1 ch2=1234/1233/12041 ef2=0
+!temp t=37273 seq=1 rx=0 miss=1 vdda=3287 ok=1 ch1=738/238 ch2=751/251
 >>> pt.start aout mv=9999
-ERR aout start refused: mv="9999" must be 0..3300 millivolts
+ERR aout start refused: mv="9999" must be 0..2500 millivolts
 >>> pt.start aout mv=1:4000
-ERR aout start refused: mv="1:4000" must be like 1:500,2:1500 - outputs 1..2, 0..3300 mV, each output named at most onc
+ERR aout start refused: mv="1:4000" must be like 1:500,2:1500 - outputs 1..2, 0..2500 mV, each output named at most onc
 >>> pt.start ain ch=3
 ERR ain start refused: ch="3" must be channels 1..2 separated by commas
 >>> pt.stop all
@@ -1246,13 +1562,13 @@ TEST dac_after_stop=0,0
 >>> pt.start rs485 baud=115200 period=200
 OK started rs485
 >>> (host) 200 ms later
-!rs485 t=23690 seq=1 rx=0 miss=0 baud=115200 rxbytes=0 junk=0 overrun=0
+!rs485 t=37473 seq=1 rx=0 miss=0 baud=115200 rxbytes=0 junk=0 overrun=0
 >>> (host) 200 ms later
-!rs485 t=23890 seq=2 rx=1 miss=0 baud=115200 rxbytes=2 junk=0 overrun=0
+!rs485 t=37673 seq=2 rx=1 miss=0 baud=115200 rxbytes=2 junk=0 overrun=0
 >>> (host) 200 ms later
-!rs485 t=24090 seq=2 rx=1 miss=1 baud=115200 rxbytes=2 junk=0 overrun=0
+!rs485 t=37873 seq=2 rx=1 miss=1 baud=115200 rxbytes=2 junk=0 overrun=0
 >>> (host) 200 ms later
-!rs485 t=24290 seq=2 rx=1 miss=2 baud=115200 rxbytes=10 junk=1 overrun=0
+!rs485 t=38073 seq=2 rx=1 miss=2 baud=115200 rxbytes=10 junk=1 overrun=0
 >>> (host) what went out on the pair
 TEST rs485_sent=1|2|2|2| driving=0 baud=115200
 >>> pt.echo rs485 2
@@ -1267,26 +1583,32 @@ OK stopped all
 OK rs485.pins checked=1 busy=0 dir_low=0 tx_low=0 dir_high=1 tx_high=1 follows=1
 >>> pt.run rs485.pins
 OK rs485.pins checked=1 busy=0 dir_low=0 tx_low=0 dir_high=0 tx_high=1 follows=0
->>> pt.start rs232 period=200
-OK started rs232
->>> (host) 200 ms later
-!rs232 t=24490 seq=1 rx=0 miss=0 rxlines=0
->>> pt.echo rs232 1
-OK echo rs232 1
->>> (host) 200 ms later
-!rs232 t=24690 seq=2 rx=1 miss=0 rxlines=0
+>>> pt.start relay ch=1,2 mode=cycle close=1:1000,2:2000 open=1000 count=1:2,2:1
+OK started relay
+>>> (host) 1 ms later
+!relay t=38074 seq=1 rx=0 miss=0 mode=cycle ch1=0 n1=0 ch2=0 n2=0 done=0
+>>> (host) 999 ms later
+!relay t=39073 seq=1 rx=0 miss=1 mode=cycle ch1=1 n1=0 ch2=1 n2=0 done=0
+>>> (host) 1000 ms later
+!relay t=40073 seq=1 rx=0 miss=2 mode=cycle ch1=0 n1=1 ch2=1 n2=0 done=0
+>>> (host) 1000 ms later
+!relay t=41073 seq=1 rx=0 miss=3 mode=cycle ch1=1 n1=1 ch2=0 n2=1 done=0
+>>> (host) 1000 ms later
+!relay t=42073 seq=1 rx=0 miss=4 mode=cycle ch1=0 n1=2 ch2=0 n2=1 done=1
+>>> (host) 1000 ms later
+TEST relay_cycle_energised=0
 >>> pt.caps
-OK porttool=0.10.0 ports=17 lines=53 hold=1 led=1
+OK porttool=0.18.1 ports=17 lines=54 hold=1 led=1
 OK port=din board=upper kind=session blk=D term=D02-D09 channels=8 loop=ctrl params=ch,mode,period running=0
 OK vals=din ch=1 mode=level period=200
 OK limits=din ch:1..8 mode:level|quad period:50..
-OK port=dout board=lower kind=session blk=A term=A03-A10 channels=8 loop=ctrl params=ch,mode,duty,freq,period running=0
-OK vals=dout ch=1,2,3 mode=hold duty=1:50,2:50,3:50 freq=1:500,2:500,3:500,4:500,5:500,6:500,7:500,8:500 period=200
-OK limits=dout ch:1..8 mode:hold|blink duty:0..100 freq:1..2000 period:50..
-OK port=relay board=lower kind=session blk=B term=B01-B12 channels=6 loop=ctrl params=ch,mode,on,period running=0
-OK vals=relay ch=1,2,3 mode=hold on=1:0,2:0,3:0 period=1000
+OK port=dout board=lower kind=session blk=A term=A03-A10 channels=8 loop=ctrl params=ch,mode,res,duty,freq,period,cycles running=0
+OK vals=dout ch=1,2,3 mode=quad res=8 duty=1:255,2:255,3:255 freq=1:1000,2:1000,3:1000,4:1000,5:1000,6:1000,7:1000,8:1000 period=1000 cycles=2
+OK limits=dout ch:1..8 mode:hold|blink|quad res:1..16 duty:0..65535 freq:1..128000 period:50.. cycles:1..10000
+OK port=relay board=lower kind=session blk=B term=B01-B12 channels=6 loop=ctrl params=ch,mode,on,close,open,count running=1
+OK vals=relay ch=1,2 mode=cycle on=1:0,2:0
 OK terms=relay B01+B02,B03+B04,B05+B06,B07+B08,B09+B10,B11+B12
-OK limits=relay ch:1..6 mode:hold|square on:0..1 period:1000..
+OK limits=relay ch:1..6 mode:hold|cycle on:0..1 close:1000.. open:1000.. count:1..1000000
 OK port=ain board=upper kind=session blk=D term=D12,D13 channels=2 loop=ctrl params=ch,period running=0
 OK vals=ain ch=1,2 period=500
 OK terms=ain D12,D13
@@ -1294,34 +1616,103 @@ OK limits=ain ch:1..2 period:50..
 OK port=aout board=upper kind=session blk=D term=D14,D15 channels=2 loop=ctrl params=ch,mv,period running=0
 OK vals=aout ch=1,2 mv=1:0,2:0 period=1000
 OK terms=aout D14,D15
-OK limits=aout ch:1..2 mv:0..3300 period:50..
+OK limits=aout ch:1..2 mv:0..2500 period:50..
 OK port=temp board=lower kind=session blk=- term=- channels=2 loop=ctrl params=ch,period running=0
 OK vals=temp ch=1,2 period=1000
 OK terms=temp SC-protect,HS-switch
 OK limits=temp ch:1..2 period:50..
-OK port=rs232 board=upper kind=session blk=C term=C05,C06 channels=1 loop=self params=period running=1
-OK vals=rs232 period=200
+OK port=rs232 board=upper kind=session blk=C term=C05,C06 channels=1 loop=self params=baud,period running=0
+OK vals=rs232 baud=115200 period=3000
 OK terms=rs232 C05+C06
-OK limits=rs232 period:50..
+OK limits=rs232 baud:9600|19200|38400|57600|115200|230400 period:50..
 OK port=rs485 board=upper kind=session blk=C term=C10,C11 channels=1 loop=link params=baud,period running=0 runs=rs485.pins
 OK vals=rs485 baud=115200 period=200
 OK terms=rs485 C10+C11
 OK limits=rs485 baud:9600|19200|38400|57600|115200 period:50..
 OK port=can board=upper kind=session blk=C term=C07,C08 channels=1 loop=link params=baud,mode,period running=0
-OK vals=can baud=250000 mode=echo period=100
+OK vals=can baud=250000 mode=normal period=100
 OK terms=can C07+C08
-OK limits=can baud:125000|250000|500000|1000000 mode:normal|listen|loopback|extloop|echo period:50..
-OK port=knx board=upper kind=session blk=C term=C03,C04 channels=1 loop=link params=mode,period,ga,src,val running=0
-OK vals=knx mode=loopback period=1000 ga=31/7/255 src=15.15.250 val=toggle
+OK limits=can baud:125000|250000|500000|1000000 mode:normal|listen|loopback|extloop|echo|bus period:50..
+OK info=can clk=HSE clk_hz=25000000 presc=1 seg1=43 seg2=6 sjw=4 tq=50 bps=500000
+OK port=knx board=upper kind=session blk=C term=C03,C04 channels=1 loop=link params=mode,period,ga,src,val running=0 runs=knx.edges,knx.hist,knx.pullup
+OK vals=knx mode=listen period=1000 ga=31/7/255 src=15.15.250 val=toggle
 OK terms=knx C03+C04
 OK limits=knx mode:loopback|listen|frames period:50.. val:toggle|0|1
 OK port=eth board=bridge kind=session blk=- term=J1 channels=1 loop=link params=mode,port,ip,period running=0 runs=eth.link
-OK vals=eth mode=source port=5000 ip=192.168.9.9 period=100
-OK limits=eth mode:echo|sink|source port:1..65535 period:50..
+OK vals=eth mode=file port=5000 ip=192.168.9.9 period=100
+OK limits=eth mode:echo|sink|source|mirror|file port:1..65535 period:50..
 OK port=usb board=bridge kind=session blk=- term=J2 channels=1 loop=link params=mode,period running=0
-OK vals=usb mode=info period=100
-OK limits=usb mode:echo|sink|source|info period:50..
-OK port=sd board=bridge kind=session blk=- term=J6 channels=1 loop=ctrl params=period running=0 runs=sd.probe,sd.integrity,sd.speed
+OK vals=usb mode=mirror period=100
+OK limits=usb mode:echo|sink|source|info|mirror|file period:50..
+OK port=sd board=bridge kind=session blk=- term=J6 channels=1 loop=ctrl params=period running=0 runs=sd.probe,sd.integrity,sd.speed,sd.put,sd.get,sd.ls,sd.rm,sd.eject
+OK vals=sd period=1000
+OK limits=sd period:50..
+OK port=sdram board=bridge kind=session blk=- term=U6 channels=1 loop=ctrl params=wait,period running=0 runs=sdram.probe,sdram.sweep,sdram.crc
+OK vals=sdram wait=5000 period=1000
+OK limits=sdram wait:1000.. period:50..
+OK port=rtc board=bridge kind=run blk=- term=- channels=1 loop=none runs=rtc.read
+OK port=reset board=bridge kind=run blk=- term=- channels=1 loop=none runs=reset.cause
+OK port=led board=bridge kind=run blk=- term=- channels=1 loop=none runs=led.blink
+>>> pt.start relay mode=cycle close=999
+ERR relay start refused: close="999" must be at least 1000 ms
+>>> pt.start relay mode=cycle open=1:500
+ERR relay start refused: open= must be like 1:1000,2:1000 - relays 1..6 once each, at least 1000 ms
+>>> pt.start relay mode=cycle count=0
+ERR relay start refused: count="0" must be 1..1000000
+>>> pt.start relay mode=cycle count=1000001
+ERR relay start refused: count="1000001" must be 1..1000000
+>>> pt.start relay mode=square
+ERR relay start refused: mode="square" is not hold or cycle
+>>> pt.start relay ch=1,2,3,4,5,6 mode=cycle close=1:1000001,2:1000002,3:1000003,4:1000004,5:1000005,6:1000006 open=1:2000001,2:2000002,3:2000003,4:2000004,5:2000005,6:2000006 count=1:1000000,2:999999,3:999998,4:999997,5:999996,6:999995
+OK started relay
+>>> pt.caps
+OK porttool=0.18.1 ports=17 lines=54 hold=1 led=1
+OK port=din board=upper kind=session blk=D term=D02-D09 channels=8 loop=ctrl params=ch,mode,period running=0
+OK vals=din ch=1 mode=level period=200
+OK limits=din ch:1..8 mode:level|quad period:50..
+OK port=dout board=lower kind=session blk=A term=A03-A10 channels=8 loop=ctrl params=ch,mode,res,duty,freq,period,cycles running=0
+OK vals=dout ch=1,2,3 mode=quad res=8 duty=1:255,2:255,3:255 freq=1:1000,2:1000,3:1000,4:1000,5:1000,6:1000,7:1000,8:1000 period=1000 cycles=2
+OK limits=dout ch:1..8 mode:hold|blink|quad res:1..16 duty:0..65535 freq:1..128000 period:50.. cycles:1..10000
+OK port=relay board=lower kind=session blk=B term=B01-B12 channels=6 loop=ctrl params=ch,mode,on,close,open,count running=1
+OK vals=relay ch=1,2,3,4,5,6 mode=cycle on=1:0,2:0,3:0,4:0,5:0,6:0
+OK terms=relay B01+B02,B03+B04,B05+B06,B07+B08,B09+B10,B11+B12
+OK limits=relay ch:1..6 mode:hold|cycle on:0..1 close:1000.. open:1000.. count:1..1000000
+OK port=ain board=upper kind=session blk=D term=D12,D13 channels=2 loop=ctrl params=ch,period running=0
+OK vals=ain ch=1,2 period=500
+OK terms=ain D12,D13
+OK limits=ain ch:1..2 period:50..
+OK port=aout board=upper kind=session blk=D term=D14,D15 channels=2 loop=ctrl params=ch,mv,period running=0
+OK vals=aout ch=1,2 mv=1:0,2:0 period=1000
+OK terms=aout D14,D15
+OK limits=aout ch:1..2 mv:0..2500 period:50..
+OK port=temp board=lower kind=session blk=- term=- channels=2 loop=ctrl params=ch,period running=0
+OK vals=temp ch=1,2 period=1000
+OK terms=temp SC-protect,HS-switch
+OK limits=temp ch:1..2 period:50..
+OK port=rs232 board=upper kind=session blk=C term=C05,C06 channels=1 loop=self params=baud,period running=0
+OK vals=rs232 baud=115200 period=3000
+OK terms=rs232 C05+C06
+OK limits=rs232 baud:9600|19200|38400|57600|115200|230400 period:50..
+OK port=rs485 board=upper kind=session blk=C term=C10,C11 channels=1 loop=link params=baud,period running=0 runs=rs485.pins
+OK vals=rs485 baud=115200 period=200
+OK terms=rs485 C10+C11
+OK limits=rs485 baud:9600|19200|38400|57600|115200 period:50..
+OK port=can board=upper kind=session blk=C term=C07,C08 channels=1 loop=link params=baud,mode,period running=0
+OK vals=can baud=250000 mode=normal period=100
+OK terms=can C07+C08
+OK limits=can baud:125000|250000|500000|1000000 mode:normal|listen|loopback|extloop|echo|bus period:50..
+OK info=can clk=HSE clk_hz=25000000 presc=1 seg1=43 seg2=6 sjw=4 tq=50 bps=500000
+OK port=knx board=upper kind=session blk=C term=C03,C04 channels=1 loop=link params=mode,period,ga,src,val running=0 runs=knx.edges,knx.hist,knx.pullup
+OK vals=knx mode=listen period=1000 ga=31/7/255 src=15.15.250 val=toggle
+OK terms=knx C03+C04
+OK limits=knx mode:loopback|listen|frames period:50.. val:toggle|0|1
+OK port=eth board=bridge kind=session blk=- term=J1 channels=1 loop=link params=mode,port,ip,period running=0 runs=eth.link
+OK vals=eth mode=file port=5000 ip=192.168.9.9 period=100
+OK limits=eth mode:echo|sink|source|mirror|file port:1..65535 period:50..
+OK port=usb board=bridge kind=session blk=- term=J2 channels=1 loop=link params=mode,period running=0
+OK vals=usb mode=mirror period=100
+OK limits=usb mode:echo|sink|source|info|mirror|file period:50..
+OK port=sd board=bridge kind=session blk=- term=J6 channels=1 loop=ctrl params=period running=0 runs=sd.probe,sd.integrity,sd.speed,sd.put,sd.get,sd.ls,sd.rm,sd.eject
 OK vals=sd period=1000
 OK limits=sd period:50..
 OK port=sdram board=bridge kind=session blk=- term=U6 channels=1 loop=ctrl params=wait,period running=0 runs=sdram.probe,sdram.sweep,sdram.crc
@@ -1332,6 +1723,92 @@ OK port=reset board=bridge kind=run blk=- term=- channels=1 loop=none runs=reset
 OK port=led board=bridge kind=run blk=- term=- channels=1 loop=none runs=led.blink
 >>> pt.stop all
 OK stopped all
+>>> pt.start rs232 period=200
+OK started rs232
+>>> (host) 200 ms later
+!rs232 t=43273 seq=1 rx=0 miss=0 rxlines=0 baud=115200
+>>> pt.echo rs232 1
+OK echo rs232 1
+>>> (host) 200 ms later
+!rs232 t=43473 seq=2 rx=1 miss=0 rxlines=0 baud=115200
+>>> pt.caps
+OK porttool=0.18.1 ports=17 lines=54 hold=1 led=1
+OK port=din board=upper kind=session blk=D term=D02-D09 channels=8 loop=ctrl params=ch,mode,period running=0
+OK vals=din ch=1 mode=level period=200
+OK limits=din ch:1..8 mode:level|quad period:50..
+OK port=dout board=lower kind=session blk=A term=A03-A10 channels=8 loop=ctrl params=ch,mode,res,duty,freq,period,cycles running=0
+OK vals=dout ch=1,2,3 mode=quad res=8 duty=1:255,2:255,3:255 freq=1:1000,2:1000,3:1000,4:1000,5:1000,6:1000,7:1000,8:1000 period=1000 cycles=2
+OK limits=dout ch:1..8 mode:hold|blink|quad res:1..16 duty:0..65535 freq:1..128000 period:50.. cycles:1..10000
+OK port=relay board=lower kind=session blk=B term=B01-B12 channels=6 loop=ctrl params=ch,mode,on,close,open,count running=0
+OK vals=relay ch=1,2,3,4,5,6 mode=cycle on=1:0,2:0,3:0,4:0,5:0,6:0
+OK terms=relay B01+B02,B03+B04,B05+B06,B07+B08,B09+B10,B11+B12
+OK limits=relay ch:1..6 mode:hold|cycle on:0..1 close:1000.. open:1000.. count:1..1000000
+OK port=ain board=upper kind=session blk=D term=D12,D13 channels=2 loop=ctrl params=ch,period running=0
+OK vals=ain ch=1,2 period=500
+OK terms=ain D12,D13
+OK limits=ain ch:1..2 period:50..
+OK port=aout board=upper kind=session blk=D term=D14,D15 channels=2 loop=ctrl params=ch,mv,period running=0
+OK vals=aout ch=1,2 mv=1:0,2:0 period=1000
+OK terms=aout D14,D15
+OK limits=aout ch:1..2 mv:0..2500 period:50..
+OK port=temp board=lower kind=session blk=- term=- channels=2 loop=ctrl params=ch,period running=0
+OK vals=temp ch=1,2 period=1000
+OK terms=temp SC-protect,HS-switch
+OK limits=temp ch:1..2 period:50..
+OK port=rs232 board=upper kind=session blk=C term=C05,C06 channels=1 loop=self params=baud,period running=1
+OK vals=rs232 baud=115200 period=200
+OK terms=rs232 C05+C06
+OK limits=rs232 baud:9600|19200|38400|57600|115200|230400 period:50..
+OK port=rs485 board=upper kind=session blk=C term=C10,C11 channels=1 loop=link params=baud,period running=0 runs=rs485.pins
+OK vals=rs485 baud=115200 period=200
+OK terms=rs485 C10+C11
+OK limits=rs485 baud:9600|19200|38400|57600|115200 period:50..
+OK port=can board=upper kind=session blk=C term=C07,C08 channels=1 loop=link params=baud,mode,period running=0
+OK vals=can baud=250000 mode=normal period=100
+OK terms=can C07+C08
+OK limits=can baud:125000|250000|500000|1000000 mode:normal|listen|loopback|extloop|echo|bus period:50..
+OK info=can clk=HSE clk_hz=25000000 presc=1 seg1=43 seg2=6 sjw=4 tq=50 bps=500000
+OK port=knx board=upper kind=session blk=C term=C03,C04 channels=1 loop=link params=mode,period,ga,src,val running=0 runs=knx.edges,knx.hist,knx.pullup
+OK vals=knx mode=listen period=1000 ga=31/7/255 src=15.15.250 val=toggle
+OK terms=knx C03+C04
+OK limits=knx mode:loopback|listen|frames period:50.. val:toggle|0|1
+OK port=eth board=bridge kind=session blk=- term=J1 channels=1 loop=link params=mode,port,ip,period running=0 runs=eth.link
+OK vals=eth mode=file port=5000 ip=192.168.9.9 period=100
+OK limits=eth mode:echo|sink|source|mirror|file port:1..65535 period:50..
+OK port=usb board=bridge kind=session blk=- term=J2 channels=1 loop=link params=mode,period running=0
+OK vals=usb mode=mirror period=100
+OK limits=usb mode:echo|sink|source|info|mirror|file period:50..
+OK port=sd board=bridge kind=session blk=- term=J6 channels=1 loop=ctrl params=period running=0 runs=sd.probe,sd.integrity,sd.speed,sd.put,sd.get,sd.ls,sd.rm,sd.eject
+OK vals=sd period=1000
+OK limits=sd period:50..
+OK port=sdram board=bridge kind=session blk=- term=U6 channels=1 loop=ctrl params=wait,period running=0 runs=sdram.probe,sdram.sweep,sdram.crc
+OK vals=sdram wait=5000 period=1000
+OK limits=sdram wait:1000.. period:50..
+OK port=rtc board=bridge kind=run blk=- term=- channels=1 loop=none runs=rtc.read
+OK port=reset board=bridge kind=run blk=- term=- channels=1 loop=none runs=reset.cause
+OK port=led board=bridge kind=run blk=- term=- channels=1 loop=none runs=led.blink
+>>> pt.stop all
+OK stopped all
+>>> pt.start rs232 baud=19200 period=200
+OK started rs232 line=19200
+TEST line_after_start uart4_baud=19200
+>>> (host) 200 ms later
+>>> (host) a byte at the new rate
+>>> (host) 200 ms later
+!rs232 t=43873 seq=1 rx=0 miss=0 rxlines=0 baud=19200
+>>> pt.stop rs232
+OK stopped rs232 line=115200
+TEST line_after_stop uart4_baud=115200
+>>> pt.start rs232 baud=57600 period=200
+OK started rs232 line=57600
+>>> (host) 3000 ms later
+!line t=46873 baud=115200 reverted=1
+!rs232 t=46873 seq=1 rx=0 miss=0 rxlines=0 baud=115200
+TEST line_after_silence uart4_baud=115200
+>>> pt.stop all
+OK stopped all
+>>> pt.start rs232 baud=4800
+ERR rs232 start refused: baud="4800" must be one of 9600 19200 38400 57600 115200 230400
 >>> (host) actuator state after pt.stop all
 TEST relay_energised=000000
 TEST relay_init_count=1 din_init_count=1
@@ -1340,4 +1817,4 @@ TEST rx_before=0 isr_raised=0x8
 TEST rx_after=1 icr_written=0xE state=32 error_code=0
 >>> (host) a command delivered one byte at a time through the ISR
 TEST fed=6
-OK uid=003400413135511439303538 porttool=0.10.0 rx_errors=7 rx_dropped=0
+OK uid=003400413135511439303538 porttool=0.18.1 rx_errors=7 rx_dropped=0

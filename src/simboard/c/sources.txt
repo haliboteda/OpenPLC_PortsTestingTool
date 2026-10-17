@@ -1,0 +1,37 @@
+# C sources of the firmware's host build, shared by the simulated board
+# (tools/ptbuild, with sim_main.c) and T4-01 (TestCase/host/porttool_caps,
+# with test_main.c); one list, so the two cannot drift apart.
+# $BOOT/... is relative to the bootloader repo, anything else to this folder.
+stubs/hal_stub.c
+stubs/entries_stub.c
+stubs/dout_stub.c
+stubs/analog_stub.c
+stubs/rs485_stub.c
+stubs/can_stub.c
+stubs/knx_stub.c
+stubs/lwip_stub.c
+stubs/usb_stub.c
+# TEMPORARY, pt.aodiag
+stubs/aodiag_stub.c
+# The real indicator driver, not a stub: it proves pt.run led.blink drives the pin it claims to.
+$BOOT/TestCase/common/port_led.c
+$BOOT/TestCase/porttool/porttool_cmd.c
+$BOOT/TestCase/porttool/porttool_calw.c
+$BOOT/TestCase/porttool/porttool_din.c
+$BOOT/TestCase/porttool/porttool_dout.c
+$BOOT/TestCase/porttool/porttool_ain.c
+$BOOT/TestCase/porttool/porttool_aout.c
+$BOOT/TestCase/porttool/porttool_temp.c
+$BOOT/TestCase/porttool/porttool_rs232.c
+$BOOT/TestCase/porttool/porttool_rs485.c
+$BOOT/TestCase/porttool/porttool_relay.c
+$BOOT/TestCase/porttool/porttool_can.c
+$BOOT/TestCase/porttool/porttool_knx.c
+$BOOT/TestCase/porttool/porttool_eth.c
+$BOOT/TestCase/porttool/porttool_usb.c
+$BOOT/TestCase/porttool/porttool_run.c
+$BOOT/TestCase/porttool/porttool_sd.c
+$BOOT/TestCase/porttool/porttool_sdfile.c
+$BOOT/TestCase/porttool/porttool_sdram.c
+# TEMPORARY, pt.aodiag
+$BOOT/TestCase/porttool/porttool_aodiag.c

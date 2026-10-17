@@ -1,28 +1,21 @@
 package testcase
 
-// The plan page's HTTP surface, driven end to end against the scripted board.
-//
-// The executor is covered above. What is only decidable here is what the panel
-// wraps around it: a plan is validated before it reaches the disk, a name that
-// came from a browser cannot climb out of the plans folder, and the panel's own
-// echo responder stands down for the length of a run - without which every
-// frame would be answered twice and the board would count the second reply as
-// stale, which reads on the line as a miss on a link that is working.
+// What the panel still does with plan files, driven against the scripted board:
+// list them for the header's criteria selector, and resolve the test-item
+// catalogue's criteria against the chosen one. Editing and running a plan is
+// the CLI's (decision 102).
 
 import (
 	"encoding/json"
 	"io"
 	"net/http/httptest"
-	"net/url"
 	"os"
 	"path/filepath"
-	"reflect"
 	"strings"
 	"testing"
 
-	"PortTool/internal/portmap"
-	"PortTool/internal/ptpanel"
-	"PortTool/internal/ptplan"
+	"PortTool/src/portmap"
+	"PortTool/src/ptpanel"
 )
 
 func planPanel(t *testing.T, handler func(cmd string, nth int) ([]string, []string)) (*httptest.Server, string) {
@@ -100,10 +93,8 @@ func samplePlan(name string) map[string]any {
 	}
 }
 
-// The routes below are only reachable through the page, and both pages live in
-// one file, so an edit to the manual panel can carry the plan pane away with it
-// and nothing else would notice.
-func TestPlanPaneIsStillOnThePage(t *testing.T) {
+// No plan tab (decision 102); the criteria selector stays.
+func TestPageHasCriteriaSelectorAndNoPlanTab(t *testing.T) {
 	srv, _ := planPanel(t, plainBoard)
 	resp, err := srv.Client().Get(srv.URL + "/")
 	if err != nil {
@@ -111,254 +102,82 @@ func TestPlanPaneIsStillOnThePage(t *testing.T) {
 	}
 	defer resp.Body.Close()
 	body, _ := io.ReadAll(resp.Body)
-	for _, want := range []string{`data-tab="plan"`, `id="planlist"`, `id="planbody"`} {
-		if !strings.Contains(string(body), want) {
-			t.Errorf("the served page has no %s", want)
+	if !strings.Contains(string(body), `id="critplan"`) {
+		t.Error("the served page has no criteria selector")
+	}
+	for _, gone := range []string{`data-tab="plan"`, `id="planbody"`} {
+		if strings.Contains(string(body), gone) {
+			t.Errorf("the served page still has %s", gone)
+		}
+	}
+	for _, path := range []string{"/api/plan?name=x", "/api/plan/run", "/api/plan/check"} {
+		r, err := srv.Client().Get(srv.URL + path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		r.Body.Close()
+		if r.Header.Get("Content-Type") == "application/json; charset=utf-8" {
+			t.Errorf("%s still answers", path)
 		}
 	}
 }
 
-func TestPlanPageWritesOnlyPlansThatLoad(t *testing.T) {
-	srv, dir := planPanel(t, plainBoard)
-
-	// A plan with no limit_version: a verdict nothing can be traced back to.
-	bad := samplePlan("untraceable")
-	delete(bad, "limit_version")
-	if r := postJSON(t, srv, "/api/plan", map[string]any{"name": "bad", "plan": bad}); r["error"] == nil {
-		t.Fatalf("a plan with no limit_version was accepted: %v", r)
-	}
-	if _, err := os.Stat(filepath.Join(dir, "bad.json")); !os.IsNotExist(err) {
-		t.Fatal("a plan that does not validate still reached the disk")
-	}
-
-	if r := postJSON(t, srv, "/api/plan", map[string]any{"name": "good", "plan": samplePlan("good")}); r["error"] != nil {
-		t.Fatalf("saving a valid plan: %v", r["error"])
-	}
-
-	// What the page writes has to be readable by the same loader the CLI uses,
-	// or a plan edited in the panel would only run in the panel.
-	if _, err := ptplan.Load(filepath.Join(dir, "good.json")); err != nil {
-		t.Fatalf("the panel wrote a file its own loader rejects: %v", err)
-	}
-
-	list := getJSON(t, srv, "/api/plans")
-	names, _ := list["plans"].([]any)
-	if len(names) != 1 || names[0] != "good.json" {
-		t.Fatalf("/api/plans = %v, want only the plan that validated", names)
-	}
-
-	back := getJSON(t, srv, "/api/plan?name=good")
-	plan, _ := back["plan"].(map[string]any)
-	if plan == nil || plan["name"] != "good" || len(plan["steps"].([]any)) != 2 {
-		t.Fatalf("the plan did not come back as it was saved: %v", back)
-	}
-}
-
-// A save may move how a step measures. It may not move what counts as a pass.
-//
-// Relaxing a limit ships a board that failed, and the report's traceability is
-// the plan name plus its limit_version - so neither can be reachable from a
-// request. The page draws them read-only, but a page is only what a browser
-// chose to send; this is the half that does not depend on the browser.
-// DECISIONS.md 30, restated in 34.
-func TestSavingAPlanCannotMoveItsLimits(t *testing.T) {
-	srv, dir := planPanel(t, plainBoard)
-
-	if r := postJSON(t, srv, "/api/plan", map[string]any{"name": "keep", "plan": samplePlan("keep")}); r["error"] != nil {
-		t.Fatalf("saving the plan to start from: %v", r["error"])
-	}
-	before, err := ptplan.Load(filepath.Join(dir, "keep.json"))
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	// One widened limit, one forged limit_version, and one legitimate edit in
-	// the same request. Without the legitimate one, a save that refused
-	// everything would pass this test.
-	attack := samplePlan("keep")
-	steps := attack["steps"].([]any)
-	step := steps[1].(map[string]any)
-	step["checks"] = []any{map[string]any{"field": "v", "op": "contains", "value": "0x"}}
-	step["timeout_ms"] = 9999
-	attack["limit_version"] = "forged"
-
-	if r := postJSON(t, srv, "/api/plan", map[string]any{"name": "keep", "plan": attack}); r["error"] != nil {
-		t.Fatalf("the save was refused outright, so the parameter edit was lost too: %v", r["error"])
-	}
-
-	after, err := ptplan.Load(filepath.Join(dir, "keep.json"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if got, want := after.Steps[1].Checks, before.Steps[1].Checks; !reflect.DeepEqual(got, want) {
-		t.Errorf("a widened limit reached the file: %+v, want %+v", got, want)
-	}
-	if after.LimitVersion != before.LimitVersion {
-		t.Errorf("limit_version = %q, want the file's own %q", after.LimitVersion, before.LimitVersion)
-	}
-	if after.Steps[1].TimeoutMS != 9999 {
-		t.Errorf("timeout_ms = %d, want the edit to have gone through", after.Steps[1].TimeoutMS)
-	}
-}
-
-// A step the file has never heard of has no limits on disk to keep, and making
-// some up would be saving a step that passes on anything.
-func TestSavingAPlanRefusesAStepTheFileDoesNotHave(t *testing.T) {
-	srv, dir := planPanel(t, plainBoard)
-
-	if r := postJSON(t, srv, "/api/plan", map[string]any{"name": "keep", "plan": samplePlan("keep")}); r["error"] != nil {
-		t.Fatalf("saving the plan to start from: %v", r["error"])
-	}
-
-	smuggled := samplePlan("keep")
-	smuggled["steps"] = append(smuggled["steps"].([]any), map[string]any{
-		"id": "smuggled", "type": "PtRaw", "command": "pt.id",
-		"checks": []any{map[string]any{"field": "_text", "op": "contains", "value": ""}},
-	})
-	if r := postJSON(t, srv, "/api/plan", map[string]any{"name": "keep", "plan": smuggled}); r["error"] == nil {
-		t.Fatal("a step that is not in the file was accepted, limits and all")
-	}
-
-	after, err := ptplan.Load(filepath.Join(dir, "keep.json"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(after.Steps) != 2 {
-		t.Fatalf("the file has %d steps, want the 2 it had", len(after.Steps))
-	}
-}
-
-func TestPlanNameCannotLeaveThePlansFolder(t *testing.T) {
+// A name from the browser picks a file in the plans folder and nothing else.
+func TestCriteriaPlanNameCannotLeaveThePlansFolder(t *testing.T) {
 	srv, _ := planPanel(t, plainBoard)
-	for _, name := range []string{"", "..", "../evil", `..\evil`, "sub/evil"} {
-		r := getJSON(t, srv, "/api/plan?name="+url.QueryEscape(name))
+	for _, name := range []string{"..", "../evil", `..\evil`, "sub/evil"} {
+		r := postJSON(t, srv, "/api/criteria", map[string]any{"plan": name})
 		if r["error"] == nil {
 			t.Errorf("name %q was accepted as a plan file", name)
 		}
 	}
 }
 
-func TestPlanCheckNeedsABoardToSayAnything(t *testing.T) {
-	srv, _ := planPanel(t, plainBoard)
-
-	// Unconnected, the page must say why it is silent rather than show a clean
-	// bill of health: no findings and no board look identical otherwise.
-	r := postJSON(t, srv, "/api/plan/check", map[string]any{"plan": samplePlan("p")})
-	if note, _ := r["note"].(string); note == "" {
-		t.Fatalf("checking with no board said nothing about the missing board: %v", r)
-	}
-
-	if st := postJSON(t, srv, "/api/connect", map[string]any{"port": "COM_TEST"}); st["connected"] != true {
-		t.Fatalf("connect did not take: %v", st)
-	}
-
-	// din and rs485 are what capsReply reports; a plan naming anything else has
-	// to be caught here rather than at the bench.
-	p := samplePlan("p")
-	p["steps"].([]any)[1].(map[string]any)["port"] = "nosuch"
-	r = postJSON(t, srv, "/api/plan/check", map[string]any{"plan": p})
-	findings, _ := r["findings"].([]any)
-	if len(findings) == 0 || !strings.Contains(findings[0].(string), "nosuch") {
-		t.Fatalf("the board's caps did not catch an unknown port: %v", r)
-	}
-
-	r = postJSON(t, srv, "/api/plan/check", map[string]any{"plan": samplePlan("p")})
-	if clean, _ := r["findings"].([]any); len(clean) != 0 {
-		t.Fatalf("a plan the board can run was reported as a problem: %v", clean)
-	}
-}
-
-func TestPlanRunAnswersEachFrameExactlyOnce(t *testing.T) {
-	var echoed []string
-	srv, _ := planPanel(t, func(cmd string, nth int) ([]string, []string) {
-		switch {
-		case strings.HasPrefix(cmd, "pt.start din"):
-			return []string{"OK din started"}, []string{
-				"!din t=1 seq=1 rx=0 miss=0 v=0x01",
-				"!din t=2 seq=2 rx=1 miss=0 v=0x01",
-				"!din t=3 seq=3 rx=2 miss=0 v=0x01",
-			}
-		case strings.HasPrefix(cmd, "pt.echo "):
-			echoed = append(echoed, cmd)
-			return []string{"OK " + strings.TrimPrefix(cmd, "pt.echo ") + " noted"}, nil
-		}
-		return plainBoard(cmd, nth)
+// /api/items is the catalogue cut down to the board's ports, each criterion
+// resolved against the plan the panel judges by.
+func TestItemsFollowCapsAndCriteriaPlan(t *testing.T) {
+	srv, dir := planPanel(t, plainBoard)
+	plan := samplePlan("crit")
+	plan["steps"] = append(plan["steps"].([]any), map[string]any{
+		"id": "digital-in", "type": "PtSession", "port": "din", "frames": 3,
+		"checks": []any{map[string]any{"field": "v", "op": "eq", "value": "0xFF"}},
 	})
-
-	if r := postJSON(t, srv, "/api/plan/run", map[string]any{"plan": samplePlan("p")}); r["error"] == nil {
-		t.Fatal("a run with no board connected should have been refused")
+	b, _ := json.Marshal(plan)
+	if err := os.WriteFile(filepath.Join(dir, "crit.json"), b, 0o644); err != nil {
+		t.Fatal(err)
 	}
-
-	postJSON(t, srv, "/api/connect", map[string]any{"port": "COM_TEST"})
-	r := postJSON(t, srv, "/api/plan/run", map[string]any{"plan": samplePlan("p"), "sn": "SN-1"})
-	if r["error"] != nil {
-		t.Fatalf("run: %v", r["error"])
+	if r := postJSON(t, srv, "/api/criteria", map[string]any{"plan": "crit.json"}); r["error"] != nil {
+		t.Fatalf("switching criteria: %v", r["error"])
 	}
+	t.Cleanup(func() { postJSON(t, srv, "/api/criteria", map[string]any{"plan": ""}) })
 
-	rep, _ := r["report"].(map[string]any)
-	steps, _ := rep["steps"].([]any)
-	if len(steps) != 2 {
-		t.Fatalf("report has %d steps, want 2: %v", len(steps), rep)
+	if r := getJSON(t, srv, "/api/items"); r["connected"] != false {
+		t.Fatalf("unconnected /api/items = %v", r)
 	}
-	for _, s := range steps {
-		m := s.(map[string]any)
-		if m["outcome"] != "PASS" {
-			t.Errorf("step %v is %v: %v", m["id"], m["outcome"], m["reason"])
+	postJSON(t, srv, "/api/connect", map[string]any{"port": "fake"})
+	r := getJSON(t, srv, "/api/items")
+	ports := map[string]bool{}
+	for _, p := range r["ports"].([]any) {
+		ports[p.(map[string]any)["port"].(string)] = true
+	}
+	if !ports["din"] || !ports["rs485"] || !ports["sdram"] || len(ports) != 3 {
+		t.Fatalf("ports = %v, want exactly the board's din, rs485, sdram", ports)
+	}
+	var level map[string]any
+	for _, x := range r["items"].([]any) {
+		it := x.(map[string]any)
+		if !ports[it["port"].(string)] {
+			t.Errorf("item %v is for a port the board did not report", it["id"])
+		}
+		if it["id"] == "din.level" {
+			level = it
 		}
 	}
-	if rep["sn"] != "SN-1" {
-		t.Errorf("the serial number did not reach the report: %v", rep["sn"])
+	if level == nil {
+		t.Fatal("no din.level item")
 	}
-
-	// The point of the whole exercise: the executor answered, the panel's
-	// responder did not, so there is one reply per frame and not two.
-	if want := []string{"pt.echo din 1", "pt.echo din 2", "pt.echo din 3"}; !equalStrings(echoed, want) {
-		t.Fatalf("echoes = %v, want %v", echoed, want)
-	}
-
-	// And the responder is back on afterwards, or the next manual session on
-	// this connection would report misses nobody caused.
-	if st := getJSON(t, srv, "/api/state"); st["autoEcho"] != true {
-		t.Error("auto echo was left switched off after the run")
-	}
-}
-
-func equalStrings(a, b []string) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	for i := range a {
-		if a[i] != b[i] {
-			return false
-		}
-	}
-	return true
-}
-
-// A plan the firmware cannot run as written is refused on the panel exactly as
-// the CLI refuses it (decision 77): a report from it would be a verdict on the
-// plan, not on the board.
-func TestPlanRunRefusesAPlanThatDoesNotFitTheFirmware(t *testing.T) {
-	var started bool
-	srv, _ := planPanel(t, func(cmd string, nth int) ([]string, []string) {
-		if strings.HasPrefix(cmd, "pt.start") {
-			started = true
-		}
-		return plainBoard(cmd, nth)
-	})
-	postJSON(t, srv, "/api/connect", map[string]any{"port": "COM_TEST"})
-
-	p := samplePlan("p")
-	p["steps"].([]any)[1].(map[string]any)["port"] = "nosuch"
-	r := postJSON(t, srv, "/api/plan/run", map[string]any{"plan": p})
-	// The refusal is a dictionary key; the findings themselves stay as the plan checker words them.
-	e, _ := r["error"].(map[string]any)
-	args, _ := e["args"].(map[string]any)
-	msg, _ := args["findings"].(string)
-	if e["$t"] != "go.plan.mismatch" || !strings.Contains(msg, "nosuch") {
-		t.Fatalf("an unknown port was not refused by name: %v", r)
-	}
-	if r["report"] != nil || started {
-		t.Fatalf("the plan ran anyway (report %v, started %v)", r["report"] != nil, started)
+	crit := level["criteria"].([]any)[0].(map[string]any)
+	if crit["step"] != "digital-in" || crit["missing"] != false || len(crit["checks"].([]any)) != 1 {
+		t.Fatalf("din.level criteria = %v, want the plan's digital-in check", crit)
 	}
 }

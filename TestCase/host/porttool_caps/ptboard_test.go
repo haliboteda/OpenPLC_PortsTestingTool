@@ -1,13 +1,8 @@
 package testcase
 
-// The other half of T4-01: the same transcript, replayed through a fake serial
-// port, exercising the code that will actually talk to a board.
-//
-// What this covers that the parser test cannot: a reply arriving in pieces, a
-// session pushing frames while a command is in flight, a refusal keeping the
-// board's own wording, and a multi-line reply whose length nothing declares.
-// All four are things that only go wrong once there is a real link, and all
-// four are decidable here.
+// The other half of T4-01: the recorded transcript replayed through a fake serial
+// port, covering what only a real link can get wrong: split replies, frames during
+// a command, refusals in the board's own words, multi-line replies with no count.
 
 import (
 	"io"
@@ -16,8 +11,10 @@ import (
 	"testing"
 	"time"
 
-	"PortTool/internal/ptboard"
-	"PortTool/internal/ptproto"
+	"go.bug.st/serial"
+
+	"PortTool/src/ptboard"
+	"PortTool/src/ptproto"
 )
 
 // fakeBoard answers commands out of the recorded transcript, and can push
@@ -108,8 +105,8 @@ func TestBoardReadsCapsOverAFakeLink(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Caps: %v", err)
 	}
-	if caps.Version != "0.10.0" {
-		t.Fatalf("caps version = %s, want 0.10.0", caps.Version)
+	if caps.Version != "0.18.1" {
+		t.Fatalf("caps version = %s, want 0.18.1", caps.Version)
 	}
 	if _, ok := caps.Port("din"); !ok {
 		t.Fatalf("caps came back without din: %d ports", len(caps.Ports))
@@ -180,8 +177,7 @@ func TestRefusalKeepsTheBoardsOwnWords(t *testing.T) {
 	if !asRefused(err, &refused) {
 		t.Fatalf("error was %T, want *ptboard.RefusedError", err)
 	}
-	// The reason names the parameter and the range. Summarising it to
-	// "start failed" is what the panel is forbidden to do.
+	// The reason names the parameter and the range; the panel must not summarise it.
 	if !strings.Contains(refused.Reason, "must be channels") {
 		t.Errorf("reason = %q, want the board's own explanation", refused.Reason)
 	}
@@ -247,4 +243,67 @@ func asRefused(err error, target **ptboard.RefusedError) bool {
 		return true
 	}
 	return false
+}
+
+// rateBoard is the fake with a rate: it records every switch and every empty
+// line, the keepalive a switched board needs (PORTTOOL-FLOW.md B.7).
+type rateBoard struct {
+	*fakeBoard
+	mu     sync.Mutex
+	modes  []int
+	blanks int
+}
+
+func (r *rateBoard) SetMode(m *serial.Mode) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.modes = append(r.modes, m.BaudRate)
+	return nil
+}
+
+func (r *rateBoard) Write(p []byte) (int, error) {
+	if strings.TrimSpace(string(p)) == "" {
+		r.mu.Lock()
+		r.blanks++
+		r.mu.Unlock()
+	}
+	return r.fakeBoard.Write(p)
+}
+
+func (r *rateBoard) state() ([]int, int) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return append([]int(nil), r.modes...), r.blanks
+}
+
+// Decision 104: the PC follows the rate the board's reply announces, keeps the
+// switched line alive, and goes back with the board.
+func TestBoardFollowsTheControlLineRate(t *testing.T) {
+	r := &rateBoard{fakeBoard: newFakeBoard(t)}
+	b := ptboard.New(r, 0)
+	defer b.Close()
+
+	if _, err := b.Send("pt.start rs232 baud=19200 period=200", ptboard.ExpectOne, 0); err != nil {
+		t.Fatalf("start: %v", err)
+	}
+	modes, blanks := r.state()
+	if len(modes) != 1 || modes[0] != 19200 || blanks < 1 {
+		t.Fatalf("after the start: modes %v, %d empty lines; want [19200] and one at once", modes, blanks)
+	}
+	time.Sleep(1200 * time.Millisecond)
+	if _, blanks = r.state(); blanks < 3 {
+		t.Errorf("%d empty lines in 1.2 s on the switched line; the board gives up after 3 s of silence", blanks)
+	}
+
+	if _, err := b.Send("pt.stop rs232", ptboard.ExpectOne, 0); err != nil {
+		t.Fatalf("stop: %v", err)
+	}
+	modes, before := r.state()
+	if len(modes) != 2 || modes[1] != 115200 {
+		t.Fatalf("after the stop: modes %v, want [19200 115200]", modes)
+	}
+	time.Sleep(800 * time.Millisecond)
+	if _, after := r.state(); after != before {
+		t.Errorf("keepalive went on at the default rate: %d -> %d empty lines", before, after)
+	}
 }
