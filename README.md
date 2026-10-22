@@ -55,7 +55,7 @@ Packing also needs, beside this repository:
 
 | What | For |
 |---|---|
-| `open_plc_cube_ide` | the test firmware sources; its `Debug/open_plc_cube_ide.hex`, the bootloader built in STM32CubeIDE, goes into `stage6/` |
+| `OpenPLC_BootLoader` | the test firmware sources; its `Debug/OpenPLC_BootLoader.hex`, the bootloader built in STM32CubeIDE, goes into `stage6/` |
 | STM32CubeIDE | builds the test firmware headless |
 | `IAPTranfer_Tool`, with `Output/windows/IAPTool.exe` and `Output/linux/IAPTool` built | the upload tool in `stage6/` |
 | `open_plc_arduino` | the FQBN the step-6 demo is compiled with |

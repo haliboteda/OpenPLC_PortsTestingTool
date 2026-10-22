@@ -47,7 +47,7 @@ GOOS=windows GOARCH=amd64 go build -o PortTool.exe ./src/cmd/porttool
 
 | 要什么 | 干什么用 |
 |---|---|
-| `open_plc_cube_ide` | 测试固件的源码；它的 `Debug/open_plc_cube_ide.hex`（在 STM32CubeIDE 里编出的 bootloader）进 `stage6/` |
+| `OpenPLC_BootLoader` | 测试固件的源码；它的 `Debug/OpenPLC_BootLoader.hex`（在 STM32CubeIDE 里编出的 bootloader）进 `stage6/` |
 | STM32CubeIDE | 无界面编测试固件 |
 | `IAPTranfer_Tool`，并已编出 `Output/windows/IAPTool.exe` 和 `Output/linux/IAPTool` | `stage6/` 里的上传工具 |
 | `open_plc_arduino` | 编第 6 步 demo 用的 FQBN |

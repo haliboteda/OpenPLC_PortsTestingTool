@@ -21,15 +21,15 @@ import (
 // Output/fixture/ (decision 86).
 
 const (
-	fixtureProject = "open_plc_cube_ide/Debug"
+	fixtureProject = "OpenPLC_BootLoader/Debug"
 	toolLD         = "STM32H743IIKX_FLASH_PORTTOOL.ld"
 	bootLD         = "STM32H743IIKX_FLASH.ld"
 	// The #warning the fixture image must carry (decision 14).
 	toolMarker = "PORTTOOL_ENABLE=1: this image is the hardware test tool"
 )
 
-var fixtureImages = []string{"open_plc_cube_ide.elf", "open_plc_cube_ide.bin",
-	"open_plc_cube_ide.hex", "open_plc_cube_ide.map"}
+var fixtureImages = []string{"OpenPLC_BootLoader.elf", "OpenPLC_BootLoader.bin",
+	"OpenPLC_BootLoader.hex", "OpenPLC_BootLoader.map"}
 
 // Warnings that follow from a deliberate design choice in $BOOT, matched on an
 // exact substring. See $PROD/docs/modules/M1/FLASHBOOT.md
@@ -119,7 +119,7 @@ func copyBoot(boot, work string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("git ls-files in %s: %v", boot, err)
 	}
-	project := filepath.Join(work, "open_plc_cube_ide")
+	project := filepath.Join(work, "OpenPLC_BootLoader")
 	for _, name := range strings.Split(string(out), "\x00") {
 		if name == "" {
 			continue
@@ -262,11 +262,11 @@ func keepImages(project string) error {
 // flash writes the last fixture build to the board over SWD.
 func flash() error {
 	cfg := loadLocal()
-	elf := filepath.Join(fixtureDir(), "open_plc_cube_ide.elf")
+	elf := filepath.Join(fixtureDir(), "OpenPLC_BootLoader.elf")
 	cli := programmerCLI(cfg)
 	if err := require("flash the fixture firmware",
 		need{"STM32_Programmer_CLI", cli, "from CUBEIDE in tools/local.json, or a standalone STM32CubeProgrammer"},
-		need{"fixture image", elf, "Output/fixture/open_plc_cube_ide.elf - build the fixture firmware first"}); err != nil {
+		need{"fixture image", elf, "Output/fixture/OpenPLC_BootLoader.elf - build the fixture firmware first"}); err != nil {
 		return err
 	}
 	section("flash over SWD")

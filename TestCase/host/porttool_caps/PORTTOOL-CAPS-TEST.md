@@ -2,7 +2,7 @@
 
 用例 **T4-01**，两半，同一次 `go test` 一起跑：
 
-1. **固件侧** —— 把端口工装的**真实固件源码**（`open_plc_cube_ide/TestCase/porttool/` 的
+1. **固件侧** —— 把端口工装的**真实固件源码**（`OpenPLC_BootLoader/TestCase/porttool/` 的
    `porttool.c` `porttool_cmd.c` `porttool_din.c` `porttool_relay.c`）
    在 PC 上原生编译并运行，敲一串 `pt.*` 命令，检查它吐出来的每一行，写出 `caps_golden.txt`
 2. **上位机侧** —— Go 测试拿那份字节验三层，**带 `-race`**：

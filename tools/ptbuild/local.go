@@ -29,8 +29,8 @@ type setting struct {
 }
 
 var settings = []setting{
-	{"BOOT_REPO", true, "open_plc_cube_ide: the fixture firmware (TestCase/porttool/), the CubeIDE project, the step-6 bootloader in Debug/",
-		func(map[string]string) string { return detectRepo("open_plc_cube_ide") }},
+	{"BOOT_REPO", true, "OpenPLC_BootLoader: the fixture firmware (TestCase/porttool/), the CubeIDE project, the step-6 bootloader in Debug/",
+		func(map[string]string) string { return detectRepo("OpenPLC_BootLoader") }},
 	{"TOOL_REPO", false, "IAPTranfer_Tool: its Output/windows and Output/linux IAPTool go into the delivery for step 6",
 		func(map[string]string) string { return detectRepo("IAPTranfer_Tool") }},
 	{"CORE_REPO", false, "open_plc_arduino: the FQBN the step-6 demo is compiled with (tests/_common.py)",

@@ -251,8 +251,8 @@ func deliver(open, internal bool) error {
 		return err
 	}
 
-	hexfile := filepath.Join(fixtureDir(), "open_plc_cube_ide.hex")
-	binfile := filepath.Join(fixtureDir(), "open_plc_cube_ide.bin")
+	hexfile := filepath.Join(fixtureDir(), "OpenPLC_BootLoader.hex")
+	binfile := filepath.Join(fixtureDir(), "OpenPLC_BootLoader.bin")
 	panel := filepath.Join(binDir("windows"), "PortTool.exe")
 	panelLinux := filepath.Join(binDir("linux"), "PortTool")
 	plansDir := filepath.Join(repo, "src", "plans")
@@ -326,7 +326,7 @@ func deliver(open, internal bool) error {
 
 	// Step 6: bootloader and IAPTool from their last builds.
 	bootDir := filepath.Join(cfg["BOOT_REPO"], "Debug")
-	bootHex, bootElf := filepath.Join(bootDir, "open_plc_cube_ide.hex"), filepath.Join(bootDir, "open_plc_cube_ide.elf")
+	bootHex, bootElf := filepath.Join(bootDir, "OpenPLC_BootLoader.hex"), filepath.Join(bootDir, "OpenPLC_BootLoader.elf")
 	iap := filepath.Join(cfg["TOOL_REPO"], "Output", "windows", stage6IAPTool)
 	iapLinux := filepath.Join(cfg["TOOL_REPO"], "Output", "linux", stage6IAPToolLinux)
 	missing = nil
