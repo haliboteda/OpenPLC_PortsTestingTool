@@ -33,7 +33,9 @@ const usage = `usage: tools/build.sh [item] [flags]
   fixture                   build the fixture firmware into Output/fixture/
   flash                     write Output/fixture/ to the board over SWD
   sim [--os P]              build the simulated board (default: this machine)
-  deliver [--open]          pack Output/delivery/
+  deliver [--open] [--internal]
+                            pack Output/delivery/; --internal packs even if a
+                            version was not raised, not recorded as shipped
   all                       fixture + tool --os all + deliver
   get KEY                   print one tools/local.json value (for scripts)
 `
@@ -91,6 +93,7 @@ func run(item string, args []string) error {
 	fs.SetOutput(os.Stderr)
 	osFlag := fs.String("os", "", "platform")
 	open := fs.Bool("open", false, "open the folder afterwards")
+	internal := fs.Bool("internal", false, "pack even if a version was not raised")
 	check := fs.Bool("check", false, "report only, write nothing")
 	var sets multiFlag
 	fs.Var(&sets, "set", "KEY=VALUE")
@@ -122,7 +125,7 @@ func run(item string, args []string) error {
 		}
 		return nil
 	case "deliver":
-		return deliver(*open)
+		return deliver(*open, *internal)
 	case "all":
 		return all()
 	case "help", "-h", "--help":
@@ -133,13 +136,52 @@ func run(item string, args []string) error {
 }
 
 func all() error {
+	if err := cleanOutput(); err != nil {
+		return err
+	}
 	if err := buildFixture(); err != nil {
 		return err
 	}
 	if err := buildTool(allPlatforms); err != nil {
 		return err
 	}
-	return deliver(false)
+	return deliver(false, false)
+}
+
+// cleanOutput empties Output/ before "All" (decision 149). The panel keeps its
+// settings and records beside the exe, so from the menu it lists what goes and
+// asks first.
+func cleanOutput() error {
+	out := filepath.Join(repo, "Output")
+	ents, err := os.ReadDir(out)
+	if os.IsNotExist(err) || len(ents) == 0 {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	section("emptying Output")
+	for _, e := range ents {
+		fmt.Println("  " + filepath.Join(out, e.Name()))
+	}
+	if interactive {
+		n, err := ask("Delete everything above, including the panel's saved settings and records beside the exe?",
+			[]string{"Yes, delete it and build everything", "No, stop"}, 2)
+		if err != nil {
+			return err
+		}
+		if n == 2 {
+			return errors.New("stopped; Output/ is untouched")
+		}
+	}
+	for _, e := range ents {
+		p := filepath.Join(out, e.Name())
+		if err := os.RemoveAll(p); err != nil {
+			return fmt.Errorf("cannot delete %s (open in Explorer, or a program in it running?): %v", p, err)
+		}
+	}
+	ok("Output/ emptied")
+	return nil
 }
 
 type multiFlag []string
@@ -192,6 +234,9 @@ func binDir(p string) string { return filepath.Join(repo, "Output", "bin", p) }
 
 var stdin = bufio.NewReader(os.Stdin)
 
+// interactive is set by the menu: only then may a build step stop and ask.
+var interactive bool
+
 // ask prints a numbered list and returns the 1-based pick; def on a bare Enter.
 func ask(title string, items []string, def int) (int, error) {
 	fmt.Println()
@@ -221,6 +266,7 @@ func ask(title string, items []string, def int) (int, error) {
 var platformNames = []string{"Windows", "Linux", "macOS (Intel)", "macOS (Apple silicon)"}
 
 func menu() error {
+	interactive = true
 	n, err := ask("What to do?", []string{
 		"Find this machine's tools      (writes tools/local.json)",
 		"Build PortTool",
@@ -262,7 +308,7 @@ func menu() error {
 		}
 		return buildSim(allPlatforms[p-1], allPlatforms[p-1] != hostPlatform())
 	case 6:
-		return deliver(false)
+		return deliver(false, false)
 	}
 	return all()
 }

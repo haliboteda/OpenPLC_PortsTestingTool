@@ -35,7 +35,9 @@ by being in the `dialout` group.
 `tools/build.sh` is the maintainers' entry point; it is not needed to build
 PortTool. It runs `go run ./tools/ptbuild` from the repository root, so it
 needs Go and, on Windows, Git Bash. Without arguments it shows a menu; with
-arguments it runs that item directly. Run `tools/build.sh find-tools` once
+arguments it runs that item directly. `start.sh` in the repository root
+opens the same menu, so double-clicking it is enough. "All" empties `Output/`
+first; a single build item deletes only what it is about to rebuild. Run `tools/build.sh find-tools` once
 first: it finds the tools below and writes `tools/local.json`. Every item
 checks the tools it needs before it starts and names any that are missing.
 

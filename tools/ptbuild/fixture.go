@@ -85,6 +85,10 @@ func buildFixture() error {
 		return err
 	}
 	section("fixture firmware")
+	// A failed build must not leave the last image behind to be flashed.
+	if err := os.RemoveAll(fixtureDir()); err != nil {
+		return err
+	}
 	work := filepath.Join(repo, "Output", "build", "fixture")
 	defer os.RemoveAll(work)
 	project, err := copyBoot(cfg["BOOT_REPO"], work)

@@ -18,6 +18,21 @@ import (
 // natively, not a hand-typed copy of what the board should say.
 const goldenPath = "caps_golden.txt"
 
+// goldenVersion is the PORTTOOL_VERSION the fixture was captured with, read from
+// the raw text so a version raise touches no test.
+func goldenVersion(t *testing.T) string {
+	t.Helper()
+	raw, err := os.ReadFile(goldenPath)
+	if err != nil {
+		t.Fatalf("read fixture: %v", err)
+	}
+	m := regexp.MustCompile(`(?m)^OK porttool=(\S+) `).FindSubmatch(raw)
+	if m == nil {
+		t.Fatal("fixture has no OK porttool= line")
+	}
+	return string(m[1])
+}
+
 // transcript splits the fixture into the commands and the lines each produced.
 func transcript(t *testing.T) map[string][][]string {
 	t.Helper()
@@ -56,8 +71,8 @@ func TestParseGoldenCaps(t *testing.T) {
 		t.Fatalf("ParseCaps: %v", err)
 	}
 
-	if caps.Version != "0.18.1" {
-		t.Errorf("version = %q, want 0.18.1", caps.Version)
+	if want := goldenVersion(t); caps.Version != want {
+		t.Errorf("version = %q, want %s", caps.Version, want)
 	}
 	// No hard port count: adding a port must cost nothing here, and ParseCaps already
 	// checks ports= against the rows. One piece of hardware gets one row, so sd's and

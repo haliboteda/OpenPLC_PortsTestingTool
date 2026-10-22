@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/fs"
 	"os"
@@ -237,7 +238,7 @@ func buildDemo(cfg map[string]string) (string, error) {
 	return demo, nil
 }
 
-func deliver(open bool) error {
+func deliver(open, internal bool) error {
 	cfg := loadLocal()
 	needs := []need{
 		cfgNeed(cfg, "BOOT_REPO"), cfgNeed(cfg, "TOOL_REPO"), cfgNeed(cfg, "CORE_REPO"),
@@ -294,19 +295,33 @@ func deliver(open bool) error {
 	if err != nil {
 		return err
 	}
+	var stale []string
 	if last != nil && staleVersion(&verHash{last.Version, last.SHA256}, fwVer, sha) {
-		return fmt.Errorf("the fixture firmware differs from the last packed one, but its version is still %s.\n"+
-			"  Raise PORTTOOL_VERSION in $BOOT/TestCase/porttool/porttool.c: the third number for a small fix (0.15.0 -> 0.15.1),\n"+
-			"  the second together with PortTool when capabilities change; then tools/build.sh fixture and pack again.", fwVer)
+		stale = append(stale, fmt.Sprintf("the fixture firmware differs from the last packed one, but its version is still %s.\n"+
+			"  To release: raise it (third number for a small fix, second together with PortTool when capabilities\n"+
+			"  change) in every place below, then tools/build.sh fixture and pack again.\n%s", fwVer,
+			versionSpots(fwVer,
+				filepath.Join(cfg["BOOT_REPO"], "TestCase", "porttool", "porttool.c"),
+				filepath.Join(coreLive(), demoDir),
+				filepath.Join(cfg["CORE_REPO"], demoDir),
+				filepath.Join(repo, "TestCase", "host"))+
+				"\n  Change the installed board package first, then copy to open_plc_arduino; TestCase/test.sh t4-01\n"+
+				"  rewrites caps_golden.txt with the new version."))
 	}
 	tsha, err := toolHash()
 	if err != nil {
 		return err
 	}
 	if last != nil && staleVersion(last.PortTool, tVer, tsha) {
-		return fmt.Errorf("PortTool's sources differ from the last packed ones, but its version is still %s.\n"+
-			"  Raise the version in src/cmd/porttool/main.go: the third number for a small fix, the second together with\n"+
-			"  the firmware when capabilities change; then tools/build.sh tool and pack again.", tVer)
+		stale = append(stale, fmt.Sprintf("PortTool's sources differ from the last packed ones, but its version is still %s.\n"+
+			"  To release: raise it (third number for a small fix, second together with the firmware when capabilities\n"+
+			"  change) in every place below, then tools/build.sh tool and pack again.\n%s", tVer,
+			versionSpots(tVer, filepath.Join(repo, "src", "cmd", "porttool", "main.go"))))
+	}
+	if len(stale) > 0 {
+		if internal, err = packInternal(stale, internal); err != nil {
+			return err
+		}
 	}
 
 	// Step 6: bootloader and IAPTool from their last builds.
@@ -390,19 +405,83 @@ func deliver(open bool) error {
 	}
 	listFolder(out)
 
-	b, _ := json.MarshalIndent(shipped{fwVer, sha, &verHash{tVer, tsha}}, "", " ")
-	if err := os.WriteFile(shippedPath(), append(b, '\n'), 0o644); err != nil {
-		return err
+	// An internal package is not a release: the next release still has to raise the version.
+	if !internal {
+		b, _ := json.MarshalIndent(shipped{fwVer, sha, &verHash{tVer, tsha}}, "", " ")
+		if err := os.WriteFile(shippedPath(), append(b, '\n'), 0o644); err != nil {
+			return err
+		}
 	}
 
 	section("result")
-	ok("delivery folder packed: " + out)
+	if internal {
+		ok("internal test package packed (not recorded in tools/shipped_fixture.json): " + out)
+	} else {
+		ok("delivery folder packed: " + out)
+	}
 	fmt.Println("  Send the whole folder to the hardware engineer. He installs only STM32CubeProgrammer,")
 	fmt.Println("  then double-clicks start.cmd (Windows) or runs bash start.sh (Linux).")
 	if open {
 		openFolder(out)
 	}
 	return nil
+}
+
+// demoDir is FixtureDemo inside a board package; it states the protocol version too.
+var demoDir = filepath.Join("libraries", "OpenPLC_Ports", "examples", "FixtureDemo")
+
+// versionSpots lists every file:line under roots that holds ver, so a version
+// raise finds the copies by search instead of by a list that would drift.
+func versionSpots(ver string, roots ...string) string {
+	var out []string
+	for _, root := range roots {
+		_ = filepath.WalkDir(root, func(p string, d fs.DirEntry, err error) error {
+			// Golden files are rewritten by their test (T4-01 -build), not by hand.
+			if err != nil || d.IsDir() || strings.Contains(d.Name(), "_golden") {
+				return nil
+			}
+			b, err := os.ReadFile(p)
+			if err != nil {
+				return nil
+			}
+			for i, l := range strings.Split(string(b), "\n") {
+				if strings.Contains(l, ver) {
+					out = append(out, fmt.Sprintf("    %s:%d", p, i+1))
+				}
+			}
+			return nil
+		})
+	}
+	if len(out) == 0 {
+		return "    (no file holds " + ver + ")"
+	}
+	return strings.Join(out, "\n")
+}
+
+// packInternal decides what happens when a version was not raised (decision 120):
+// --internal packs, the menu asks, a script without --internal stops.
+func packInternal(stale []string, internal bool) (bool, error) {
+	msg := strings.Join(stale, "\n")
+	if internal {
+		warn(msg)
+		warn("packing anyway for internal testing (--internal)")
+		return true, nil
+	}
+	if !interactive {
+		return false, fmt.Errorf("%s\n  For an internal test package run tools/build.sh deliver --internal.", msg)
+	}
+	warn(msg)
+	n, err := ask("Pack anyway?", []string{
+		"Pack for internal testing    (version unchanged, not recorded as shipped)",
+		"Stop                         (I will raise the version first)",
+	}, 1)
+	if err != nil {
+		return false, err
+	}
+	if n == 2 {
+		return false, errors.New("stopped before packing; raise the version as above, then pack again")
+	}
+	return true, nil
 }
 
 // emptyDir empties rather than removes: removing fails while Explorer has it open.

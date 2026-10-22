@@ -79,9 +79,9 @@ echo.
 rem 烧录器装在哪都试一遍：独立版在前，装了整套 CubeIDE 的机器靠最后那一段搜。
 set "CLI="
 for %%P in (
-  "%ProgramFiles%\STMicroelectronics\STM32Cube\STM32CubeProgrammerin\STM32_Programmer_CLI.exe"
-  "%ProgramFiles(x86)%\STMicroelectronics\STM32Cube\STM32CubeProgrammerin\STM32_Programmer_CLI.exe"
-  "C:\ST\STM32CubeProgrammerin\STM32_Programmer_CLI.exe"
+  "%ProgramFiles%\STMicroelectronics\STM32Cube\STM32CubeProgrammer\bin\STM32_Programmer_CLI.exe"
+  "%ProgramFiles(x86)%\STMicroelectronics\STM32Cube\STM32CubeProgrammer\bin\STM32_Programmer_CLI.exe"
+  "C:\ST\STM32CubeProgrammer\bin\STM32_Programmer_CLI.exe"
 ) do if exist %%P set "CLI=%%~P"
 
 if not defined CLI (

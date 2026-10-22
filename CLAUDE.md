@@ -11,7 +11,7 @@
 | 目录 | 放什么 |
 |---|---|
 | `src/` | 产品的全部源码：`src/cmd/porttool/`（入口）、`src/<包>/`（各包，单元测试贴着包放）、`src/plans/`（随包发的测试方案）、`src/simboard/c/`（模拟板的 C 外壳：`sim_main.c`、`stubs/`、`sources.txt`）。不用 `internal/`，因为 `TestCase/` 的测试要 import 这些包 |
-| `tools/` | 发包要的全部东西：`build.sh`（唯一入口，菜单）、`ptbuild/`（Go：找本机工具、编 PortTool、编 / 烧工装固件、编模拟板、打交付包）、`localcfg/`（读 `local.json` 的唯一一处，发包工具和测试都 import 它）、`firmhost/`（固件主机版的源文件清单和编译参数，模拟板、T4-01、T4-05 共用）、`delivery/`（交付包的模板：`start.cmd`、`start.sh`、两份 README 正文、HTML 外壳）、`shipped_fixture.json`（上次打包的版本和哈希）、`local.json`（本机工具路径，gitignored） |
+| `tools/` | 发包要的全部东西：`build.sh`（唯一入口，菜单；仓根 `start.sh` 只转调它）、`ptbuild/`（Go：找本机工具、编 PortTool、编 / 烧工装固件、编模拟板、打交付包）、`localcfg/`（读 `local.json` 的唯一一处，发包工具和测试都 import 它）、`firmhost/`（固件主机版的源文件清单和编译参数，模拟板、T4-01、T4-05 共用）、`delivery/`（交付包的模板：`start.cmd`、`start.sh`、两份 README 正文、HTML 外壳）、`shipped_fixture.json`（上次打包的版本和哈希）、`local.json`（本机工具路径，gitignored） |
 | `TestCase/` | 测试有关的全部东西：`test.sh`（菜单）、`host/` 下的 T4-01 / T4-02 / T4-04 / T4-05、T4-01 专用的 `test_main.c`、黄金文件、`tools/`（剩下的 Python 测试共用的 `common.py`、临时诊断 `aodiag.py`） |
 | `Output/` | 产物（不进 git）：`bin/<windows\|linux\|darwin\|darwin-arm64>/`（PortTool、`plans/`、模拟板）、`fixture/`（工装镜像和 `VERSION`）、`delivery/`（交付包）、`build/`（中间产物） |
 
@@ -61,7 +61,7 @@ Windows 上在 Git Bash 里运行这两个 `.sh`。本仓依赖的另一个仓�
 
 ## 构建
 
-入口只有 `tools/build.sh`：不带参数出菜单，带参数直接跑（给测试和 CI 用）。每一项开始前查它要的本机工具，缺的逐个列出、这一项不做。
+入口只有 `tools/build.sh`：不带参数出菜单，带参数直接跑（给测试和 CI 用）。仓根的 `start.sh` 只转调它，双击就出菜单（决策 149）。「全部」先清空整个 `Output/`，单项编译前只删自己那份产物（决策 149「清理」）。每一项开始前查它要的本机工具，缺的逐个列出、这一项不做。
 
 | 菜单项 | 参数 | 产物 |
 |---|---|---|

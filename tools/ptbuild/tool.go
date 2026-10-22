@@ -25,6 +25,9 @@ func buildTool(plats []string) error {
 		goos, goarch := goosArch(p)
 		out := filepath.Join(binDir(p), "PortTool"+exeSuffix(p))
 		fmt.Printf("building PortTool for %s ...\n", p)
+		if err := removeFile(out); err != nil {
+			return err
+		}
 		cmd := exec.Command("go", "build", "-o", out, "./src/cmd/porttool")
 		cmd.Dir = repo
 		cmd.Env = append(os.Environ(), "GOOS="+goos, "GOARCH="+goarch)
@@ -61,6 +64,15 @@ var zigTargets = map[string][]string{
 	"darwin-arm64": {"-target", "aarch64-macos", "-pthread"},
 }
 
+// removeFile deletes what a build item is about to rebuild, so a failed build
+// leaves nothing stale behind (decision 149).
+func removeFile(p string) error {
+	if err := os.Remove(p); err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("cannot delete %s before rebuilding it (is it running?): %v", p, err)
+	}
+	return nil
+}
+
 func simOut(p string) string {
 	return filepath.Join(binDir(p), "porttool_simboard"+exeSuffix(p))
 }
@@ -86,6 +98,9 @@ func buildSim(p string, cross bool) error {
 	out := simOut(p)
 	args, err := firmhost.Args(repo, boot, filepath.Join(firmhost.CDir(repo), "sim_main.c"), out)
 	if err != nil {
+		return err
+	}
+	if err := removeFile(out); err != nil {
 		return err
 	}
 	if err := os.MkdirAll(filepath.Dir(out), 0o755); err != nil {

@@ -12,5 +12,5 @@ fi
 go run ./tools/ptbuild "$@"
 rc=$?
 # A double-clicked window closes before anyone has read the result.
-[ $# -eq 0 ] && [ -t 0 ] && read -r -p "Press Enter to close " _
+[ $# -eq 0 ] && read -r -p "Press Enter to close " _
 exit $rc

@@ -29,7 +29,7 @@ GOOS=windows GOARCH=amd64 go build -o PortTool.exe ./src/cmd/porttool
 ## 全部编译、打交付包
 
 `tools/build.sh` 是维护者用的入口，只编 PortTool 用不到它。它在仓库根目录运行 `go run ./tools/ptbuild`，
-所以要装 Go，Windows 上还要 Git Bash。不带参数出菜单，带参数直接跑那一项。
+所以要装 Go，Windows 上还要 Git Bash。不带参数出菜单，带参数直接跑那一项。仓根的 `start.sh` 打开的是同一个菜单，双击它就行。「全部」会先清空 `Output/`；单项只删自己要重编的那份产物。
 先跑一次 `tools/build.sh find-tools`：它找出下面这些工具，写进 `tools/local.json`。
 每一项开始前都查它要的工具，缺哪个就说出来。
 

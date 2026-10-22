@@ -93,8 +93,8 @@ func TestPanelBuildsItselfFromWhatTheBoardReports(t *testing.T) {
 	if st["connected"] != true {
 		t.Fatalf("connect did not take: %v", st)
 	}
-	if st["firmware"] != "0.18.1" {
-		t.Errorf("firmware = %v, want 0.18.1", st["firmware"])
+	if want := goldenVersion(t); st["firmware"] != want {
+		t.Errorf("firmware = %v, want %s", st["firmware"], want)
 	}
 	if msg, _ := st["capsError"].(string); msg != "" {
 		t.Errorf("capsError = %q, want empty", msg)
@@ -431,7 +431,7 @@ func TestPanelStreamsFrames(t *testing.T) {
 	}
 	// The backlog matters as much as the live frames: a page opened after the
 	// board has been talking has to see what it already said.
-	if !strings.Contains(text, "porttool=0.18.1") {
+	if !strings.Contains(text, "porttool="+goldenVersion(t)) {
 		t.Error("the stream did not replay the backlog to a page that opened late")
 	}
 	if !strings.Contains(text, `"kind":"frame"`) {

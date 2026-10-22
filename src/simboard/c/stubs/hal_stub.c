@@ -105,7 +105,7 @@ GPIO_TypeDef test_gpio_banks[11];
 /* huart4's register block. A test checks that the firmware writes ICR to clear
  * a receive error. */
 static USART_TypeDef fake_uart4_regs;
-UART_HandleTypeDef huart4 = { &fake_uart4_regs, 0, HAL_UART_STATE_READY };
+UART_HandleTypeDef huart4 = { .Instance = &fake_uart4_regs, .RxState = HAL_UART_STATE_READY };
 USART_TypeDef *const UART4 = &fake_uart4_regs;
 
 void HAL_NVIC_SetPriority(test_irq_t irq, uint32_t pre, uint32_t sub)
